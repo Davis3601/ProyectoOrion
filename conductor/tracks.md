@@ -4,5 +4,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [~] **Track: Auditoria de documentacion. Tenemos how to run? Dependencias, etc.**
+- [x] **Track: Auditoria de documentacion. Tenemos how to run? Dependencias, etc.**
   *Link: [./tracks/audit_docs_20260604/](./tracks/audit_docs_20260604/)*

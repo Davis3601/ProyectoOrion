@@ -6,7 +6,7 @@
 - [x] Task: Ensure `.env.example` contains all required environment variables.
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Review and Audit Existing Documentation' (Protocol in workflow.md)
 
-## Phase 2: Update Documentation
+## Phase 2: Update Documentation [checkpoint: efb4d74]
 - [x] Task: Update `README.md` with explicit "How to run" instructions.
 - [x] Task: Update dependency notes or environment setup instructions if discrepancies are found.
-- [~] Task: Conductor - User Manual Verification 'Phase 2: Update Documentation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Update Documentation' (Protocol in workflow.md)

@@ -7,6 +7,6 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Review and Audit Existing Documentation' (Protocol in workflow.md)
 
 ## Phase 2: Update Documentation
-- [ ] Task: Update `README.md` with explicit "How to run" instructions.
-- [ ] Task: Update dependency notes or environment setup instructions if discrepancies are found.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Update Documentation' (Protocol in workflow.md)
+- [x] Task: Update `README.md` with explicit "How to run" instructions.
+- [x] Task: Update dependency notes or environment setup instructions if discrepancies are found.
+- [~] Task: Conductor - User Manual Verification 'Phase 2: Update Documentation' (Protocol in workflow.md)

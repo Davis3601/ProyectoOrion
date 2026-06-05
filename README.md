@@ -92,7 +92,7 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Copy `.env.example` to `.env` and fill in your settings:
+Copy `.env.example` to `.env` and fill in your settings. (Note: If `.env.example` is missing, ensure you obtain the template from the project maintainers).
 
 ```bash
 cp .env.example .env
@@ -117,6 +117,18 @@ python scripts/ingest_full_history.py
 
 # Validate box scores
 python scripts/sanity_check_boxscores.py
+```
+
+---
+
+## Running tests
+
+```bash
+# Run all tests
+pytest
+
+# Run tests with coverage
+pytest --cov=nba_predictor
 ```
 
 ---

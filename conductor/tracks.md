@@ -4,5 +4,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Feature engineering**
+- [x] **Track: Feature engineering**
   *Link: [./tracks/feature_engineering_20260607/](./tracks/feature_engineering_20260607/)*

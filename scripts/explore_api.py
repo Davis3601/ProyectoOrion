@@ -28,7 +28,7 @@ def get_one_season_schedule(season: str = "2023-24"):
     df = finder.get_data_frames()[0]
     print(f"Filas devueltas: {len(df)}")
     print(f"Columnas: {df.columns.tolist()}")
-    print(f"\nPrimeras 3 filas:")
+    print("\nPrimeras 3 filas:")
     print(df.head(3))
     return df
 
@@ -46,10 +46,10 @@ def get_one_boxscore(game_id: str):
     player_stats = box.player_stats.get_data_frame()
     team_stats = box.team_stats.get_data_frame()
     
-    print(f"\n--- Stats de equipo ---")
+    print("\n--- Stats de equipo ---")
     print(team_stats)
     
-    print(f"\n--- Stats de jugadores (primeros 5) ---")
+    print("\n--- Stats de jugadores (primeros 5) ---")
     print(player_stats.head(5))
     
     return player_stats, team_stats

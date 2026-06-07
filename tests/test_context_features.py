@@ -1,5 +1,4 @@
 import pandas as pd
-import pytest
 from nba_predictor.features.context import calculate_rest_days
 
 def test_calculate_rest_days():
@@ -8,8 +7,8 @@ def test_calculate_rest_days():
         'game_date': pd.to_datetime(['2023-01-01', '2023-01-02', '2023-01-05'])
     })
     # G1: None -> NaN
-    # G2: 2023-01-02 - 2023-01-01 = 1 día
-    # G3: 2023-01-05 - 2023-01-02 = 3 días
+    # G2: 2023-01-02 - 2023-01-01 = 1 day
+    # G3: 2023-01-05 - 2023-01-02 = 3 days
     res = calculate_rest_days(data)
     assert pd.isna(res.iloc[0])
     assert res.iloc[1] == 1
@@ -21,7 +20,7 @@ def test_calculate_rest_days_multiple_teams():
         'game_date': pd.to_datetime(['2023-01-01', '2023-01-01', '2023-01-03', '2023-01-04'])
     })
     res = calculate_rest_days(data)
-    # Orden original: [NaN, NaN, 2, 3]
+    # Original order: [NaN, NaN, 2, 3]
     assert pd.isna(res.iloc[0])
     assert pd.isna(res.iloc[1])
     assert res.iloc[2] == 2

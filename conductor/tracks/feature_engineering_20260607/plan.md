@@ -19,10 +19,10 @@
 - [x] Task: Conductor - User Manual Verification 'Implement Four Factors (Group 1)' (Protocol in workflow.md) 1030434
 
 ## Phase 3: Implement Ratings & Context (Groups 2 & 4)
-- [ ] Task: Implement rolling offensive, defensive, and net ratings differences
-    - [ ] Write Tests
-    - [ ] Implement Feature
-- [ ] Task: Implement contextual features (`rest_diff`, `home_b2b`, `away_b2b`)
-    - [ ] Write Tests
-    - [ ] Implement Feature
+- [x] Task: Implement rolling offensive, defensive, and net ratings differences 1b99013
+    - [x] Write Tests
+    - [x] Implement Feature
+- [x] Task: Implement contextual features (`rest_diff`, `home_b2b`, `away_b2b`) 035aa1f
+    - [x] Write Tests
+    - [x] Implement Feature
 - [ ] Task: Conductor - User Manual Verification 'Implement Ratings & Context (Groups 2 & 4)' (Protocol in workflow.md)

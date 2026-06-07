@@ -1,13 +1,13 @@
 # Plan: Feature engineering
 
-## Phase 1: Core Feature Infrastructure
+## Phase 1: Core Feature Infrastructure [checkpoint: cfdd791]
 - [x] Task: Set up base pipeline framework for feature generation and temporal windowing 2e0a345
     - [x] Write Tests
     - [x] Implement Feature
 - [x] Task: Implement rolling average utility functions strictly without look-ahead 4518efd
     - [x] Write Tests
     - [x] Implement Feature
-- [ ] Task: Conductor - User Manual Verification 'Core Feature Infrastructure' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Core Feature Infrastructure' (Protocol in workflow.md) cfdd791
 
 ## Phase 2: Implement Four Factors (Group 1)
 - [ ] Task: Implement eFG% difference (`efg_diff`) and Turnover Rate difference (`tov_rate_diff`)

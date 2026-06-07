@@ -1,3 +1,4 @@
+"""Implementation of contextual features like rest days and back-to-back indicators."""
 import pandas as pd
 
 DEFAULT_REST_DAYS = 7

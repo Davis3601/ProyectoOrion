@@ -1,3 +1,4 @@
+"""Base framework for feature generation and temporal window management."""
 import pandas as pd
 
 class FeaturePipeline:

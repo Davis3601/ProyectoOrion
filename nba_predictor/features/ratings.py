@@ -1,3 +1,4 @@
+"""Implementation of NBA team ratings (Offensive, Defensive, and Net Ratings)."""
 import pandas as pd
 import numpy as np
 from .utils import add_opponent_stats

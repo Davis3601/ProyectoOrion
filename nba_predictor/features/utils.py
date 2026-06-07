@@ -1,3 +1,4 @@
+"""Utility functions for feature engineering, such as opponent stat aggregation."""
 import pandas as pd
 
 def add_opponent_stats(df: pd.DataFrame, cols_to_add: list[str]) -> pd.DataFrame:

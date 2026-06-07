@@ -1,3 +1,4 @@
+"""Implementation of NBA Four Factors features (eFG%, TOV%, OREB%, FT Rate)."""
 import pandas as pd
 import numpy as np
 from .utils import add_opponent_stats

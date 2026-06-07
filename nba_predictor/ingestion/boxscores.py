@@ -1,14 +1,14 @@
-"""Descarga y normalización de box scores de partidos NBA."""
+"""Download and normalization of NBA game box scores."""
 import re
 
 import pandas as pd
 
 from .nba_client import NBAClient
 
-# Regex para convertir "MM:SS" a minutos decimales
+# Regex to convert "MM:SS" to decimal minutes
 _MIN_RE = re.compile(r"^(\d+):(\d+)$")
 
-# Mapeo de columnas API → esquema canónico (equipo)
+# API column mapping → canonical schema (team)
 _TEAM_COL_MAP = {
     "TEAM_ID": "team_id",
     "FGM": "fgm",
@@ -27,7 +27,7 @@ _TEAM_COL_MAP = {
     "PLUS_MINUS": "plus_minus",
 }
 
-# Mapeo de columnas API → esquema canónico (jugador)
+# API column mapping → canonical schema (player)
 _PLAYER_COL_MAP = {
     "PLAYER_ID": "player_id",
     "TEAM_ID": "team_id",
@@ -50,15 +50,15 @@ _PLAYER_COL_MAP = {
 
 def _parse_minutes(raw: str | None) -> float | None:
     """
-    Convierte 'MM:SS' a minutos decimales (e.g. '32:30' → 32.5).
+    Converts 'MM:SS' to decimal minutes (e.g., '32:30' → 32.5).
 
-    Necesario porque no podemos promediar strings; los rolling windows
-    de Fase 2 operan sobre números.
+    Necessary because strings cannot be averaged; Phase 2 rolling windows
+    operate on numbers.
     """
     if raw is None:
         return None
     if isinstance(raw, float):
-        # pandas puede devolver NaN como float cuando la celda es NULL
+        # pandas may return NaN as float when the cell is NULL
         return None if pd.isna(raw) else raw
     s = str(raw).strip()
     m = _MIN_RE.match(s)
@@ -73,19 +73,19 @@ def _normalize_team_stats(
     home_team_id: int,
 ) -> pd.DataFrame:
     """
-    Convierte el DataFrame de team_stats de BoxScoreTraditionalV2 al esquema canónico.
+    Converts the team_stats DataFrame from BoxScoreTraditionalV2 to the canonical schema.
 
-    home_team_id se pasa explícitamente porque la API no expone un campo home/away
-    confiable en todas las temporadas; lo derivamos a partir de los datos que
-    ya tenemos en la tabla games.
+    home_team_id is explicitly passed because the API does not expose a reliable
+    home/away field in all seasons; we derive it from the data we already have
+    in the games table.
 
-    Returns exactamente 2 filas (una por equipo). Lanza ValueError si no es así.
+    Returns exactly 2 rows (one per team). Raises ValueError otherwise.
     """
     df = raw_team.rename(columns=_TEAM_COL_MAP)[list(_TEAM_COL_MAP.values())].copy()
 
     if len(df) != 2:
         raise ValueError(
-            f"game_id={game_id}: se esperaban 2 filas de equipo, se obtuvieron {len(df)}"
+            f"game_id={game_id}: expected 2 team rows, got {len(df)}"
         )
 
     df["game_id"] = game_id
@@ -105,19 +105,19 @@ def _normalize_player_stats(
     home_team_id: int,
 ) -> pd.DataFrame:
     """
-    Convierte el DataFrame de player_stats de BoxScoreTraditionalV2 al esquema canónico.
+    Converts the player_stats DataFrame from BoxScoreTraditionalV2 to the canonical schema.
 
-    START_POSITION es una cadena como 'G', 'F', 'C' para titulares y '' para suplentes.
-    minutes se convierte de 'MM:SS' a decimal para permitir promedios en Fase 2.
+    START_POSITION is a string like 'G', 'F', 'C' for starters and '' for bench players.
+    minutes are converted from 'MM:SS' to decimal to allow averaging in Phase 2.
     """
     df = raw_player.copy()
 
-    # Derivar started antes de renombrar columnas
+    # Derive started before renaming columns
     df["started"] = df["START_POSITION"].apply(
         lambda x: 1 if (x and str(x).strip()) else 0
     )
 
-    # Convertir minutos a decimal
+    # Convert minutes to decimal
     df["minutes"] = df["MIN"].apply(_parse_minutes)
 
     df = df.rename(columns=_PLAYER_COL_MAP)[
@@ -141,15 +141,15 @@ def ingest_boxscore(
     home_team_id: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """
-    Descarga y normaliza el box score de un partido.
+    Downloads and normalizes the box score for a game.
 
     Args:
-        client: NBAClient configurado con throttle y retry.
-        game_id: identificador oficial NBA, e.g. '0022300001'.
-        home_team_id: ID del equipo local (obtenido de la tabla games).
+        client: NBAClient configured with throttle and retry.
+        game_id: official NBA identifier, e.g., '0022300001'.
+        home_team_id: Home team ID (obtained from the games table).
 
     Returns:
-        (team_stats, player_stats, raw_payload) listos para pasar a
+        (team_stats, player_stats, raw_payload) ready to be passed to
         save_team_game_stats / save_player_game_stats / save_raw_boxscore.
     """
     raw_team, raw_player, raw_payload = client.fetch_boxscore(game_id)

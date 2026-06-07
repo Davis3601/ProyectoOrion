@@ -63,7 +63,9 @@ def test_generate_four_factors_features():
         'fg3m': [0, 0],
         'fga': [40, 40],
         'tov': [5, 10],   # Team 1 has better TOV%
-        'fta': [0, 0]
+        'fta': [0, 0],
+        'oreb': [10, 5],
+        'dreb': [30, 20]
     })
     
     # We need to include the target game in stats so rolling can calculate "before G1"
@@ -80,7 +82,8 @@ def test_generate_four_factors_features():
     all_stats = pd.concat([stats, pd.DataFrame({
         'game_id': ['G1', 'G1'],
         'team_id': [1, 2],
-        'fgm': [0, 0], 'fg3m': [0, 0], 'fga': [0, 0], 'tov': [0, 0], 'fta': [0, 0]
+        'fgm': [0, 0], 'fg3m': [0, 0], 'fga': [0, 0], 'tov': [0, 0], 'fta': [0, 0],
+        'oreb': [0, 0], 'dreb': [0, 0]
     })], ignore_index=True)
     
     all_games = pd.concat([hist_games, games], ignore_index=True)
@@ -100,3 +103,23 @@ def test_generate_four_factors_features():
     g1_res = res[all_games['game_id'] == 'G1'].iloc[0]
     assert g1_res['efg_roll_1_diff'] == 0.25
     assert g1_res['tov_rate_roll_1_diff'] == pytest.approx(-0.0888, abs=1e-3)
+
+def test_calculate_oreb_rate():
+    from nba_predictor.features.four_factors import calculate_oreb_rate
+    data = pd.DataFrame({
+        'oreb': [10, 0],
+        'opp_dreb': [30, 0]
+    })
+    res = calculate_oreb_rate(data)
+    assert res.iloc[0] == 0.25
+    assert res.iloc[1] == 0.0
+
+def test_calculate_ft_rate():
+    from nba_predictor.features.four_factors import calculate_ft_rate
+    data = pd.DataFrame({
+        'fta': [10, 0],
+        'fga': [40, 0]
+    })
+    res = calculate_ft_rate(data)
+    assert res.iloc[0] == 0.25
+    assert res.iloc[1] == 0.0

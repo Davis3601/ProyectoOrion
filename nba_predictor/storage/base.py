@@ -1,4 +1,4 @@
-"""Interfaz abstracta para almacenamiento de datos NBA."""
+"""Abstract interface for NBA data storage."""
 from abc import ABC, abstractmethod
 from datetime import date
 
@@ -6,22 +6,22 @@ import pandas as pd
 
 
 class DataStore(ABC):
-    """Interfaz para almacenamiento de datos NBA.
+    """Interface for NBA data storage.
     
-    Cualquier implementación (local, cloud) debe implementar estos métodos.
-    El código de negocio depende de esta interfaz, no de implementaciones concretas.
+    Any implementation (local, cloud) must implement these methods.
+    Business logic depends on this interface, not on concrete implementations.
     """
     
-    # ----- Escritura -----
+    # ----- Write -----
 
     @abstractmethod
     def save_teams(self, teams: pd.DataFrame) -> None:
-        """Guarda el catálogo de equipos (30 equipos, raramente cambia). Idempotente."""
+        """Saves the teams catalog (30 teams, rarely changes). Idempotent."""
         ...
 
     @abstractmethod
     def save_games(self, games: pd.DataFrame) -> None:
-        """Guarda metadata de partidos. Idempotente."""
+        """Saves game metadata. Idempotent."""
         ...
     
     @abstractmethod
@@ -34,10 +34,10 @@ class DataStore(ABC):
     
     @abstractmethod
     def save_raw_boxscore(self, game_id: str, payload: dict) -> None:
-        """Guarda la respuesta cruda de la API."""
+        """Saves the raw API response."""
         ...
     
-    # ----- Lectura -----
+    # ----- Read -----
     
     @abstractmethod
     def load_games(
@@ -67,12 +67,12 @@ class DataStore(ABC):
     
     @abstractmethod
     def load_teams(self) -> pd.DataFrame:
-        """Devuelve el catálogo de equipos: team_id, abbreviation, name."""
+        """Returns the teams catalog: team_id, abbreviation, name."""
         ...
 
-    # ----- Utilidad -----
+    # ----- Utility -----
 
     @abstractmethod
     def existing_game_ids(self, season: str) -> set[str]:
-        """Para saber qué partidos ya tienes."""
+        """Check which games are already stored."""
         ...

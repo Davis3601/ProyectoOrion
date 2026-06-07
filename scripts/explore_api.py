@@ -5,9 +5,9 @@ from nba_api.stats.static import teams
 
 
 def list_teams():
-    """Lista los 30 equipos NBA con sus IDs."""
+    """Lists the 30 NBA teams with their IDs."""
     all_teams = teams.get_teams()
-    print(f"Total de equipos: {len(all_teams)}")
+    print(f"Total teams: {len(all_teams)}")
     for t in all_teams[:5]:
         print(f"  {t['id']}: {t['abbreviation']} - {t['full_name']}")
     return all_teams
@@ -15,60 +15,62 @@ def list_teams():
 
 def get_one_season_schedule(season: str = "2023-24"):
     """
-    Descarga el calendario de una temporada.
+    Downloads the schedule for a season.
     
-    season: formato '2023-24' (la temporada que terminó en junio 2024).
+    Args:
+        season: format '2023-24' (the season that ended in June 2024).
     """
-    print(f"\nDescargando calendario de {season}...")
+    print(f"\nDownloading schedule for {season}...")
     finder = leaguegamefinder.LeagueGameFinder(
         season_nullable=season,
         season_type_nullable="Regular Season",
-        league_id_nullable="00",  # NBA (no G-League ni WNBA)
+        league_id_nullable="00",  # NBA (not G-League or WNBA)
     )
     df = finder.get_data_frames()[0]
-    print(f"Filas devueltas: {len(df)}")
-    print(f"Columnas: {df.columns.tolist()}")
-    print("\nPrimeras 3 filas:")
+    print(f"Rows returned: {len(df)}")
+    print(f"Columns: {df.columns.tolist()}")
+    print("\nFirst 3 rows:")
     print(df.head(3))
     return df
 
 
 def get_one_boxscore(game_id: str):
     """
-    Descarga el box score de un partido específico.
+    Downloads the box score for a specific game.
     
-    game_id: string como '0022300001' (formato oficial NBA).
+    Args:
+        game_id: string like '0022300001' (official NBA format).
     """
-    print(f"\nDescargando box score de {game_id}...")
+    print(f"\nDownloading box score for {game_id}...")
     box = boxscoretraditionalv2.BoxScoreTraditionalV2(game_id=game_id)
     
-    # El endpoint devuelve dos DataFrames: jugadores y equipos
+    # The endpoint returns two DataFrames: players and teams
     player_stats = box.player_stats.get_data_frame()
     team_stats = box.team_stats.get_data_frame()
     
-    print("\n--- Stats de equipo ---")
+    print("\n--- Team Stats ---")
     print(team_stats)
     
-    print("\n--- Stats de jugadores (primeros 5) ---")
+    print("\n--- Player Stats (first 5) ---")
     print(player_stats.head(5))
     
     return player_stats, team_stats
 
 
 if __name__ == "__main__":
-    # 1. Equipos
+    # 1. Teams
     list_teams()
     
-    # 2. Calendario de una temporada
+    # 2. Season schedule
     schedule = get_one_season_schedule("2023-24")
     
-    # 3. Un box score (tomamos el primer game_id del calendario)
-    # Pausa para ser educados con la API
+    # 3. A box score (take the first game_id from the schedule)
+    # Pause to be polite with the API
     time.sleep(1)
     
-    # NOTA: cada partido aparece DOS veces en LeagueGameFinder (una por equipo).
-    # Por eso filtramos game_ids únicos.
+    # NOTE: each game appears TWICE in LeagueGameFinder (one per team).
+    # That's why we filter unique game_ids.
     sample_game_id = schedule["GAME_ID"].iloc[0]
-    print(f"\nGame ID de ejemplo: {sample_game_id}")
+    print(f"\nSample Game ID: {sample_game_id}")
     
     get_one_boxscore(sample_game_id)

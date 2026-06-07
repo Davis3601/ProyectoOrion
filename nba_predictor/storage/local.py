@@ -1,4 +1,4 @@
-"""Implementación local del DataStore: SQLite + filesystem."""
+"""Local implementation of DataStore: SQLite + filesystem."""
 import json
 import sqlite3
 from datetime import date
@@ -110,7 +110,7 @@ class LocalDataStore(DataStore):
         if games.empty:
             return
         with sqlite3.connect(self.db_path) as conn:
-            # Staging temporal + INSERT OR REPLACE para idempotencia
+            # Temporary staging + INSERT OR REPLACE for idempotency
             games.to_sql("_games_staging", conn, if_exists="replace", index=False)
             conn.execute("""
                 INSERT OR REPLACE INTO games 
@@ -146,7 +146,7 @@ class LocalDataStore(DataStore):
         with sqlite3.connect(self.db_path) as conn:
             df = pd.read_sql(query, conn, params=params)
         
-        # SQLite no preserva tipos de fecha
+        # SQLite does not preserve date types
         if not df.empty:
             df["game_date"] = pd.to_datetime(df["game_date"]).dt.date
         return df
@@ -200,11 +200,11 @@ class LocalDataStore(DataStore):
         team_id: int | None = None,
     ) -> pd.DataFrame:
         """
-        Carga stats de equipo por partido.
+        Loads team stats per game.
 
-        El JOIN a games para filtrar por season es necesario porque team_game_stats
-        no almacena season directamente (es derivable y evitamos redundancia).
-        ORDER BY game_date garantiza orden cronológico para rolling windows.
+        The JOIN to games to filter by season is necessary because team_game_stats
+        does not store season directly (it is derivable and we avoid redundancy).
+        ORDER BY game_date ensures chronological order for rolling windows.
         """
         query = """
             SELECT tgs.*
@@ -237,11 +237,11 @@ class LocalDataStore(DataStore):
         player_id: int | None = None,
     ) -> pd.DataFrame:
         """
-        Carga stats de jugador por partido.
+        Loads player stats per game.
 
-        Mismo patrón que load_team_game_stats: JOIN a games para filtrar por season
-        sin almacenar season en la tabla (derivable). ORDER BY game_date para rolling
-        windows en Fase 2.
+        Same pattern as load_team_game_stats: JOIN to games to filter by season
+        without storing season in the table (derivable). ORDER BY game_date for
+        rolling windows in Phase 2.
         """
         query = """
             SELECT pgs.*

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("./data")
     db_path: Path = Path("./data/nba.sqlite")
     
-    # Estos solo se usan en mode='cloud'
+    # Only used in mode='cloud'
     gcp_project_id: str = ""
     gcs_bucket: str = ""
     bq_dataset: str = "nba_predictor"
@@ -30,8 +30,8 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-# Temporadas del proyecto — fuente canónica (ver inventario en CLAUDE.md)
-# Usar estas constantes en todo el código; nunca definir listas locales.
+# Project Seasons — canonical source (see inventory in CLAUDE.md)
+# Use these constants throughout the code; never define local lists.
 WARMUP_SEASONS: tuple[str, ...] = ("2014-15", "2015-16")
 
 TRAINING_SEASONS: tuple[str, ...] = (
@@ -39,5 +39,5 @@ TRAINING_SEASONS: tuple[str, ...] = (
     "2021-22", "2022-23", "2023-24", "2024-25", "2025-26",
 )
 
-# Todas las temporadas que se descargan (warmup + entrenamiento)
+# All seasons to be downloaded (warmup + training)
 ALL_SEASONS: tuple[str, ...] = WARMUP_SEASONS + TRAINING_SEASONS

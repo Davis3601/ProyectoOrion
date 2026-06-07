@@ -51,3 +51,44 @@ def test_rolling_average_multiple_teams():
     assert t1_results.iloc[1] == 10.0
     assert pd.isna(t2_results.iloc[0])
     assert t2_results.iloc[1] == 100.0
+
+def test_calculate_rolling_set():
+    data = pd.DataFrame({
+        'game_id': ['G1', 'G2', 'G3'],
+        'team_id': [1, 1, 1],
+        'stat1': [10.0, 20.0, 30.0],
+        'stat2': [100.0, 200.0, 300.0],
+        'game_date': pd.to_datetime(['2023-01-01', '2023-01-02', '2023-01-03'])
+    })
+    
+    pipeline = FeaturePipeline()
+    result_df = pipeline.calculate_rolling_set(data, columns=['stat1', 'stat2'], windows=[2], group_col='team_id')
+    
+    # Expected columns: stat1_roll_2, stat2_roll_2
+    assert 'stat1_roll_2' in result_df.columns
+    assert 'stat2_roll_2' in result_df.columns
+    
+    # Check values for stat1_roll_2: [NaN, 10.0, 15.0]
+    assert pd.isna(result_df['stat1_roll_2'].iloc[0])
+    assert result_df['stat1_roll_2'].iloc[1] == 10.0
+    assert result_df['stat1_roll_2'].iloc[2] == 15.0
+
+def test_calculate_game_diffs():
+    games = pd.DataFrame({
+        'game_id': ['G1'],
+        'home_team_id': [1],
+        'away_team_id': [2]
+    })
+    
+    # Rolling stats available for teams heading into G1
+    rolling = pd.DataFrame({
+        'game_id': ['G1', 'G1'],
+        'team_id': [1, 2],
+        'stat_roll': [0.55, 0.50]
+    })
+    
+    pipeline = FeaturePipeline()
+    diffs = pipeline.calculate_game_diffs(games, rolling, ['stat_roll'])
+    
+    # Expected: stat_roll_diff = 0.55 - 0.50 = 0.05
+    assert diffs.iloc[0]['stat_roll_diff'] == pytest.approx(0.05)

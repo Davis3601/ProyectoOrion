@@ -3,6 +3,12 @@ import pandas as pd
 def calculate_rest_days(df: pd.DataFrame) -> pd.Series:
     """
     Calcula los días de descanso desde el último partido para cada equipo.
+
+    Args:
+        df: DataFrame con las columnas 'team_id' y 'game_date'.
+
+    Returns:
+        pd.Series con los días de descanso desde el partido anterior.
     """
     original_index = df.index
     # Asegurar que game_date es datetime
@@ -21,11 +27,18 @@ def generate_context_features(
 ) -> pd.DataFrame:
     """
     Genera features contextuales: rest_diff, home_b2b, away_b2b.
+
+    Args:
+        games_df: DataFrame con información de los partidos.
+        stats_df: DataFrame con estadísticas por equipo y partido.
+
+    Returns:
+        DataFrame con las features contextuales para cada partido.
     """
     # 1. Calcular días de descanso por cada participación de equipo
     df_rest = stats_df[['game_id', 'team_id']].copy()
     # Necesitamos game_date
-    df_rest = pd.merge(df_rest, games_df[['game_id', 'game_date']], on='game_id')
+    df_rest = pd.merge(df_rest, games_df[['game_id', 'game_date']], on='game_id', validate="many_to_one")
     df_rest['rest_days'] = calculate_rest_days(df_rest)
     
     # 2. Unir con games_df para local y visitante
@@ -34,7 +47,8 @@ def generate_context_features(
         df_rest,
         left_on=['game_id', 'home_team_id'],
         right_on=['game_id', 'team_id'],
-        how='left'
+        how='left',
+        validate="one_to_one"
     )['rest_days']
     
     away_rest = pd.merge(
@@ -42,7 +56,8 @@ def generate_context_features(
         df_rest,
         left_on=['game_id', 'away_team_id'],
         right_on=['game_id', 'team_id'],
-        how='left'
+        how='left',
+        validate="one_to_one"
     )['rest_days']
     
     # 3. Calcular features finales

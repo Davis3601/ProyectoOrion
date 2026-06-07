@@ -13,9 +13,9 @@
 - [x] Task: Implement eFG% difference (`efg_diff`) and Turnover Rate difference (`tov_rate_diff`) 6add4ad
     - [x] Write Tests
     - [x] Implement Feature
-- [ ] Task: Implement Offensive Rebound Rate difference (`oreb_rate_diff`) and Free Throw Rate difference (`ft_rate_diff`)
-    - [ ] Write Tests
-    - [ ] Implement Feature
+- [x] Task: Implement Offensive Rebound Rate difference (`oreb_rate_diff`) and Free Throw Rate difference (`ft_rate_diff`) 8111398
+    - [x] Write Tests
+    - [x] Implement Feature
 - [ ] Task: Conductor - User Manual Verification 'Implement Four Factors (Group 1)' (Protocol in workflow.md)
 
 ## Phase 3: Implement Ratings & Context (Groups 2 & 4)

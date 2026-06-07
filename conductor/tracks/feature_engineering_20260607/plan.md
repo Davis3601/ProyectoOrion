@@ -4,9 +4,9 @@
 - [x] Task: Set up base pipeline framework for feature generation and temporal windowing 2e0a345
     - [x] Write Tests
     - [x] Implement Feature
-- [ ] Task: Implement rolling average utility functions strictly without look-ahead
-    - [ ] Write Tests
-    - [ ] Implement Feature
+- [x] Task: Implement rolling average utility functions strictly without look-ahead 4518efd
+    - [x] Write Tests
+    - [x] Implement Feature
 - [ ] Task: Conductor - User Manual Verification 'Core Feature Infrastructure' (Protocol in workflow.md)
 
 ## Phase 2: Implement Four Factors (Group 1)

@@ -10,9 +10,9 @@
 - [x] Task: Conductor - User Manual Verification 'Core Feature Infrastructure' (Protocol in workflow.md) cfdd791
 
 ## Phase 2: Implement Four Factors (Group 1)
-- [ ] Task: Implement eFG% difference (`efg_diff`) and Turnover Rate difference (`tov_rate_diff`)
-    - [ ] Write Tests
-    - [ ] Implement Feature
+- [x] Task: Implement eFG% difference (`efg_diff`) and Turnover Rate difference (`tov_rate_diff`) 6add4ad
+    - [x] Write Tests
+    - [x] Implement Feature
 - [ ] Task: Implement Offensive Rebound Rate difference (`oreb_rate_diff`) and Free Throw Rate difference (`ft_rate_diff`)
     - [ ] Write Tests
     - [ ] Implement Feature

@@ -94,7 +94,11 @@ def generate_ratings_features(
 
     # 2. Calculate raw metrics
     ratings = calculate_ratings(df)
-    assert len(ratings) == len(df), "calculate_ratings changed the row count"
+    # Hard guard (not assert: assert is stripped under `python -O`)
+    if len(ratings) != len(df):
+        raise ValueError(
+            f"calculate_ratings row count mismatch: {len(df)} in, {len(ratings)} out"
+        )
     df = pd.concat([df, ratings], axis=1)
 
     # 3. Calculate rolling stats

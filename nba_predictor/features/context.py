@@ -76,9 +76,7 @@ def generate_context_features(
 
     # rest_diff: difference in rest days.
     # If it's the first game of the season (NaN), use DEFAULT_REST_DAYS.
-    h_rest = home_rest.fillna(DEFAULT_REST_DAYS)
-    a_rest = away_rest.fillna(DEFAULT_REST_DAYS)
-    features['rest_diff'] = h_rest.values - a_rest.values
+    features['rest_diff'] = home_rest.fillna(DEFAULT_REST_DAYS).values - away_rest.fillna(DEFAULT_REST_DAYS).values
 
     # b2b: played the day before. A team's first game of the season (NaN rest)
     # is intentionally NOT a back-to-back — fill NaN with 0 explicitly before

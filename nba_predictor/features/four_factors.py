@@ -116,11 +116,7 @@ def generate_four_factors_features(
     rolling_df['team_id'] = df['team_id'].values
 
     # 4. Calculate Home - Away differences
-    stats_to_diff = []
-    for w in windows:
-        for f in feature_cols:
-            stats_to_diff.append(f'{f}_roll_{w}')
-
+    stats_to_diff = [f'{f}_roll_{w}' for w in windows for f in feature_cols]
     diffs = pipeline.calculate_game_diffs(games_df, rolling_df, stats_to_diff)
 
     return diffs

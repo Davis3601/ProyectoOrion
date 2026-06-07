@@ -2,17 +2,24 @@ import pandas as pd
 
 def add_opponent_stats(df: pd.DataFrame, cols_to_add: list[str]) -> pd.DataFrame:
     """
-    Añade columnas del oponente (prefijo 'opp_') uniendo el DF consigo mismo.
+    Adds opponent columns (prefix 'opp_') by joining the DataFrame with itself.
+
+    Args:
+        df: DataFrame with game_id, team_id and stats.
+        cols_to_add: List of column names to add from the opponent.
+
+    Returns:
+        DataFrame with added opponent columns and rows filtered for matches.
     """
-    # Seleccionamos las columnas que queremos del oponente
+    # Select opponent columns
     opp_stats = df[['game_id', 'team_id'] + cols_to_add].copy()
     
-    # Renombrar columnas para el oponente
+    # Rename columns for the opponent
     new_cols = {col: f'opp_{col}' for col in cols_to_add}
     new_cols['team_id'] = 'opp_team_id'
     opp_stats = opp_stats.rename(columns=new_cols)
     
-    # Unimos para que cada equipo vea las stats de su oponente en ese game_id
+    # Join so each team sees its opponent's stats for that game_id
     joined = pd.merge(
         df,
         opp_stats,
@@ -20,7 +27,7 @@ def add_opponent_stats(df: pd.DataFrame, cols_to_add: list[str]) -> pd.DataFrame
         suffixes=('', '_extra')
     )
     
-    # Filtramos donde team_id != opp_team_id
+    # Filter where team_id != opp_team_id
     joined = joined[joined['team_id'] != joined['opp_team_id']].copy()
     
     return joined

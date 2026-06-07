@@ -2,25 +2,25 @@ import pandas as pd
 
 class FeaturePipeline:
     """
-    Framework base para la generación de features y manejo de ventanas temporales.
+    Base framework for feature generation and temporal window management.
     """
     
     def calculate_rolling(self, df: pd.DataFrame, col: str, window: int, group_col: str) -> pd.Series:
         """
-        Calcula la media móvil de una columna, agrupada por una columna (ej. team_id),
-        asegurando que no hay look-ahead bias mediante un desplazamiento (shift).
+        Calculates the rolling mean of a column, grouped by a column (e.g., team_id),
+        ensuring no look-ahead bias by applying a shift.
         
         Args:
-            df: DataFrame con los datos (debe incluir game_date).
-            col: Columna sobre la cual calcular la media.
-            window: Tamaño de la ventana.
-            group_col: Columna para agrupar (normalmente team_id).
+            df: DataFrame with the data (must include game_date).
+            col: Column on which to calculate the mean.
+            window: Window size.
+            group_col: Column to group by (usually team_id).
             
         Returns:
-            pd.Series con los valores calculados, alineados con el índice original.
+            pd.Series with the calculated values, aligned with the original index.
         """
-        # Asegurar que los datos estén ordenados cronológicamente para cada grupo
-        # Aunque el input suela venir ordenado, lo garantizamos aquí para la lógica de rolling
+        # Ensure data is sorted chronologically for each group
+        # Although input is usually sorted, we guarantee it here for rolling logic
         original_index = df.index
         df_work = df.sort_values([group_col, 'game_date'])
         
@@ -29,7 +29,7 @@ class FeaturePipeline:
             .transform(lambda x: x.shift(1).rolling(window=window, min_periods=1).mean())
         )
         
-        # Re-alinear con el índice original para que el output coincida con el input
+        # Re-align with original index so output matches input
         result = rolling.loc[original_index]
         result.name = f"{col}_roll_{window}"
         
@@ -39,16 +39,16 @@ class FeaturePipeline:
         self, df: pd.DataFrame, columns: list[str], windows: list[int], group_col: str
     ) -> pd.DataFrame:
         """
-        Calcula múltiples medias móviles para varias columnas y ventanas.
+        Calculates multiple rolling means for various columns and windows.
         
         Args:
-            df: DataFrame con los datos.
-            columns: Lista de columnas para aplicar rolling.
-            windows: Lista de tamaños de ventana.
-            group_col: Columna para agrupar.
+            df: DataFrame with the data.
+            columns: List of columns to apply rolling to.
+            windows: List of window sizes.
+            group_col: Column to group by.
             
         Returns:
-            DataFrame con todas las nuevas columnas calculadas.
+            DataFrame with all newly calculated columns.
         """
         results = {}
         for col in columns:
@@ -62,17 +62,17 @@ class FeaturePipeline:
         self, games_df: pd.DataFrame, rolling_df: pd.DataFrame, stats_cols: list[str]
     ) -> pd.DataFrame:
         """
-        Calcula la diferencia entre las estadísticas rolling del equipo local y el visitante.
+        Calculates the difference between home and away team rolling statistics.
         
         Args:
-            games_df: DataFrame de partidos con home_team_id y away_team_id.
-            rolling_df: DataFrame con estadísticas rolling (debe tener game_id y team_id).
-            stats_cols: Lista de columnas de estadísticas para calcular la diferencia.
+            games_df: Games DataFrame with home_team_id and away_team_id.
+            rolling_df: DataFrame with rolling statistics (must have game_id and team_id).
+            stats_cols: List of statistics columns to calculate the difference for.
             
         Returns:
-            DataFrame con las columnas de diferencia (stat_diff).
+            DataFrame with difference columns (stat_diff).
         """
-        # Unir stats del equipo local
+        # Join home team stats
         home_stats = pd.merge(
             games_df[['game_id', 'home_team_id']],
             rolling_df,
@@ -81,7 +81,7 @@ class FeaturePipeline:
             how='left'
         )
         
-        # Unir stats del equipo visitante
+        # Join away team stats
         away_stats = pd.merge(
             games_df[['game_id', 'away_team_id']],
             rolling_df,

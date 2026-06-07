@@ -4,65 +4,65 @@ from .utils import add_opponent_stats
 
 def calculate_efg(df: pd.DataFrame) -> pd.Series:
     """
-    Calcula el Effective Field Goal Percentage.
+    Calculates Effective Field Goal Percentage.
 
-    Fórmula: (FGM + 0.5 * FG3M) / FGA
+    Formula: (FGM + 0.5 * FG3M) / FGA
 
     Args:
-        df: DataFrame con las columnas 'fgm', 'fg3m' y 'fga'.
+        df: DataFrame with 'fgm', 'fg3m', and 'fga' columns.
 
     Returns:
-        pd.Series con los valores de eFG%.
+        pd.Series with eFG% values.
     """
     numerator = df['fgm'] + 0.5 * df['fg3m']
     denominator = df['fga']
     
-    # Manejar división por cero (0/0 -> NaN, X/0 -> inf)
+    # Handle division by zero (0/0 -> NaN, X/0 -> inf)
     return (numerator / denominator).replace([np.inf, -np.inf], 0.0).fillna(0.0)
 
 def calculate_tov_rate(df: pd.DataFrame) -> pd.Series:
     """
-    Calcula el Turnover Rate.
+    Calculates Turnover Rate.
 
-    Fórmula: TOV / (FGA + 0.44 * FTA + TOV)
+    Formula: TOV / (FGA + 0.44 * FTA + TOV)
 
     Args:
-        df: DataFrame con las columnas 'tov', 'fga' y 'fta'.
+        df: DataFrame with 'tov', 'fga', and 'fta' columns.
 
     Returns:
-        pd.Series con los valores de Turnover Rate.
+        pd.Series with Turnover Rate values.
     """
     possessions = df['fga'] + 0.44 * df['fta'] + df['tov']
     
-    # Manejar división por cero
+    # Handle division by zero
     return (df['tov'] / possessions).replace([np.inf, -np.inf], 0.0).fillna(0.0)
 
 def calculate_oreb_rate(df: pd.DataFrame) -> pd.Series:
     """
-    Calcula el Offensive Rebound Rate.
+    Calculates Offensive Rebound Rate.
 
-    Fórmula: OREB / (OREB + Opponent DREB)
+    Formula: OREB / (OREB + Opponent DREB)
 
     Args:
-        df: DataFrame con las columnas 'oreb' y 'opp_dreb'.
+        df: DataFrame with 'oreb' and 'opp_dreb' columns.
 
     Returns:
-        pd.Series con los valores de OREB Rate.
+        pd.Series with OREB Rate values.
     """
     denominator = df['oreb'] + df['opp_dreb']
     return (df['oreb'] / denominator).replace([np.inf, -np.inf], 0.0).fillna(0.0)
 
 def calculate_ft_rate(df: pd.DataFrame) -> pd.Series:
     """
-    Calcula el Free Throw Rate.
+    Calculates Free Throw Rate.
 
-    Fórmula: FTA / FGA
+    Formula: FTA / FGA
 
     Args:
-        df: DataFrame con las columnas 'fta' y 'fga'.
+        df: DataFrame with 'fta' and 'fga' columns.
 
     Returns:
-        pd.Series con los valores de Free Throw Rate.
+        pd.Series with Free Throw Rate values.
     """
     return (df['fta'] / df['fga']).replace([np.inf, -np.inf], 0.0).fillna(0.0)
 
@@ -73,28 +73,28 @@ def generate_four_factors_features(
     windows: list[int] = [10]
 ) -> pd.DataFrame:
     """
-    Genera las features de los Four Factors (eFG%, TOV%, OREB%, FT Rate) y sus diferencias.
+    Generates Four Factors features (eFG%, TOV%, OREB%, FT Rate) and their differences.
 
     Args:
-        stats_df: DataFrame con estadísticas por equipo y partido.
-        games_df: DataFrame con información de los partidos (home/away IDs, dates).
-        pipeline: Instancia de FeaturePipeline para cálculos de rolling.
-        windows: Lista de ventanas temporales para las medias móviles.
+        stats_df: DataFrame with stats per team and game.
+        games_df: Games DataFrame (home/away IDs, dates).
+        pipeline: FeaturePipeline instance for rolling calculations.
+        windows: List of window sizes for rolling means.
 
     Returns:
-        DataFrame con las diferencias home-away para cada factor y ventana.
+        DataFrame with home-away differences for each factor and window.
     """
-    # 1. Preparar datos con stats del oponente para OREB%
+    # 1. Prepare data with opponent stats for OREB%
     df = add_opponent_stats(stats_df, cols_to_add=['dreb'])
     
-    # 2. Calcular métricas raw
+    # 2. Calculate raw metrics
     df['efg'] = calculate_efg(df)
     df['tov_rate'] = calculate_tov_rate(df)
     df['oreb_rate'] = calculate_oreb_rate(df)
     df['ft_rate'] = calculate_ft_rate(df)
     
-    # 3. Calcular rolling stats
-    # Necesitamos game_date para el pipeline
+    # 3. Calculate rolling stats
+    # We need game_date for the pipeline
     df = pd.merge(df, games_df[['game_id', 'game_date']], on='game_id', validate="many_to_one")
     
     feature_cols = ['efg', 'tov_rate', 'oreb_rate', 'ft_rate']
@@ -105,11 +105,11 @@ def generate_four_factors_features(
         group_col='team_id'
     )
     
-    # Unimos con game_id y team_id para que calculate_game_diffs pueda usarlos
+    # Join with game_id and team_id so calculate_game_diffs can use them
     rolling_df['game_id'] = df['game_id']
     rolling_df['team_id'] = df['team_id']
     
-    # 4. Calcular diferencias Home - Away
+    # 4. Calculate Home - Away differences
     stats_to_diff = []
     for w in windows:
         for f in feature_cols:

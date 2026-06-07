@@ -4,31 +4,31 @@ from .utils import add_opponent_stats
 
 def calculate_possessions(df: pd.DataFrame) -> pd.Series:
     """
-    Estima las posesiones de un equipo en un partido.
+    Estimates possessions for a team in a game.
 
-    Fórmula: FGA + 0.44 * FTA + TOV - OREB
+    Formula: FGA + 0.44 * FTA + TOV - OREB
 
     Args:
-        df: DataFrame con las columnas 'fga', 'fta', 'tov' y 'oreb'.
+        df: DataFrame with 'fga', 'fta', 'tov', and 'oreb' columns.
 
     Returns:
-        pd.Series con las posesiones estimadas.
+        pd.Series with estimated possessions.
     """
     return df['fga'] + 0.44 * df['fta'] + df['tov'] - df['oreb']
 
 def calculate_ratings(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Calcula Offensive, Defensive y Net Ratings.
+    Calculates Offensive, Defensive, and Net Ratings.
 
     Args:
-        df: DataFrame con estadísticas del equipo y del oponente ('opp_pts').
+        df: DataFrame with team and opponent ('opp_pts') statistics.
 
     Returns:
-        pd.DataFrame con las columnas 'ortg', 'drtg' y 'netrtg'.
+        pd.DataFrame with 'ortg', 'drtg', and 'netrtg' columns.
     """
-    # Si no tiene stats del oponente, las añadimos (necesitamos pts para DRtg)
+    # If opponent stats are missing, add them (need pts for DRtg)
     if 'opp_pts' not in df.columns:
-        # Primero calculamos nuestros propios pts si no están
+        # Calculate own points if missing
         if 'pts' not in df.columns:
             df = df.copy()
             df['pts'] = 2 * df['fgm'] + df['fg3m'] + df['ftm']
@@ -59,29 +59,29 @@ def generate_ratings_features(
     windows: list[int] = [10]
 ) -> pd.DataFrame:
     """
-    Genera las features de Ratings (Offensive, Defensive, Net) y sus diferencias.
+    Generates Ratings features (Offensive, Defensive, Net) and their differences.
 
     Args:
-        stats_df: DataFrame con estadísticas por equipo y partido.
-        games_df: DataFrame con información de los partidos.
-        pipeline: Instancia de FeaturePipeline para cálculos de rolling.
-        windows: Lista de ventanas temporales para las medias móviles.
+        stats_df: DataFrame with stats per team and game.
+        games_df: Games DataFrame.
+        pipeline: FeaturePipeline instance for rolling calculations.
+        windows: List of window sizes for rolling means.
 
     Returns:
-        DataFrame con las diferencias home-away para cada rating y ventana.
+        DataFrame with home-away differences for each rating and window.
     """
     df = stats_df.copy()
     if 'pts' not in df.columns:
         df['pts'] = 2 * df['fgm'] + df['fg3m'] + df['ftm']
     
-    # 1. Preparar datos con stats del oponente
+    # 1. Prepare data with opponent stats
     df = add_opponent_stats(df, cols_to_add=['pts'])
     
-    # 2. Calcular métricas raw
+    # 2. Calculate raw metrics
     ratings = calculate_ratings(df)
     df = pd.concat([df, ratings], axis=1)
     
-    # 3. Calcular rolling stats
+    # 3. Calculate rolling stats
     df = pd.merge(df, games_df[['game_id', 'game_date']], on='game_id', validate="many_to_one")
     
     feature_cols = ['ortg', 'drtg', 'netrtg']
@@ -95,7 +95,7 @@ def generate_ratings_features(
     rolling_df['game_id'] = df['game_id']
     rolling_df['team_id'] = df['team_id']
     
-    # 4. Calcular diferencias Home - Away
+    # 4. Calculate Home - Away differences
     stats_to_diff = []
     for w in windows:
         for f in feature_cols:

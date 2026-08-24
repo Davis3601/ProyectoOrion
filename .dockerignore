@@ -1,0 +1,36 @@
+# Excluye todo lo que no necesita el Cloud Run Job en tiempo de ejecución.
+# La imagen solo necesita nba_predictor/ + scripts/ingest_job.py + requirements.lock.
+
+# Datos locales — en producción todo viene de GCS/BigQuery
+data/
+
+# Tests y herramientas de desarrollo
+tests/
+.venv/
+
+# Notebooks y artefactos de exploración
+notebooks/
+
+# Secretos — nunca en la imagen
+.env
+.env.*
+
+# Control de versiones
+.git/
+.gitignore
+
+# Cachés de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Cachés de herramientas de desarrollo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Artefactos de build de Python
+*.egg-info/
+dist/
+build/

@@ -3,6 +3,7 @@ import json
 import sqlite3
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -11,11 +12,13 @@ from .base import DataStore
 
 class LocalDataStore(DataStore):
     
-    def __init__(self, db_path: Path, raw_dir: Path):
+    def __init__(self, db_path: Path, raw_dir: Path, processed_dir: Path | None = None):
         self.db_path = db_path
         self.raw_dir = raw_dir
+        self.processed_dir = processed_dir or db_path.parent / "processed"
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.raw_dir.mkdir(parents=True, exist_ok=True)
+        self.processed_dir.mkdir(parents=True, exist_ok=True)
         self._init_schema()
     
     def _init_schema(self) -> None:
@@ -190,6 +193,16 @@ class LocalDataStore(DataStore):
             """)
             conn.execute("DROP TABLE _pgs_staging")
 
+    def save_features(self, features: pd.DataFrame, version: str = "v1") -> None:
+        path = self.processed_dir / f"features_{version}.parquet"
+        features.to_parquet(path, index=False)
+
+    def load_features(self, version: str = "v1") -> pd.DataFrame:
+        path = self.processed_dir / f"features_{version}.parquet"
+        if not path.exists():
+            raise FileNotFoundError(f"Features no encontradas en: {path}")
+        return pd.read_parquet(path)
+
     def save_raw_boxscore(self, game_id: str, payload: dict) -> None:
         target = self.raw_dir / f"{game_id}.json"
         target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -230,6 +243,32 @@ class LocalDataStore(DataStore):
                 "SELECT * FROM teams ORDER BY abbreviation", conn
             )
 
+    # ----- Modelos (Fase 4) -----
+
+    @property
+    def _models_dir(self) -> Path:
+        """Raíz del registry de modelos: data/models/."""
+        return self.processed_dir.parent / "models"
+
+    def save_model(self, pipeline: Any, metadata: dict, version_name: str) -> Path:
+        """
+        Serializa pipeline + metadata en data/models/{version_name}/.
+
+        Delega en registry.save_version para mantener la lógica de
+        serialización en un solo lugar (registry.py).
+        """
+        from nba_predictor.models.registry import save_version
+        return save_version(pipeline, metadata, self._models_dir, version_name)
+
+    def load_model(self, version_name: str) -> tuple[Any, dict]:
+        """
+        Carga (pipeline, metadata) desde data/models/{version_name}/.
+
+        Falla ruidosamente con FileNotFoundError si la versión no existe.
+        """
+        from nba_predictor.models.registry import load_version
+        return load_version(self._models_dir, version_name)
+
     def load_player_game_stats(
         self,
         season: str | None = None,
@@ -263,3 +302,10 @@ class LocalDataStore(DataStore):
 
         with sqlite3.connect(self.db_path) as conn:
             return pd.read_sql(query, conn, params=params)
+
+    # ----- Injury Reports (Fase 5b / 13e-1) -----
+
+    def save_raw_injury_report(self, date_str: str, suffix: str, pdf_bytes: bytes) -> None:
+        target_dir = self.raw_dir / "injury_reports"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        (target_dir / f"{date_str}_{suffix}.pdf").write_bytes(pdf_bytes)

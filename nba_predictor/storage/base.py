@@ -1,8 +1,12 @@
 """Interfaz abstracta para almacenamiento de datos NBA."""
 from abc import ABC, abstractmethod
 from datetime import date
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
+
+# CHECK 4 — Simetría: todo save_* tiene su load_* correspondiente.
 
 
 class DataStore(ABC):
@@ -70,9 +74,53 @@ class DataStore(ABC):
         """Devuelve el catálogo de equipos: team_id, abbreviation, name."""
         ...
 
+    @abstractmethod
+    def save_features(self, features: pd.DataFrame, version: str = "v1") -> None:
+        """Persiste la capa FEATURES (Layer 3) en Parquet. Idempotente: sobreescribe."""
+        ...
+
+    @abstractmethod
+    def load_features(self, version: str = "v1") -> pd.DataFrame:
+        """Carga la capa FEATURES desde Parquet. Lanza FileNotFoundError si no existe."""
+        ...
+
+    # ----- Modelos (Fase 4) -----
+
+    @abstractmethod
+    def save_model(self, pipeline: Any, metadata: dict, version_name: str) -> Path:
+        """
+        Serializa pipeline + metadata en el registry de modelos.
+
+        Devuelve la ruta del directorio de la versión guardada.
+        Idempotente: sobreescribe si ya existe.
+        """
+        ...
+
+    @abstractmethod
+    def load_model(self, version_name: str) -> tuple[Any, dict]:
+        """
+        Carga (pipeline, metadata) de una versión del registry.
+
+        Falla ruidosamente con FileNotFoundError si la versión no existe.
+        """
+        ...
+
     # ----- Utilidad -----
 
     @abstractmethod
     def existing_game_ids(self, season: str) -> set[str]:
         """Para saber qué partidos ya tienes."""
+        ...
+
+    # ----- Injury Reports (Fase 5b / 13e-1) -----
+
+    @abstractmethod
+    def save_raw_injury_report(self, date_str: str, suffix: str, pdf_bytes: bytes) -> None:
+        """Persiste el PDF de injury report como bytes (no JSON).
+
+        Ruta canónica: raw/injury_reports/{date_str}_{suffix}.pdf
+        date_str formato: YYYY-MM-DD  (ej. "2026-03-13")
+        suffix formato:   sufijo de la URL sin extensión (ej. "01_15PM", "11PM")
+        Idempotente: sobreescribe si ya existe.
+        """
         ...

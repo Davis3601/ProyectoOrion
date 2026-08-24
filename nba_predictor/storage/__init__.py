@@ -10,6 +10,7 @@ def get_datastore() -> DataStore:
         return LocalDataStore(
             db_path=settings.db_path,
             raw_dir=settings.raw_dir,
+            processed_dir=settings.processed_dir,
         )
     elif settings.mode == "cloud":
         from .cloud import CloudDataStore  # Import diferido

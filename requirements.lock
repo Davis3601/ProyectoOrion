@@ -1,0 +1,93 @@
+# Dependencias de runtime para ingest_job.py (Fase 5b — Cloud Run Job).
+#
+# Excluye: dev (pytest, ruff, coverage), notebooks (jupyter*, ipython*,
+# nbclient, etc.) y xgboost (no usado en el job — solo en evaluación local).
+# nba_predictor mismo se instala vía COPY + PYTHONPATH en el Dockerfile.
+#
+# Para regenerar (desde el venv del proyecto, con todas las deps instaladas):
+#   pip freeze \
+#     | grep -vE '^(pytest|pytest-cov|coverage|ruff|debugpy|iniconfig|pluggy)' \
+#     | grep -vE '^(jupyter|nbclient|nbconvert|nbformat|notebook|ipython|ipykernel)' \
+#     | grep -vE '^(ipywidgets|jupyterlab|comm|traitlets|prompt.toolkit|tornado)' \
+#     | grep -vE '^(anyio|h11|httpcore|httpx|websocket.client|terminado|pywinpty)' \
+#     | grep -vE '^(babel|arrow|jedi|parso|asttokens|executing|decorator|stack.data)' \
+#     | grep -vE '^(nest.asyncio|async.lru|Jinja2|MarkupSafe|mistune|pandocfilters)' \
+#     | grep -vE '^(bleach|tinycss2|webencodings|defusedxml|fastjsonschema|referencing)' \
+#     | grep -vE '^(jsonschema|attrs|json5|jsonpointer|uri.template|fqdn|isoduration)' \
+#     | grep -vE '^(rfc3339|rfc3986|rfc3987|webcolors|Send2Trash|argon2|platformdirs)' \
+#     | grep -vE '^(prometheus.client|psutil|pyzmq|python.json.logger|PyYAML|pywinpty)' \
+#     | grep -vE '^(wcwidth|widgetsnbextension|matplotlib.inline|pure.eval|colorama)' \
+#     | grep -vE '^(xgboost|setuptools|-e git\+)' \
+#     > requirements.lock
+
+# ── Typing / validación ───────────────────────────────────────────────────────
+annotated-types==0.7.0
+pydantic==2.13.4
+pydantic-settings==2.14.0
+pydantic_core==2.46.4
+rpds-py==0.30.0
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+
+# ── Settings / entorno ────────────────────────────────────────────────────────
+python-dotenv==1.2.2
+
+# ── HTTP / seguridad ──────────────────────────────────────────────────────────
+certifi==2026.4.22
+cffi==2.0.0
+charset-normalizer==3.4.7
+cryptography==50.0.0
+idna==3.13
+pycparser==3.0
+pyasn1==0.6.4
+pyasn1_modules==0.4.2
+requests==2.33.1
+six==1.17.0
+urllib3==2.6.3
+
+# ── NBA API ───────────────────────────────────────────────────────────────────
+beautifulsoup4==4.14.3
+nba_api==1.11.4
+soupsieve==2.8.3
+tenacity==9.1.4
+tqdm==4.67.3
+
+# ── Data / ML ─────────────────────────────────────────────────────────────────
+joblib==1.5.3
+narwhals==2.24.0
+numpy==2.4.4
+packaging==26.2
+pandas==3.0.2
+pyarrow==24.0.0
+python-dateutil==2.9.0.post0
+scikit-learn==1.9.0
+scipy==1.18.0
+threadpoolctl==3.6.0
+tzdata==2026.2
+
+# ── PDF parsing (injury reports) ─────────────────────────────────────────
+Pillow==12.3.0
+pdfminer.six==20260107
+pdfplumber==0.11.10
+pypdfium2==5.13.0
+
+# ── GCP — BigQuery ───────────────────────────────────────────────────────────
+db-dtypes==1.7.1
+google-cloud-bigquery==3.43.0
+google-cloud-bigquery-storage==2.40.0
+lark==1.3.1
+
+# ── GCP — Storage ────────────────────────────────────────────────────────────
+google-cloud-storage==3.13.1
+google-resumable-media==2.10.1
+
+# ── GCP — Común ──────────────────────────────────────────────────────────────
+google-api-core==2.34.0
+google-auth==2.56.3
+google-cloud-core==2.6.1
+google-crc32c==1.8.0
+googleapis-common-protos==1.75.1
+grpcio==1.83.0
+grpcio-status==1.83.0
+proto-plus==1.28.3
+protobuf==7.35.1

@@ -1,4 +1,4 @@
-"""Cliente para nba_api con retry, rate limiting y normalización mínima."""
+"""Client for nba_api with retry, rate limiting, and minimal normalization."""
 import time
 
 import pandas as pd
@@ -11,24 +11,24 @@ from tenacity import (
 )
 
 
-# Tipos de error que justifican reintentar
+# Error types that justify a retry
 _RETRYABLE = (TimeoutError, ConnectionError, ConnectionResetError)
 
 
 class NBAClient:
-    """Wrapper minimalista de nba_api con políticas de robustez."""
+    """Minimalistic wrapper for nba_api with robustness policies."""
     
     def __init__(self, request_delay_seconds: float = 0.6):
         """
         Args:
-            request_delay_seconds: pausa entre requests. NBA tolera ~30 req/min;
-                0.6s es un valor conservador que en la práctica funciona bien.
+            request_delay_seconds: pause between requests. NBA tolerates ~30 req/min;
+                0.6s is a conservative value that works well in practice.
         """
         self.request_delay = request_delay_seconds
         self._last_request_time = 0.0
     
     def _throttle(self) -> None:
-        """Asegura que no llamamos a la API más rápido que request_delay."""
+        """Ensures that we don't call the API faster than request_delay."""
         elapsed = time.monotonic() - self._last_request_time
         if elapsed < self.request_delay:
             time.sleep(self.request_delay - elapsed)
@@ -42,14 +42,14 @@ class NBAClient:
     )
     def fetch_season_schedule(self, season: str) -> pd.DataFrame:
         """
-        Descarga el calendario completo de una temporada de NBA.
+        Downloads the full schedule for an NBA season.
         
         Args:
-            season: formato '2023-24' (temporada terminando en 2024).
+            season: format '2023-24' (season ending in 2024).
         
         Returns:
-            DataFrame con una fila por equipo por partido (cada partido aparece 2 veces).
-            Columnas relevantes: GAME_ID, GAME_DATE, TEAM_ID, TEAM_ABBREVIATION,
+            DataFrame with one row per team per game (each game appears twice).
+            Relevant columns: GAME_ID, GAME_DATE, TEAM_ID, TEAM_ABBREVIATION,
             MATCHUP, WL, PTS.
         """
         self._throttle()
@@ -70,14 +70,14 @@ class NBAClient:
     )
     def fetch_boxscore(self, game_id: str) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
         """
-        Descarga el box score de un partido.
+        Downloads the box score for a game.
 
         Args:
-            game_id: identificador oficial NBA, e.g. '0022300001'.
+            game_id: official NBA identifier, e.g., '0022300001'.
 
         Returns:
-            (team_stats, player_stats, raw_payload) donde raw_payload es el dict
-            crudo de la API para persistirlo en la capa RAW sin procesar.
+            (team_stats, player_stats, raw_payload) where raw_payload is the raw
+            API dictionary to persist in the RAW layer without processing.
         """
         self._throttle()
         box = boxscoretraditionalv2.BoxScoreTraditionalV2(game_id=game_id, timeout=30)

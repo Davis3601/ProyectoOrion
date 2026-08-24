@@ -47,7 +47,7 @@ TRAINING_SEASONS: tuple[str, ...] = (
     "2021-22", "2022-23", "2023-24", "2024-25", "2025-26",
 )
 
-# Todas las temporadas que se descargan (warmup + entrenamiento)
+# All seasons to be downloaded (warmup + training)
 ALL_SEASONS: tuple[str, ...] = WARMUP_SEASONS + TRAINING_SEASONS
 
 # ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-"""Lógica de descarga y normalización del calendario."""
+"""Logic for schedule download and normalization."""
 import logging
 from datetime import date
 
@@ -9,7 +9,7 @@ from .nba_client import NBAClient
 _log = logging.getLogger(__name__)
 
 
-# Burbuja COVID: temporada regular en sede neutral
+# COVID Bubble: regular season in neutral site
 _BUBBLE_START = date(2020, 7, 30)
 _BUBBLE_END = date(2020, 8, 14)
 
@@ -20,34 +20,34 @@ def _is_neutral_site(game_date: date) -> bool:
 
 def _normalize_season_schedule(raw: pd.DataFrame, season: str) -> pd.DataFrame:
     """
-    Convierte el DataFrame crudo de LeagueGameFinder a nuestro esquema canónico.
+    Converts the raw LeagueGameFinder DataFrame to our canonical schema.
 
-    El raw trae cada partido 2 veces (una por equipo). Hacemos self-join sobre GAME_ID
-    para producir una fila por partido con home/away identificados claramente.
+    The raw data includes each game twice (one per team). We perform a self-join
+    on GAME_ID to produce one row per game with home/away teams clearly identified.
     """
     raw = raw.copy()
     raw["GAME_DATE"] = pd.to_datetime(raw["GAME_DATE"]).dt.date
 
-    # Defensa 1: eliminar duplicados exactos de (GAME_ID, TEAM_ID).
-    # Si un equipo aparece dos veces para el mismo partido, nos quedamos con una fila.
+    # Defense 1: remove exact duplicates of (GAME_ID, TEAM_ID).
+    # If a team appears twice for the same game, we keep one row.
     raw = raw.drop_duplicates(subset=["GAME_ID", "TEAM_ID"], keep="first")
 
-    # Defensa 2: quedarnos solo con partidos que tengan EXACTAMENTE 2 equipos.
-    # Cualquier game_id con un número distinto de filas es anómalo y lo descartamos.
+    # Defense 2: keep only games that have EXACTLY 2 teams.
+    # Any game_id with a different number of rows is anomalous and discarded.
     rows_per_game = raw.groupby("GAME_ID")["TEAM_ID"].transform("size")
     raw = raw[rows_per_game == 2]
 
-    # Identificamos local vs visitante por la columna MATCHUP
-    # 'vs.' = local, '@' = visitante
+    # Identify home vs away by the MATCHUP column
+    # 'vs.' = home, '@' = away
     raw["is_home"] = raw["MATCHUP"].str.contains("vs.", regex=False)
 
     home = raw[raw["is_home"]].copy()
     away = raw[~raw["is_home"]].copy()
 
-    # Defensa 3: descartar partidos que no tienen exactamente 1 fila local y 1 visitante.
-    # Ocurre en juegos de sede neutral (Paris Games, etc.) donde ambas filas usan "@"
-    # porque ningún equipo es realmente local. Preferimos descartar a asignar home/away
-    # de forma arbitraria, lo que introduciría ruido en la feature de ventaja local.
+    # Defense 3: discard games that don't have exactly 1 home row and 1 away row.
+    # Occurs in neutral site games (Paris Games, etc.) where both rows use "@"
+    # because no team is truly at home. We prefer to discard rather than assign
+    # home/away arbitrarily, which would introduce noise in the home advantage feature.
     valid_ids = (
         set(home.groupby("GAME_ID").filter(lambda g: len(g) == 1)["GAME_ID"])
         & set(away.groupby("GAME_ID").filter(lambda g: len(g) == 1)["GAME_ID"])
@@ -55,8 +55,8 @@ def _normalize_season_schedule(raw: pd.DataFrame, season: str) -> pd.DataFrame:
     n_dropped = len(set(raw["GAME_ID"])) - len(valid_ids)
     if n_dropped:
         _log.warning(
-            f"{season}: {n_dropped} partido(s) descartados por no tener exactamente "
-            "1 equipo local y 1 visitante en MATCHUP (probable sede neutral no contemplada)."
+            f"{season}: {n_dropped} game(s) discarded for not having exactly "
+            "1 home team and 1 away team in MATCHUP (likely unhandled neutral site)."
         )
     home = home[home["GAME_ID"].isin(valid_ids)]
     away = away[away["GAME_ID"].isin(valid_ids)]
@@ -98,6 +98,6 @@ def _normalize_season_schedule(raw: pd.DataFrame, season: str) -> pd.DataFrame:
 
 
 def ingest_season_schedule(client: NBAClient, season: str) -> pd.DataFrame:
-    """Descarga y normaliza el calendario de una temporada."""
+    """Downloads and normalizes the schedule for a season."""
     raw = client.fetch_season_schedule(season)
     return _normalize_season_schedule(raw, season)

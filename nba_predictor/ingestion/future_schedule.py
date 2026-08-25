@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 _log = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ class ScheduledGame:
     home_tricode: str
     away_tricode: str
     season: str
+    tip_off_et: datetime | None = None  # tip-off en ET; None si el schedule no lo provee
 
 
 def fetch_future_schedule(
@@ -98,6 +99,14 @@ def fetch_future_schedule(
 
     games: list[ScheduledGame] = []
     for _, row in future.iterrows():
+        tip_off_et: datetime | None = None
+        try:
+            raw_dt = row.get("gameDateTimeEst") or row.get("gameEt") or ""
+            if raw_dt:
+                tip_off_et = datetime.fromisoformat(str(raw_dt).rstrip("Z"))
+        except (ValueError, TypeError):
+            pass
+
         games.append(
             ScheduledGame(
                 game_id=str(row["gameId"]),
@@ -107,6 +116,7 @@ def fetch_future_schedule(
                 home_tricode=str(row["homeTeam_teamTricode"]),
                 away_tricode=str(row["awayTeam_teamTricode"]),
                 season=season,
+                tip_off_et=tip_off_et,
             )
         )
 

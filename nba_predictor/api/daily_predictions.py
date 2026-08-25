@@ -382,7 +382,15 @@ def _fetch_absences(
     pdf_bytes = download_snapshot(url)
 
     if save_raw:
-        store.save_raw_injury_report(target_date_str, suffix, pdf_bytes)
+        try:
+            store.save_raw_injury_report(target_date_str, suffix, pdf_bytes)
+        except Exception as exc:
+            # Best-effort: la predicción ya tiene el dato; el archivo es secundario.
+            # Un fallo de persistencia NO es degradación del dato servido (13e-2).
+            _log.warning(
+                "No se pudo persistir el snapshot del injury report (%s_%s): %s",
+                target_date_str, suffix, exc,
+            )
 
     player_rows, nys_entries = parse_pdf(pdf_bytes)
     name_idx = NameIndex.from_player_map(player_map)

@@ -370,6 +370,51 @@ class TestBuildDailyPredictions:
                 )
         store.save_raw_injury_report.assert_not_called()
 
+    def test_save_raw_failure_does_not_set_feed_down(self):
+        """Fallo de save_raw_injury_report → feed_down sigue False (best-effort, 13e-2)."""
+        store = _make_store(proba=0.67)
+        store.save_raw_injury_report.side_effect = OSError("disco lleno")
+        with _FeedPatch([], []):
+            with patch(_CLF_PATCH, return_value=_NULL_FEATURES):
+                result = build_daily_predictions(
+                    TARGET_DATE, store, season="2026-27",
+                    scheduled_games=[GAME_BOS_LAL], version_name=VERSION,
+                    player_map=PLAYER_MAP, save_injury_raw=True,
+                )
+        assert result.feed_down is False
+        assert result.feed_down_reason is None
+
+    def test_save_raw_failure_predictions_intact(self):
+        """Fallo de persistencia → las predicciones se sirven completas (200)."""
+        store = _make_store(proba=0.67)
+        store.save_raw_injury_report.side_effect = RuntimeError("GCS timeout")
+        with _FeedPatch([], []):
+            with patch(_CLF_PATCH, return_value=_NULL_FEATURES):
+                result = build_daily_predictions(
+                    TARGET_DATE, store, season="2026-27",
+                    scheduled_games=[GAME_BOS_LAL], version_name=VERSION,
+                    player_map=PLAYER_MAP, save_injury_raw=True,
+                )
+        assert len(result.games) == 1
+        assert result.games[0].availability_flag == AvailabilityFlag.OK
+
+    def test_save_raw_failure_logs_warning_not_error(self, caplog):
+        """Fallo de persistencia → WARNING en el log, no ERROR ni excepción."""
+        import logging
+        store = _make_store(proba=0.67)
+        store.save_raw_injury_report.side_effect = OSError("fallo de escritura")
+        with _FeedPatch([], []):
+            with patch(_CLF_PATCH, return_value=_NULL_FEATURES):
+                with caplog.at_level(logging.WARNING, logger="nba_predictor.api.daily_predictions"):
+                    build_daily_predictions(
+                        TARGET_DATE, store, season="2026-27",
+                        scheduled_games=[GAME_BOS_LAL], version_name=VERSION,
+                        player_map=PLAYER_MAP, save_injury_raw=True,
+                    )
+        warning_records = [r for r in caplog.records if "snapshot" in r.message.lower()]
+        assert len(warning_records) >= 1
+        assert all(r.levelno == logging.WARNING for r in warning_records)
+
     def test_model_load_failure_raises(self):
         store = _make_store()
         store.load_model.side_effect = FileNotFoundError("versión no encontrada")

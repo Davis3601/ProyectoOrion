@@ -61,16 +61,20 @@ class _ModelCachedStore:
 # ---------------------------------------------------------------------------
 
 
-def _current_season() -> str:
-    """Temporada activa. Env NBA_PREDICTOR_SEASON si presente; si no, derivada de la fecha."""
+def _current_season(reference_date: date | None = None) -> str:
+    """Temporada activa. Env NBA_PREDICTOR_SEASON si presente; si no, derivada de reference_date.
+
+    reference_date debe ser target_date del request (no date.today()): en pruebas
+    de pre-temporada con ?date=2026-10-21 desde agosto, usar today daría '2025-26'.
+    """
     env_season = os.getenv("NBA_PREDICTOR_SEASON")
     if env_season:
         return env_season
-    today = date.today()
+    d = reference_date or date.today()
     # La temporada NBA arranca en octubre: oct-dic es el año en curso
-    if today.month >= 10:
-        return f"{today.year}-{(today.year + 1) % 100:02d}"
-    return f"{today.year - 1}-{today.year % 100:02d}"
+    if d.month >= 10:
+        return f"{d.year}-{(d.year + 1) % 100:02d}"
+    return f"{d.year - 1}-{d.year % 100:02d}"
 
 
 def _parse_date(date_str: str | None) -> date:
@@ -141,7 +145,7 @@ def predictions_today(
          traga para devolver un 200 vacío (mentira silenciosa prohibida).
     """
     target_date = _parse_date(date_str)
-    season = _current_season()
+    season = _current_season(target_date)  # usa target_date, no date.today()
 
     result: DailyResult = build_daily_predictions(
         target_date=target_date,

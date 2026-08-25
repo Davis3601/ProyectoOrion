@@ -180,11 +180,36 @@ class TestFetchFutureSchedule:
         fetch_future_schedule("2025-26", from_date=date(2025, 10, 1), cdn_client=client)
         client.fetch_season_schedule.assert_called_once_with("2025-26")
 
-    def test_season_field_uses_parameter_not_cdn_raw(self):
-        """ScheduledGame.season refleja el argumento season del caller."""
+    def test_season_field_uses_cdn_season(self):
+        """ScheduledGame.season refleja leagueSchedule.seasonYear del CDN (patrón e-0)."""
         raw = _make_cdn_raw([_make_cdn_game()], season_year="2026-27")
         games = fetch_future_schedule("2026-27", from_date=date(2026, 10, 1), cdn_client=_mock_client(raw))
         assert games[0].season == "2026-27"
+
+    def test_cdn_season_wins_when_param_differs(self):
+        """e-0: payload CDN '2026-27', parámetro '2025-26' → games con season='2026-27' Y lista no vacía."""
+        raw = _make_cdn_raw([_make_cdn_game()], season_year="2026-27")
+        games = fetch_future_schedule("2025-26", from_date=date(2026, 10, 1), cdn_client=_mock_client(raw))
+        assert len(games) == 1
+        assert games[0].season == "2026-27"  # CDN gana sobre el parámetro
+
+    def test_inaugural_week_non_empty(self):
+        """Semana inaugural 2026-27 (2026-10-21): fixture CDN con ese partido → lista NO vacía."""
+        raw = _make_cdn_raw([
+            _make_cdn_game(
+                game_id="0022600050",
+                game_date_est="2026-10-21T00:00:00",
+                game_date_time_est="2026-10-21T17:30:00",
+                game_status=1,
+                home_team_id=1610612738,
+                home_tricode="BOS",
+                away_team_id=1610612747,
+                away_tricode="LAL",
+            )
+        ])
+        games = fetch_future_schedule("2026-27", from_date=date(2026, 10, 21), cdn_client=_mock_client(raw))
+        assert len(games) >= 1
+        assert games[0].game_date == date(2026, 10, 21)
 
     def test_multiple_game_dates_flattened(self):
         """gameDates con múltiples bloques se procesan todos."""

@@ -165,6 +165,47 @@ class TestHealth:
 
 
 # ---------------------------------------------------------------------------
+# _current_season
+# ---------------------------------------------------------------------------
+
+
+class TestCurrentSeason:
+    def test_october_target_date_returns_correct_season(self):
+        """target_date en octubre → temporada que empieza ese año."""
+        from nba_predictor.api.server import _current_season
+        assert _current_season(date(2026, 10, 21)) == "2026-27"
+
+    def test_january_target_date_returns_prior_year_season(self):
+        """target_date en enero → temporada que empezó el año anterior."""
+        from nba_predictor.api.server import _current_season
+        assert _current_season(date(2026, 1, 15)) == "2025-26"
+
+    def test_august_target_date_returns_prior_year_season(self):
+        """target_date en agosto → aún en la temporada del año anterior."""
+        from nba_predictor.api.server import _current_season
+        assert _current_season(date(2026, 8, 24)) == "2025-26"
+
+    def test_october_target_date_not_today_bug(self):
+        """Regresión del bug e-0 en el endpoint: ?date=2026-10-21 desde agosto.
+
+        Con el bug original (_current_season usaba date.today()), en agosto devolvía '2025-26'.
+        Con el fix (usa target_date), devuelve '2026-27'.
+        """
+        from nba_predictor.api.server import _current_season
+        # Simula: hoy es agosto pero target_date es octubre → debe devolver "2026-27"
+        result = _current_season(date(2026, 10, 21))
+        assert result == "2026-27", (
+            "Bug regresión: _current_season debe usar target_date, no date.today()"
+        )
+
+    def test_env_var_overrides_reference_date(self, monkeypatch):
+        """NBA_PREDICTOR_SEASON env var tiene prioridad sobre la derivación por fecha."""
+        from nba_predictor.api.server import _current_season
+        monkeypatch.setenv("NBA_PREDICTOR_SEASON", "2024-25")
+        assert _current_season(date(2026, 10, 21)) == "2024-25"
+
+
+# ---------------------------------------------------------------------------
 # Guard de acoplamiento-cero
 # ---------------------------------------------------------------------------
 

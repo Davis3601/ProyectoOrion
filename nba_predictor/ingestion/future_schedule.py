@@ -84,6 +84,17 @@ def fetch_future_schedule(
     _, raw = client.fetch_season_schedule(season)
 
     league = raw.get("leagueSchedule", {})
+    # Patrón e-0: el payload CDN es la fuente canónica de la temporada activa.
+    # Si leagueSchedule.seasonYear difiere del parámetro (e.g. en pre-temporada el
+    # CDN ya publica la siguiente), el CDN gana — igual que _season_from_raw_schedule
+    # en ingest_logic.py.
+    cdn_season: str = league.get("seasonYear") or season
+    if cdn_season != season:
+        _log.warning(
+            "Temporada CDN '%s' difiere del parámetro '%s' — usando CDN (fuente canónica).",
+            cdn_season, season,
+        )
+
     games: list[ScheduledGame] = []
 
     for game_date_block in league.get("gameDates", []):
@@ -126,7 +137,7 @@ def fetch_future_schedule(
                         away_team_id=int(at["teamId"]),
                         home_tricode=str(ht.get("teamTricode", "")),
                         away_tricode=str(at.get("teamTricode", "")),
-                        season=season,
+                        season=cdn_season,  # CDN es autoritativo (patrón e-0)
                         tip_off_et=tip_off_et,
                     )
                 )

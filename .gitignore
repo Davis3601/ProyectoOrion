@@ -12,4 +12,3 @@ data/
 *.egg-info/
 dist/
 build/
-CLAUDE.md

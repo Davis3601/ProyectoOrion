@@ -370,6 +370,50 @@ class TestBuildDailyPredictions:
                 )
         store.save_raw_injury_report.assert_not_called()
 
+    def test_snapshot_persisted_with_correct_args(self):
+        """Camino feliz: save_raw_injury_report recibe exactamente (date_str, suffix, pdf_bytes).
+
+        Contrato del método 15 (CLAUDE.md):
+          save_raw_injury_report(date_str: str, suffix: str, pdf_bytes: bytes)
+          → persiste en raw/injury_reports/ con nombre date_str + suffix.
+
+        Verifica:
+          (a) se llama exactamente una vez — no hay doble persistencia.
+          (b) date_str = TARGET_DATE.isoformat() — viene del target_date del request,
+              no del reloj del servidor.
+          (c) suffix = el devuelto por discover_latest_snapshot — identifica el corte
+              del PDF; el endpoint no recalcula ni inventa sufijos.
+          (d) pdf_bytes = los mismos bytes descargados por download_snapshot —
+              misma referencia de contenido, no hay re-descarga.
+        """
+        store = _make_store(proba=0.67)
+        # _FeedPatch fija: discover→("https://fake.url/Injury.pdf", "01_15PM"),
+        # download→b"%PDF-fake", parse→([], []).
+        with _FeedPatch([], []):
+            with patch(_CLF_PATCH, return_value=_NULL_FEATURES):
+                build_daily_predictions(
+                    TARGET_DATE, store, season="2026-27",
+                    scheduled_games=[GAME_BOS_LAL], version_name=VERSION,
+                    player_map=PLAYER_MAP, save_injury_raw=True,
+                )
+
+        store.save_raw_injury_report.assert_called_once()
+        args, _ = store.save_raw_injury_report.call_args
+        date_str, suffix, pdf_bytes = args
+
+        # (b) date_str: TARGET_DATE.isoformat() — no date.today()
+        assert date_str == TARGET_DATE.isoformat(), (
+            f"date_str esperado '{TARGET_DATE.isoformat()}', recibido '{date_str}'"
+        )
+        # (c) suffix: proveniente de discover_latest_snapshot, no inventado
+        assert suffix == "01_15PM", (
+            f"suffix esperado '01_15PM' (retornado por discover mock), recibido '{suffix}'"
+        )
+        # (d) pdf_bytes: los mismos bytes del download, sin re-descarga
+        assert pdf_bytes == b"%PDF-fake", (
+            f"pdf_bytes esperado b'%PDF-fake' (retornado por download mock), recibido {pdf_bytes!r}"
+        )
+
     def test_save_raw_failure_does_not_set_feed_down(self):
         """Fallo de save_raw_injury_report → feed_down sigue False (best-effort, 13e-2)."""
         store = _make_store(proba=0.67)

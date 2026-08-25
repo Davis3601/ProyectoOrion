@@ -402,6 +402,7 @@ resolución de la contradicción del e-2:
      temprano/tarde).
    "El feed vive en el endpoint" sigue siendo verdad: el job no alimenta
    ninguna predicción con el PDF — solo archiva RAW, como todo lo demás.
+- [CERRADO 2026-08-25] Fallo de persistencia del snapshot en el endpoint: best-effort idéntico al ingest job — save_raw_injury_report falla → logging.warning, la respuesta se sirve completa e intacta (200). Razón: la misión del endpoint es la predicción; el snapshot es evidencia secundaria. Matiz que descarta el 500: la degradación declarada de 13e-2.5 aplica a la CALIDAD DEL DATO SERVIDO (feed de lesiones no disponible → se declara); aquí el feed ya operó y la predicción es íntegra — fallo de archivo ≠ degradación del dato. Costo aceptado: absences_applied podría referenciar un snapshot no persistido; mitigación: WARNING visible en logs de Cloud Run + el archivo diario independiente del ingest job (dos escritores, almacén idempotente — la pérdida total exige doble fallo).
 
 ### Decisiones de diseño 13e-2 (CERRADAS 2026-08-24)
 

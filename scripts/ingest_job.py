@@ -58,6 +58,7 @@ if TYPE_CHECKING:
 
 
 from nba_predictor.jobs.ingest_logic import (  # noqa: E402
+    _archive_injury_report,
     _check_season_guard,
     _latest_model_metadata,
     _season_from_raw_schedule,
@@ -453,6 +454,11 @@ def main(force_retrain: bool = False, today: date | None = None) -> None:
         save_raw_boxscore_fn=_save_raw_boxscore,
         save_raw_schedule_fn=_save_raw_schedule,
     )
+
+    # ── Paso 1b: archivo best-effort del PDF de injury report ───────────────
+    # Decisión 4 del feed: discover → GET → save_raw. Sin parsear, sin ausencias.
+    # Fallo → WARNING; los pasos 2-3 continúan sin interrupción.
+    _archive_injury_report(ds, today.isoformat())
 
     # ── Paso 2: rebuild de features ─────────────────────────────────────────
     do_rebuild, rebuild_reason = _should_rebuild_features(n_new)

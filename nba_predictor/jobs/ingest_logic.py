@@ -17,8 +17,11 @@ NOTA IMPORTANTE sobre temporadas:
 from __future__ import annotations
 
 import json
+import logging
 from datetime import date
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 
 def _should_retrain(
@@ -98,6 +101,43 @@ def _season_from_raw_schedule(raw: dict) -> str | None:
     ruidosamente en ese caso).
     """
     return raw.get("leagueSchedule", {}).get("seasonYear") or None
+
+
+def _archive_injury_report(
+    store: Any,
+    date_str: str,
+    max_requests: int = 20,
+) -> bool:
+    """Archiva el snapshot del PDF de injury report para date_str.
+
+    Best-effort (Decisión 4 del feed): discover → GET → save_raw.
+    Sin parsear, sin extraer ausencias, sin tocar features.
+    Cualquier excepción se loggea como WARNING y retorna False —
+    el fallo NUNCA bloquea la ingesta de boxscores (misión crítica del job).
+
+    Returns True si se archivó con éxito, False si hubo cualquier error.
+    """
+    try:
+        from nba_predictor.ingestion.injury_report import (
+            discover_latest_snapshot,
+            download_snapshot,
+        )
+
+        url, suffix = discover_latest_snapshot(date_str, max_requests=max_requests)
+        pdf_bytes = download_snapshot(url)
+        store.save_raw_injury_report(date_str, suffix, pdf_bytes)
+        _log.info(
+            "  ✓ Injury report archivado: %s_%s (%d bytes)",
+            date_str, suffix, len(pdf_bytes),
+        )
+        return True
+    except Exception as exc:
+        _log.warning(
+            "  Injury report NO archivado para %s: %s — "
+            "la ingesta continúa sin interrupción.",
+            date_str, exc,
+        )
+        return False
 
 
 def _check_season_guard(

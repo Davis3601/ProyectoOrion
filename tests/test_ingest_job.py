@@ -14,6 +14,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from nba_predictor.jobs.ingest_logic import (
+    _archive_injury_report,
     _check_season_guard,
     _latest_model_metadata,
     _season_from_raw_schedule,
@@ -216,3 +217,124 @@ class TestCheckSeasonGuard:
         # El mensaje debe mencionar ambas temporadas para ayudar en el diagnóstico
         assert "2025-26" in msg
         assert "2026-27" in msg
+
+
+# ---------------------------------------------------------------------------
+# _archive_injury_report — Decisión 4 del feed (best-effort, sin parsear)
+# ---------------------------------------------------------------------------
+
+
+class TestArchiveInjuryReport:
+    """Verifica el comportamiento best-effort de _archive_injury_report.
+
+    La función encapsula discover + download + save_raw; cualquier excepción
+    produce WARNING y retorna False — nunca lanza. Tests con mocks totales:
+    sin acceso a red, sin GCP.
+    """
+
+    def _make_store(self) -> MagicMock:
+        store = MagicMock()
+        store.save_raw_injury_report.return_value = None
+        return store
+
+    def test_success_calls_save_raw_injury_report(self):
+        """Flujo feliz: discover → download → save_raw con argumentos correctos."""
+        # _archive_injury_report importa lazy desde nba_predictor.ingestion.injury_report;
+        # hay que parchear en el módulo de origen.
+        import nba_predictor.ingestion.injury_report as _ir_mod
+        from unittest.mock import patch
+
+        store = self._make_store()
+        pdf_bytes = b"%PDF fake content"
+
+        with (
+            patch.object(_ir_mod, "discover_latest_snapshot", return_value=("https://example.com/report.pdf", "01_15PM")),
+            patch.object(_ir_mod, "download_snapshot", return_value=pdf_bytes),
+        ):
+            result = _archive_injury_report(store, "2026-10-21")
+
+        assert result is True
+        store.save_raw_injury_report.assert_called_once_with(
+            "2026-10-21", "01_15PM", pdf_bytes
+        )
+
+    def test_discover_failure_returns_false_no_raise(self):
+        """RuntimeError en discover → WARNING, retorna False, no lanza."""
+        import nba_predictor.ingestion.injury_report as _ir_mod
+        from unittest.mock import patch
+
+        store = self._make_store()
+        with patch.object(
+            _ir_mod,
+            "discover_latest_snapshot",
+            side_effect=RuntimeError("budget agotado"),
+        ):
+            result = _archive_injury_report(store, "2026-10-21")
+
+        assert result is False
+        store.save_raw_injury_report.assert_not_called()
+
+    def test_download_failure_returns_false_no_raise(self):
+        """Error de red en download → WARNING, retorna False, no lanza."""
+        import nba_predictor.ingestion.injury_report as _ir_mod
+        from unittest.mock import patch
+        import requests
+
+        store = self._make_store()
+        with (
+            patch.object(
+                _ir_mod,
+                "discover_latest_snapshot",
+                return_value=("https://example.com/report.pdf", "01_15PM"),
+            ),
+            patch.object(
+                _ir_mod,
+                "download_snapshot",
+                side_effect=requests.exceptions.ConnectionError("timeout"),
+            ),
+        ):
+            result = _archive_injury_report(store, "2026-10-21")
+
+        assert result is False
+        store.save_raw_injury_report.assert_not_called()
+
+    def test_save_failure_returns_false_no_raise(self):
+        """Fallo al escribir en el store → WARNING, retorna False, no lanza."""
+        import nba_predictor.ingestion.injury_report as _ir_mod
+        from unittest.mock import patch
+
+        store = self._make_store()
+        store.save_raw_injury_report.side_effect = OSError("disco lleno")
+        pdf_bytes = b"%PDF fake content"
+
+        with (
+            patch.object(
+                _ir_mod,
+                "discover_latest_snapshot",
+                return_value=("https://example.com/report.pdf", "01_15PM"),
+            ),
+            patch.object(_ir_mod, "download_snapshot", return_value=pdf_bytes),
+        ):
+            result = _archive_injury_report(store, "2026-10-21")
+
+        assert result is False
+
+    def test_failure_emits_warning_not_error(self, caplog):
+        """El fallo produce WARNING en el log, no ERROR ni excepción."""
+        import logging
+        import nba_predictor.ingestion.injury_report as _ir_mod
+        from unittest.mock import patch
+
+        store = self._make_store()
+        with (
+            patch.object(
+                _ir_mod,
+                "discover_latest_snapshot",
+                side_effect=RuntimeError("no existe el PDF"),
+            ),
+            caplog.at_level(logging.WARNING, logger="nba_predictor.jobs.ingest_logic"),
+        ):
+            _archive_injury_report(store, "2026-10-21")
+
+        assert any("injury report" in r.message.lower() for r in caplog.records)
+        assert all(r.levelno <= logging.WARNING for r in caplog.records if "injury" in r.message.lower())

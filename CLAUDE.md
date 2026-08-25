@@ -448,6 +448,8 @@ por defecto y Cloud Run lo reserva → setear N8N_ENDPOINT_HEALTH. VM
 e2-small DEGRADADA a fallback documentado (fricción inesperada del
 serverless). Trigger de upgrade de la Decisión 11 intacto (webhooks de
 pago reales → reevaluar min=1 contra ingresos).
+- [CERRADO 2026-08-25] Cloud SQL para n8n: instancia n8n-db (POSTGRES_16, Enterprise, db-f1-micro, us-south1-b, HDD 10GB, zonal, backups ON, PITR OFF, deletion-protection ON). IP pública 34.174.135.115 sin redes autorizadas — acceso solo vía conector Cloud SQL/IAM. Password de postgres fijado por prompt interactivo (nunca en historial ni en contexto LLM); destino: Secret Manager (paso 3). Costo estimado: ~$9-10 USD/mes, partida dominante de los $10-13 previstos.
+- [CERRADO 2026-08-25] Secret Manager: primeros secretos reales del proyecto. n8n-db-password (password de postgres de n8n-db) y n8n-encryption-key (32 bytes hex generados con RNG criptográfico de .NET, nunca vista en pantalla), ambos versión 1, replicación automática. Carga vía archivo temporal ASCII con -NoNewline (evita trampa UTF-16 del > en PowerShell 5) + borrado inmediato + Clear-History. Regla operativa: los valores jamás se imprimen ni entran en contexto LLM; verificación solo estructural (versions list). La encryption-key se fija ANTES del primer arranque de n8n para evitar el bug clásico de key autogenerada + min-instances=0 que corrompe credenciales cifradas.
 
 **13e-2.4 — Validación antes de comercialización (dos fases, UN sistema).**
 Fase de VALIDACIÓN (octubre →): se construye TODO el pipeline de
@@ -474,6 +476,7 @@ Cloud SQL db-f1-micro, único costo fijo que no escala a cero); escenario
 negativo del experimento oct-dic ~$40; techo con colchón $60. Salida
 limpia: apagar Cloud SQL + n8n → <$5/mes en minutos. TAREA DE DESPLIEGUE:
 budget alert GCP a $25/mes (avisos 50/90/100%).
+- [CERRADO 2026-08-25] Budget alert GCP: 470 MXN/mes (≈ $25 USD, ago-2026) sobre predictorsnonprod, umbrales 50/90/100%, avisos por email a admins de facturación. Recurso: billingAccounts/01A1EE-508485-380FE5/budgets/ecdf594a-fa3c-4533-828e-a7f4a6647032. Hallazgo: la API de budgets exige la moneda de la cuenta (MXN); 25USD produjo INVALID_ARGUMENT sin detalle de campo. Referencia mental sigue en USD ($10-13/mes esperado, techo $60 experimento).
 
 **13e-2.5 — Días degradados: degradación DECLARADA, jamás silenciosa;
 umbral bajo el cual no se predice.**

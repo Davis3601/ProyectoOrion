@@ -61,26 +61,6 @@ class _ModelCachedStore:
 # ---------------------------------------------------------------------------
 
 
-def _discover_latest_version() -> str:
-    """Versión más reciente del registry. Env NBA_PREDICTOR_MODEL_VERSION si presente."""
-    env_ver = os.getenv("NBA_PREDICTOR_MODEL_VERSION")
-    if env_ver:
-        return env_ver
-
-    from nba_predictor.config import settings
-    from nba_predictor.models.registry import VERSION_PREFIX
-
-    models_dir = settings.processed_dir.parent / "models"
-    if not models_dir.exists():
-        raise FileNotFoundError(f"Directorio de modelos no encontrado: {models_dir}")
-    versions = sorted(
-        p.name for p in models_dir.glob(f"{VERSION_PREFIX}_*") if p.is_dir()
-    )
-    if not versions:
-        raise FileNotFoundError(f"Sin versiones de modelo en {models_dir}")
-    return versions[-1]
-
-
 def _current_season() -> str:
     """Temporada activa. Env NBA_PREDICTOR_SEASON si presente; si no, derivada de la fecha."""
     env_season = os.getenv("NBA_PREDICTOR_SEASON")
@@ -111,7 +91,9 @@ def _parse_date(date_str: str | None) -> date:
 async def lifespan(app: FastAPI):
     _log.info("Startup: inicializando DataStore y cargando modelo...")
     store = get_datastore()
-    version_name = _discover_latest_version()
+    # Env var NBA_PREDICTOR_MODEL_VERSION fija la versión en despliegues pinados;
+    # si no está presente, el store descubre la más reciente (local o GCS).
+    version_name = os.getenv("NBA_PREDICTOR_MODEL_VERSION") or store.get_latest_model_version()
     pipeline, metadata = store.load_model(version_name)
     app.state.store = _ModelCachedStore(store, pipeline, metadata)
     app.state.version_name = version_name

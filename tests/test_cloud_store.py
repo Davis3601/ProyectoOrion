@@ -928,3 +928,88 @@ class TestIntegration:
             proba_original, proba_loaded, decimal=10,
             err_msg="Las probabilidades del pipeline cargado difieren del original",
         )
+
+
+# ---------------------------------------------------------------------------
+# Tests de get_latest_model_version (Método 16 — ambos adapters)
+# ---------------------------------------------------------------------------
+
+
+class TestGetLatestModelVersion:
+    """Método 16 del contrato DataStore: versión más reciente del registry."""
+
+    # ── LocalDataStore ──────────────────────────────────────────────────────
+
+    def test_local_returns_latest_when_multiple_versions(self, tmp_path: Path):
+        """LocalDataStore retorna la versión más reciente (mayor fecha ISO)."""
+        from nba_predictor.models.registry import VERSION_PREFIX
+        from nba_predictor.storage.local import LocalDataStore
+
+        ds = LocalDataStore(
+            db_path=tmp_path / "nba.sqlite",
+            raw_dir=tmp_path / "raw",
+            processed_dir=tmp_path / "processed",
+        )
+        # Crear dos versiones en el registry local
+        (ds._models_dir / f"{VERSION_PREFIX}_2026-08-15").mkdir(parents=True)
+        (ds._models_dir / f"{VERSION_PREFIX}_2026-08-22").mkdir(parents=True)
+
+        assert ds.get_latest_model_version() == f"{VERSION_PREFIX}_2026-08-22"
+
+    def test_local_empty_registry_raises(self, tmp_path: Path):
+        """LocalDataStore lanza FileNotFoundError si el registry está vacío."""
+        from nba_predictor.storage.local import LocalDataStore
+
+        ds = LocalDataStore(
+            db_path=tmp_path / "nba.sqlite",
+            raw_dir=tmp_path / "raw",
+            processed_dir=tmp_path / "processed",
+        )
+        # _models_dir no existe: no se ha guardado ningún modelo
+        with pytest.raises(FileNotFoundError, match="registry"):
+            ds.get_latest_model_version()
+
+    # ── CloudDataStore ──────────────────────────────────────────────────────
+
+    def test_cloud_returns_latest_from_gcs(self):
+        """CloudDataStore extrae la versión más reciente de los blobs de GCS."""
+        from nba_predictor.models.registry import VERSION_PREFIX
+
+        v_old = f"{VERSION_PREFIX}_2026-08-15"
+        v_new = f"{VERSION_PREFIX}_2026-08-22"
+
+        class _Blob:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+        mock_gcs = MagicMock()
+        mock_gcs.bucket.return_value.list_blobs.return_value = [
+            _Blob(f"models/{v_old}/model.joblib"),
+            _Blob(f"models/{v_old}/metadata.json"),
+            _Blob(f"models/{v_new}/model.joblib"),
+            _Blob(f"models/{v_new}/metadata.json"),
+        ]
+
+        ds = CloudDataStore(
+            project_id=PROJECT,
+            dataset=DATASET,
+            bucket_name=BUCKET,
+            _bq_client=MagicMock(),
+            _gcs_client=mock_gcs,
+        )
+        assert ds.get_latest_model_version() == v_new
+
+    def test_cloud_empty_registry_raises(self):
+        """CloudDataStore lanza FileNotFoundError si GCS no tiene versiones."""
+        mock_gcs = MagicMock()
+        mock_gcs.bucket.return_value.list_blobs.return_value = []
+
+        ds = CloudDataStore(
+            project_id=PROJECT,
+            dataset=DATASET,
+            bucket_name=BUCKET,
+            _bq_client=MagicMock(),
+            _gcs_client=mock_gcs,
+        )
+        with pytest.raises(FileNotFoundError):
+            ds.get_latest_model_version()

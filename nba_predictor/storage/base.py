@@ -105,6 +105,18 @@ class DataStore(ABC):
         """
         ...
 
+    @abstractmethod
+    def get_latest_model_version(self) -> str:
+        """Devuelve el version_name más reciente del registry.
+
+        Criterio: orden lexicográfico del nombre de versión (v1_logistic_bclean_YYYY-MM-DD),
+        que coincide con orden cronológico gracias al formato ISO 8601 de la fecha.
+
+        Registry vacío o inaccesible → FileNotFoundError con mensaje claro.
+        Nunca devuelve None silencioso.
+        """
+        ...
+
     # ----- Utilidad -----
 
     @abstractmethod

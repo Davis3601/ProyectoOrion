@@ -269,6 +269,26 @@ class LocalDataStore(DataStore):
         from nba_predictor.models.registry import load_version
         return load_version(self._models_dir, version_name)
 
+    def get_latest_model_version(self) -> str:
+        """Versión más reciente del registry local (data/models/).
+
+        Falla ruidosamente si el directorio no existe o está vacío.
+        """
+        from nba_predictor.models.registry import VERSION_PREFIX
+
+        if not self._models_dir.exists():
+            raise FileNotFoundError(
+                f"No hay versiones de modelo en el registry: {self._models_dir}"
+            )
+        versions = sorted(
+            p.name for p in self._models_dir.glob(f"{VERSION_PREFIX}_*") if p.is_dir()
+        )
+        if not versions:
+            raise FileNotFoundError(
+                f"No hay versiones de modelo en el registry: {self._models_dir}"
+            )
+        return versions[-1]
+
     def load_player_game_stats(
         self,
         season: str | None = None,

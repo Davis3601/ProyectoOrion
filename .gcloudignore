@@ -1,0 +1,40 @@
+# Controla qué sube a Cloud Build al hacer gcloud builds submit.
+# Sin este archivo gcloud usaría .gitignore — que excluye data/ y .venv/
+# pero NO tests/ ni notebooks/. Con .gcloudignore el comportamiento es explícito.
+#
+# La imagen solo necesita: nba_predictor/, requirements.lock, Dockerfile.api
+# (y Dockerfile / cloudbuild.api.yaml para que Cloud Build los encuentre).
+
+# Datos locales — en producción vienen de GCS/BigQuery
+data/
+
+# Tests y fixtures — no necesarios en la imagen
+tests/
+.venv/
+
+# Notebooks y artefactos de exploración
+notebooks/
+
+# Secretos — nunca en el contexto de build
+.env
+.env.*
+
+# Control de versiones
+.git/
+.gitignore
+
+# Cachés de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Cachés de herramientas de desarrollo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Artefactos de build de Python
+*.egg-info/
+dist/
+build/

@@ -57,16 +57,14 @@ def _mock_store() -> MagicMock:
     pipeline = MagicMock()
     pipeline.predict_proba.return_value = [[0.33, 0.67]]
     store.load_model.return_value = (pipeline, {"version": VERSION})
+    store.get_latest_model_version.return_value = VERSION
     return store
 
 
 @contextmanager
 def _running_client(raise_server_exceptions: bool = True):
     """TestClient con startup mockeado (sin acceso a disco ni modelo real)."""
-    with (
-        patch("nba_predictor.api.server.get_datastore", return_value=_mock_store()),
-        patch("nba_predictor.api.server._discover_latest_version", return_value=VERSION),
-    ):
+    with patch("nba_predictor.api.server.get_datastore", return_value=_mock_store()):
         with TestClient(_server.app, raise_server_exceptions=raise_server_exceptions) as c:
             yield c
 
@@ -164,3 +162,27 @@ class TestHealth:
             finally:
                 _server.app.state.version_name = original
         assert resp.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# Guard de acoplamiento-cero
+# ---------------------------------------------------------------------------
+
+
+class TestAcoplamientoCero:
+    def test_server_py_no_contiene_data_models(self):
+        """server.py no debe referenciar data/models — violación del acoplamiento-cero.
+
+        Guard barato contra regresión del bug de arranque en Cloud Run:
+        FileNotFoundError: Directorio de modelos no encontrado: data/models.
+        La versión la descubre el DataStore, no el servidor.
+        """
+        from pathlib import Path
+
+        content = (
+            Path(__file__).parent.parent / "nba_predictor" / "api" / "server.py"
+        ).read_text(encoding="utf-8")
+        assert "data/models" not in content, (
+            "server.py contiene referencia directa a 'data/models' — "
+            "usa store.get_latest_model_version() en su lugar"
+        )

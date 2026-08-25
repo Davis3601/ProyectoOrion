@@ -1,0 +1,25 @@
+# Cloud Build para el Cloud Run Service de predicciones (Dockerfile.api).
+# Existe porque "gcloud builds submit --tag" solo ve "Dockerfile" por defecto;
+# este yaml apunta explícitamente a Dockerfile.api (Decisión 7: un Dockerfile
+# por artefacto).
+#
+# Uso:
+#   gcloud builds submit --config cloudbuild.api.yaml --project=predictorsnonprod
+#   gcloud builds submit --config cloudbuild.api.yaml --project=predictorsnonprod \
+#       --substitutions=_VERSION=v2
+
+substitutions:
+  _VERSION: v1   # sobrescribir con --substitutions=_VERSION=v2 para futuras versiones
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile.api
+      - -t
+      - us-south1-docker.pkg.dev/predictorsnonprod/nba-predictor/predictions-api:$_VERSION
+      - .
+
+images:
+  - us-south1-docker.pkg.dev/predictorsnonprod/nba-predictor/predictions-api:$_VERSION

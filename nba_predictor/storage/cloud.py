@@ -434,6 +434,31 @@ class CloudDataStore(DataStore):
             self._gcs_path(_gcs_injury_report_path(date_str, suffix))
         ).upload_from_string(pdf_bytes, content_type="application/pdf")
 
+    def get_latest_model_version(self) -> str:
+        """Versión más reciente del registry en GCS (gs://{bucket}/models/).
+
+        Lista todos los blobs bajo el prefijo models/, extrae los nombres de
+        directorio de versión y devuelve el mayor (orden lexicográfico ==
+        cronológico gracias al formato YYYY-MM-DD del sufijo).
+
+        Falla ruidosamente si no hay ninguna versión.
+        """
+        from nba_predictor.models.registry import VERSION_PREFIX
+
+        prefix = self._gcs_path("models/")
+        blobs = list(self._gcs.bucket(self.bucket_name).list_blobs(prefix=prefix))
+        versions: set[str] = set()
+        for blob in blobs:
+            rel = blob.name[len(prefix):]       # "v1_logistic_bclean_YYYY-MM-DD/model.joblib"
+            parts = rel.split("/")
+            if parts[0].startswith(VERSION_PREFIX) and len(parts) > 1:
+                versions.add(parts[0])
+        if not versions:
+            raise FileNotFoundError(
+                f"No hay versiones de modelo en gs://{self.bucket_name}/{prefix}"
+            )
+        return sorted(versions)[-1]
+
     def load_model(self, version_name: str) -> tuple[Any, dict]:
         bucket = self._gcs.bucket(self.bucket_name)
 

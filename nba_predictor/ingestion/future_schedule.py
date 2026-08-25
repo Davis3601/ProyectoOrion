@@ -99,10 +99,12 @@ def fetch_future_schedule(
 
     for game_date_block in league.get("gameDates", []):
         for g in game_date_block.get("games", []):
-            # Solo temporada regular; el CDN puede devolver el tipo como int o str
-            if g.get("gameType") not in (2, "2"):
+            # Gramática del gameId: 001=preseason, 002=regular season, 006=other.
+            # El payload CDN NO expone campo gameType — el prefijo es la única señal.
+            # Los 14 429 partidos históricos y el scheduleLeagueV2 real confirman la gramática.
+            if not str(g.get("gameId", "")).startswith("002"):
                 continue
-            # Excluir partidos finalizados
+            # Excluir partidos finalizados; 1=programado y 2=en curso se incluyen.
             if g.get("gameStatus") == _STATUS_FINISHED:
                 continue
 

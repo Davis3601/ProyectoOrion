@@ -671,6 +671,30 @@ class TestFormatDailyMessage:
         )
         assert format_daily_message(result).startswith("🏀 Predicciones NBA · ")
 
+    # ── Ordenamiento por tip-off ──
+
+    def test_games_sorted_by_tip_off_ascending_no_hour_last(self):
+        """format_daily_message ordena por tip-off ascendente; sin hora al final.
+
+        La entrada está deliberadamente desordenada para verificar que la función
+        reordena, sin depender del orden del DailyResult entrante.
+        Hora numérica: "7:30 CDMX" < "17:30 CDMX" (no alfanumérico).
+        """
+        result = DailyResult(
+            target_date="2026-10-21",
+            games=[
+                _make_gp_ok("LAL", "GSW", 0.55, tip_off_cdmx="20:00 CDMX"),  # 3er partido
+                _make_gp_ok("BOS", "MIA", 0.60, tip_off_cdmx="17:30 CDMX"),  # 1er partido
+                _make_gp_ok("DEN", "OKC", 0.52),                               # sin hora → al final
+            ],
+            feed_down=False, feed_down_reason=None, model_version=VERSION,
+        )
+        msg = format_daily_message(result)
+        pos_1730 = msg.index("17:30 CDMX")
+        pos_2000 = msg.index("20:00 CDMX")
+        pos_den = msg.index("OKC @ DEN")  # sin hora, aparece después de los dos con hora
+        assert pos_1730 < pos_2000 < pos_den
+
 
 # ---------------------------------------------------------------------------
 # Impresión de mensajes para auditoría visual

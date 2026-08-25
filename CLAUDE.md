@@ -7,7 +7,12 @@ cerradas y el "Roadmap post-Fase 3" NUNCA se eliminan ni se reescriben al
 actualizar — solo se les añaden bloques de RESULTADO al final o marcas ✅.
 Este roadmap ya se perdió dos veces en reestructuraciones; no repetir.
 
-## PUNTO DE ENTRADA — dónde estamos ahora (2026-08-24)
+**FUENTE ÚNICA DE VERDAD:** este archivo es el único documento canónico del
+proyecto. Cualquier archivo de memoria automática de Claude Code es cache
+derivado: si contradice a este documento, este documento gana, y Code
+corrige el derivado — jamás al revés.
+
+## PUNTO DE ENTRADA — dónde estamos ahora (2026-08-25)
 
 **FASES 3, 4 Y 5a CERRADAS ✅. Modelo oficial: Logística B-limpia (0.63138
 LL / 64.5% acc / Brier 0.22064). Fase 5b: Decisiones 1-11 + decisiones del
@@ -15,8 +20,11 @@ feed CERRADAS. 13d DESPLEGADA Y VERIFICADA — el sistema corre autónomo (7/7
 corridas, `v1_logistic_bclean_2026-08-22` por cadencia). e-0 ✅. 13e-1 ✅
 CERRADA (2026-08-24) — parser por coordenadas (`extract_words()`), 91 tests
 (incl. cruce PDF↔JSON sin espacios), conteos auditados (73/17, 160/3),
-regla de parada activada y honrada. Siguiente: 13e-2 — endpoint
-"predicciones del día" (Cloud Run Service) + n8n + canal Telegram.**
+regla de parada activada y honrada. **13e-2: núcleo DESPLEGADO ✅
+(2026-08-25)** — endpoint v5 en producción (Cloud Run Service
+`predictions-api`), primer mensaje real verificado con 11 partidos reales
+del oracle, 5 capas de supuestos del entorno local cobradas. Siguiente:
+integración feed/job (Decisión 4), predictions_log, n8n, canal Telegram.**
 
 **RESTRICCIÓN DE CALENDARIO (offseason):** la temporada 2026-27 arranca en
 octubre. Hito de la primera predicción real: primera semana de octubre. El
@@ -26,7 +34,7 @@ desplegado y rodado ANTES de octubre (ver Fase 6, hosting).
 Arco de resultados: Trivial 0.68917 → ELO 0.63819 (vara) → **Logística
 B-limpia 0.63138 ✅** → XGBoost 0.63642. Conclusión central: **la señal es
 lineal en las features-diferencia; mejorar = mejores features, no mejores
-modelos.** 
+modelos.**
 
 En disco: features_v1.parquet ✅, models/ ✅, future_schedule ✅,
 live_lookup ✅, predict_game ✅, predict_tonight ✅, test_live_equivalence ✅
@@ -35,9 +43,11 @@ cdn_client.py ✅ (dual-URL), injury_report.py ✅ (13e-1 CERRADA). En la
 nube: RAW completo + schedules diarios en GCS, 4 tablas BigQuery
 (equivalencia exacta), features en GCS (idénticas), registry con
 `v1_logistic_bclean_2026-08-22` (modelo generado por el job en cadencia),
-imagen v2 en Artifact Registry, `nba-ingest-job` + Scheduler ENABLED.
-NO existe aún: api/ (13e-2), canal de Telegram, n8n. `injury_report.py`
-integrado al job y al endpoint en 13e-2.
+imagen v2 del job en Artifact Registry, `nba-ingest-job` + Scheduler
+ENABLED, **`predictions-api` v5 (Cloud Run Service, auth IAM)**.
+NO existe aún: canal de Telegram, n8n, predictions_log, archivo del PDF en
+el job. `injury_report.py` integrado al endpoint (feed en vivo) ✅; archivo
+en el job pendiente (Decisión 4 del feed).
 
 ## Objetivo del proyecto
 
@@ -228,15 +238,13 @@ ESCRITURA — la tabla física ES el estado limpio. Descartados
 delete-and-insert y append+dedup-en-lectura.
 
 ### Decisión 4 — Layout GCS y nombres
-
-````
 gs://{bucket}/
-├── raw/boxscores/{game_id}.json           # legacy stats.nba.com (histórico)
-├── raw/boxscores_live/{game_id}.json      # CDN (2026-27+)
+├── raw/boxscores/{game_id}.json # legacy stats.nba.com (histórico)
+├── raw/boxscores_live/{game_id}.json # CDN (2026-27+)
 ├── raw/schedules/scheduleLeagueV2_{fecha}.json
+├── raw/injury_reports/ # PDFs oficiales (método 15; 13e-1)
 ├── features/features_{version}.parquet
 └── models/{version_name}/
-````
 
 **Entorno real:** proyecto `predictorsnonprod` (UN SOLO proyecto — decisión
 explícita: dev/prod lo da la arquitectura, mode=local vs mode=cloud;
@@ -288,6 +296,8 @@ en su primer disparo — invocar un job es permiso distinto de ejecutarlo.
 Lección: la SA lleva dos sombreros (identidad DEL job / identidad que LO
 invoca). Secret Manager diferido → **saldrá del diferimiento con el token
 del bot de Telegram (primer secreto real; 13e-2).**
+**+ `roles/bigquery.readSessionUser` a nivel proyecto (añadido 2026-08-25,
+blindaje preventivo):** ver capa 5 de la cebolla en el RESULTADO 13e-2.
 
 ### Decisión 9 — Migrar ingesta a CDN/S3 (stats.nba.com bloqueado en cloud)
 
@@ -350,6 +360,7 @@ Stripe/Telegram reintentan — el costo real es latencia, no pérdida).
 reales → reevaluar min-instances=1/recursos dedicados, contrastando contra
 ingresos, no contra el presupuesto <$5 del sistema predictivo.** Variante
 concreta: diferida al despliegue (pre-octubre).
+→ **RESUELTA (2026-08-24): ver Decisión 13e-2.3.**
 
 ### Decisiones del feed de injury report (CERRADAS 2026-08-22)
 
@@ -484,7 +495,7 @@ umbral bajo el cual no se predice.**
    se publica contenido predictivo — no hay predicción confiable que
    degradar. Endpoint falla ruidosamente (500 + log); la rama de error
    del workflow publica aviso honesto de problema técnico.
-   
+
 ## Fase 6 — Monetización y bot de Telegram (DOCUMENTADA 2026-08-19 — NO IMPLEMENTAR)
 
 Capa NUEVA sobre el sistema predictivo; no modifica ingesta, features,
@@ -530,7 +541,7 @@ Cloud Run que n8n invoca vía HTTP. NUNCA lógica financiera (ni del modelo)
 en workflows.** El nodo AI Agent de n8n NO recibe herramientas de escritura
 ni acceso a pagos/permisos — solo lectura de estado y conversación.
 Secretos en n8n solo para APIs no críticas; llaves privadas JAMÁS en n8n.
-Hosting: Decisión 11.
+Hosting: Decisión 11 → resuelta en 13e-2.3.
 
 ### Seguridad y aislamiento del LLM (CERRADO)
 El LLM nunca tiene autoridad sobre acciones sensibles: interpreta
@@ -557,7 +568,7 @@ grant/revoke → Canal privado (predicciones diarias vía endpoint, Dec. 10).
 
 ### Decisiones pendientes de Fase 6 (orden)
 **P1:** red USDC definitiva (Base/Polygon/Solana); proveedor de wallets;
-custodia vs self-custody. [Hosting n8n: resuelto — Decisión 11.]
+custodia vs self-custody. [Hosting n8n: resuelto — 13e-2.3.]
 **P2:** HD wallets/derivación; consolidación a tesorería; detección
 on-chain y nº de confirmaciones; expiración de payment_requests.
 **P3:** framework Python y BD del backend; renovaciones/revocación
@@ -796,7 +807,8 @@ SIMÉTRICA en `_normalize_name` (split de CamelCase en ambos lados de la
 comparación). **Pendiente nombrado para 13e-2:** frontera de traducción
 token-PDF → equipo canónico del sistema al cruzar ausencias contra el
 schedule CDN (el endpoint NO debe asumir que "ChicagoBulls" == equipo del
-schedule sin pasar por la normalización). **✅ Verificación añadida (2026-08-24):** `test_camelcase_pdf_token_matches_json_player_name`
+schedule sin pasar por la normalización). **✅ Verificación añadida
+(2026-08-24):** `test_camelcase_pdf_token_matches_json_player_name`
 cruza lado-JSON "Yanic Konan Niederhauser" contra lado-PDF
 "Niederhauser,YanicKonan" por la cascada completa `NameIndex.match()`. Pass.
 
@@ -828,6 +840,102 @@ embebida; + 1 cruce PDF↔JSON sin espacios). Suite total: **402 passed,
 facto, formalizar algún día).
 Script temporal de verificación borrado.
 
+**RESULTADO (2026-08-25) — 13e-2 NÚCLEO DESPLEGADO Y VERIFICADO ✅ — endpoint
+en producción, primer mensaje real del sistema:**
+
+**Desplegado:** Cloud Run Service `predictions-api` (us-south1, imagen v5,
+`--no-allow-unauthenticated`, 1Gi, NBA_PREDICTOR_MODE=cloud), SA
+`predictions-api-sa` de LECTURA (asimetría deliberada con ingest-job-sa:
+storage.objectUser en bucket, bigquery.jobUser, READER del dataset vía ACL
+legacy, bigquery.readSessionUser a nivel proyecto). `cloudbuild.api.yaml`
+(el --tag default no ve Dockerfile.api; substitution _VERSION) +
+`.gcloudignore` explícito (antes: fallback a .gitignore que dejaba pasar
+.git/ y dependía de él para .env). Verificado: /health desde la nube con
+model_version del registry GCS (método 16 en producción); 401 de IAM ante
+token expirado (la muralla verifica ANTES de tocar el código — decisión
+13e-2.2 comprobada); dual-URL en vivo (frontal 403 → S3, el monitor diario
+operando).
+
+**LA CEBOLLA DE 5 CAPAS — cada supuesto del entorno local cobrado en una
+tarde (2026-08-25). Regla que las une: el camino en vivo JAMÁS había
+corrido fuera de la laptop; cada capa era invisible hasta la primera
+ejecución real desde datacenter:**
+1. **Filesystem local:** `_discover_latest_version()` leía `data/models/`
+   → FileNotFoundError en Cloud Run. FIX: método 16 del DataStore
+   (`get_latest_model_version`, ambos adapters) + guarda de acoplamiento
+   cero (test que falla si "data/models" reaparece en server.py).
+   LIMITACIÓN NOMBRADA: en cloud ordena por nombre de blob (lexicográfico
+   ≡ cronológico solo mientras el prefijo sea v1_...); corregir a
+   fecha-del-metadata ANTES de cualquier segundo modelo.
+   `NBA_PREDICTOR_MODEL_VERSION` como pin manual opcional.
+2. **Fuente muerta (Decisión 9 incompleta):** `future_schedule.py` usaba
+   ScheduleLeagueV2 → stats.nba.com (bloqueado en datacenter — la causa
+   raíz de la Decisión 9, que migró ingesta pero NO el camino en vivo).
+   FIX: migrado a CDNClient. Fecha fuera de ventana = escenario 1, no
+   excepción. nba_api queda solo en nba_client.py (legacy reconstrucción)
+   y predict_game.py (CLI local) — deuda de limpieza nombrada.
+3. **Reloj vs target_date (gemelo e-0):** `_current_season()` derivaba de
+   `date.today()` — agosto→"2025-26" para un request de octubre 2026.
+   Dormido el 95% del año; despierta EXACTAMENTE en la frontera de
+   temporada (la semana del hito). FIX: derivar de target_date + el
+   payload CDN gana (patrón e-0). Guarda:
+   test_october_target_date_not_today_bug. REGLA: la temporada se deriva
+   del target_date y se corrige contra el payload — jamás del reloj,
+   jamás de config.
+4. **Vocabulario del documento equivocado:** el filtro usaba `gameType`,
+   campo que scheduleLeagueV2 NO TIENE (es vocabulario de boxscores); los
+   fixtures sintéticos codificaron el error → 22 tests en verde sobre un
+   filtro que descartaba el 100% de los partidos en producción. FIX:
+   filtrar regular season por PREFIJO de gameId ("002"; 001=preseason);
+   incluir gameStatus 1 (programado); fixtures REALES recortados del
+   scheduleLeagueV2 archivado (misma regla que los PDF de 13e-1: el
+   fixture desciende del documento verdadero). Guarda numérica:
+   21-oct-2026 → exactamente 11 partidos. HALLAZGO del payload real:
+   `gameDateTimeEst` trae sufijo Z pero la hora es ET (gameDateTimeUTC
+   difiere 4h; gameStatusText lo confirma) — el Z es DECORATIVO; jamás
+   tratar ese campo como UTC o los tip-offs CDMX se corren en silencio.
+   `gameDateEst` trae hora 00:00 siempre — solo sirve para la fecha.
+5. **Tercer permiso de BigQuery:** `to_dataframe()` con
+   bigquery-storage instalado usa la Storage Read API →
+   `bigquery.readsessions.create`, que NO viene con jobUser ni con READER
+   del dataset. FIX: `roles/bigquery.readSessionUser` a nivel proyecto
+   (solo habilita el transporte; el ACL del dataset sigue gobernando qué
+   se lee). **BLINDAJE PREVENTIVO: ingest-job-sa recibió el mismo rol —
+   su paso 2 (rebuild de features, que LEE con este camino) se ha saltado
+   las 7/7 corridas por offseason; habría fallado la primera mañana de
+   octubre con partidos. El endpoint le encontró el bug al job dos meses
+   antes.**
+
+**TRAMPAS WINDOWS/GCP DEL DESPLIEGUE (recetas pagadas):**
+- `bq add-iam-policy-binding` a dataset requiere allowlist → camino
+  operativo: ACL legacy vía `bq show/update` (READER ≡ dataViewer).
+- El `>` de PS5 escribe UTF-16; bq exige UTF-8 sin BOM → `WriteAllText`
+  con `UTF8Encoding($false)`.
+- `Get-Content f | Set-Content f` se autobloquea (pipeline streaming) →
+  leer con -Raw primero.
+- PS5 decodifica respuestas HTTP como Latin-1 → mojibake en consola NO
+  implica bug del servidor; auditar con RawContentStream + UTF-8. (El
+  servidor envía UTF-8 correcto — verificado byte a byte.)
+
+**PRIMER MENSAJE REAL (2026-08-25, auditado contra el formato congelado):**
+`?date=2026-10-21` → 200 con los 11 partidos exactos del oracle
+(scheduleLeagueV2 archivado), tip-offs CDMX verificados (7:30 pm ET →
+17:30 CDMX), probabilidades plausibles del rolling de abril (caso "roster
+change v0: aceptar lag"), feed_down declarado con razón ejemplar (20
+intentos + sufijos probados — el injury report de una fecha futura no
+existe aún, comportamiento correcto), model_version poblado, disclaimer y
+línea de modelo en su sitio. Ajuste cosmético aplicado: partidos ordenados
+por tip-off. PENDIENTE del alcance 13e-2 (nada toca el pipeline
+predictivo): archivo del PDF en ingest_job (Decisión 4 del feed),
+persistencia del snapshot desde el endpoint, predictions_log, n8n, canal.
+
+**MORALEJA (elevada a principio):** cinco capas, un patrón — supuestos del
+entorno local (filesystem, red residencial, reloj, fixtures sintéticos,
+permisos implícitos) invisibles para 490 tests en verde. Desplegar en
+agosto los cobró todos en una tarde con calma; octubre los habría cobrado
+como cinco incidentes con público. El despliegue temprano ES una
+herramienta de testing.
+
 ### Fase 6 — Monetización + agente (documentada; NO implementar)
 Especificación completa en la sección "Fase 6" de decisiones (arriba).
 El agente LLM original queda dentro: capa de explicación/interacción sobre
@@ -852,38 +960,44 @@ scalers y early stopping: solo pasado, por fold. Lookup vivo vs vectorizada
 ✅. CloudDataStore vs LocalDataStore ✅. Parser CDN vs SQLite oracle ✅.
 Parser de injury report: auditoría humana del listado vs PDF (protocolo
 de la 13e-1) — los invariantes automáticos NO detectan misatribución.
+La temporada del camino en vivo se deriva del target_date y se corrige
+contra el payload CDN — jamás del reloj, jamás de config.
 
 ## Arquitectura y principios
 
 RAW → STRUCTURED (SQLite/BigQuery) → FEATURES (Parquet) → MODELS (registry)
-→ [Fase 6: n8n + Backend suscripciones]. GCP: Cloud Run Job ✅ + Service
-(13e-2) + GCS + BigQuery + Artifact Registry ✅ + Secret Manager (entra con
-el token de Telegram). DataStore (Repository) + factory; idempotencia;
-config-driven; fallar ruidosamente; stats crudas; adapter/lógica separados
-(patrón extendido a n8n/Python en Fase 6).
+→ [Fase 6: n8n + Backend suscripciones]. GCP: Cloud Run Job ✅ + Service ✅
+(predictions-api) + GCS + BigQuery + Artifact Registry ✅ + Secret Manager
+(entra con el token de Telegram). DataStore (Repository) + factory;
+idempotencia; config-driven; fallar ruidosamente; stats crudas;
+adapter/lógica separados (patrón extendido a n8n/Python en Fase 6).
 
 ## Estructura de archivos
 nba_predictor/
 ├── config.py # Settings + temporadas + rolling + ELO + LOGREG_C + RETRAIN_CADENCE_DAYS + GCP
-├── storage/ # base, local ✅ · cloud ✅ (3/3 sellos, 15 métodos)
-├── ingestion/ # ✅ · future_schedule ✅ · cdn_client ✅ (dual-URL)
+├── storage/ # base, local ✅ · cloud ✅ (3/3 sellos, 16 métodos)
+├── ingestion/ # ✅ · future_schedule ✅ (CDN) · cdn_client ✅ (dual-URL)
 │ # injury_report ✅ (parser por coordenadas, 13e-1)
 ├── features/ # 8 módulos ✅ · live_lookup ✅
 ├── models/ # baselines, evaluation, logistic, xgboost, registry ✅
 ├── jobs/ # ingest_logic.py ✅ (funciones puras del job)
 ├── live/ # predict_game.py ✅
-└── api/ # 13e-2: endpoint "predicciones del día" (interfaz con n8n)
+└── api/ # ✅ endpoint "predicciones del día" (v5 en producción)
 
-Dockerfile # ✅ python:3.12-slim
+Dockerfile # ✅ python:3.12-slim (job)
+Dockerfile.api # ✅ (service; uvicorn, $PORT)
+cloudbuild.api.yaml # ✅ (build del service; substitution _VERSION)
 .dockerignore # ✅
-requirements.lock # ✅ 54 paquetes (50 + pdfplumber y deps)
+.gcloudignore # ✅ (explícito; contexto <2 MB)
+requirements.lock # ✅ 61 paquetes (+ fastapi/uvicorn y deps)
 
 data/raw/ # 14 429 JSON — espejado en GCS ✅
 data/models/... # ✅ · registry cloud: v1_logistic_bclean_2026-08-22 ✅
 scripts/ # ✅ · rebuild_cloud ✅ · ingest_job ✅ (CDN, desplegado)
-tests/ # 402 passed, 15 deselected ✅
+tests/ # 491 passed, 15 deselected ✅
 # test_injury_report.py ✅ (91 unit + 2 integración)
 # live_equivalence corrido aparte (split @slow de facto)
+
 
 ## Estado actual
 
@@ -894,7 +1008,10 @@ tests/ # 402 passed, 15 deselected ✅
   `v1_logistic_bclean_2026-08-22`). e-0 ✅. **13e-1 ✅ CERRADA
   (2026-08-24)** — parser por coordenadas (`extract_words()`), 91 tests
   (incl. cruce PDF↔JSON sin espacios), conteos auditados a mano (73/17,
-  160/3), NYS con fecha, regla de parada activada y honrada. Siguiente: 13e-2.
+  160/3), NYS con fecha, regla de parada activada y honrada.
+  **13e-2: núcleo DESPLEGADO ✅ (2026-08-25)** — endpoint v5 en producción
+  verificado con 11 partidos reales; restante: integración feed/job,
+  predictions_log, n8n, canal.
 - **Fase 6 — DOCUMENTADA** (no implementar).
 
 ## Próximos pasos
@@ -907,17 +1024,20 @@ tests/ # 402 passed, 15 deselected ✅
        ~~Spike~~ ✅ · ~~Acceso datacenter~~ ✅ · ~~Implementación~~ ✅ ·
        ~~Auditoría en 6 rondas + migración a coordenadas~~ ✅
        (91 tests, conteos oficiales auditados, cruce PDF↔JSON verificado).
-    e-2. Endpoint "predicciones del día" (Cloud Run Service) + despliegue
-       de n8n (Decisión 11) + canal de Telegram (token → Secret Manager).
-       Integración del injury_report SEGÚN Decisión 4 del feed:
-       ingest_job = solo archivo del PDF (best-effort, WARNING);
-       endpoint = feed en vivo + persistencia de su snapshot.
-       Decisiones abiertas: contrato del endpoint (JSON vs formateado),
-       auth n8n→Cloud Run, días sin partidos / feed caído / NYS del día
-       a la hora de invocar, filtrado por target_date en get_absences(),
-       frontera token-PDF → equipo canónico vs schedule CDN. ← AQUÍ
-14. **Hito octubre 2026:** primera predicción real antes del tip-off.
-15. **Fase 6:** monetización (implementación) + agente.
+    e-2. ~~Núcleo del endpoint~~ ✅ DESPLEGADO (2026-08-25): Cloud Run
+       Service `predictions-api` v5, auth IAM, 5 capas cobradas. Restante:
+       - Integración injury_report al ingest_job (Decisión 4 feed: archivo
+         PDF best-effort, WARNING, sin parsear).
+       - Persistencia del snapshot desde el endpoint.
+       - predictions_log (JSONL por invocación).
+       - Despliegue n8n (13e-2.3: Cloud Run + Cloud SQL + Scheduler
+         invertido) + canal de Telegram (token → Secret Manager) +
+         budget alert $25/mes.
+       ← AQUÍ
+14. **Hito octubre 2026:** primera predicción real PUBLICADA POR EL
+    PIPELINE COMPLETO al canal de validación antes del tip-off (13e-2.4).
+15. **Fase 6:** monetización (implementación) + agente — gateada por el
+    criterio de comercialización (13e-2.4).
 
 ## Convenciones de código
 
@@ -931,8 +1051,8 @@ snake_case. Type hints. Docstrings con el PORQUÉ. Explicar el razonamiento
 - Anti-patrón: >75% accuracy = leakage casi seguro; Vegas ~68-70% techo.
 - Disponibilidad 3 estados; interpretación B (la A es leakage). Paris
   Games descartados. Re-descargas: probar 2023-24 primero.
-- ~~Deuda: injury report automatizado~~ → CERRADA (13e-1 ✅; integración
-  al job/endpoint es 13e-2).
+- ~~Deuda: injury report automatizado~~ → CERRADA (13e-1 ✅; feed en vivo
+  integrado al endpoint ✅; archivo en el job pendiente).
 - Deuda: RAW histórico no autosuficiente para games/teams (SQLite);
   2026-27+ cubierto vía raw/schedules/.
 - stats.nba.com bloqueado desde datacenter + V2 muerto para 2025-26+.
@@ -950,9 +1070,15 @@ snake_case. Type hints. Docstrings con el PORQUÉ. Explicar el razonamiento
   ingesta, del CDN).
 - Pendiente 13e-2: frontera token-PDF ("ChicagoBulls") → equipo canónico
   del sistema (normalización necesaria al cruzar contra schedule CDN).
-  Test de cruce formato PDF↔JSON (`test_camelcase_pdf_token_matches_json_player_name`) ✅.
-- La imagen desplegada del job NO incluye pdfplumber (lock actualizado
-  post-build); el rebuild de imagen es parte natural de la 13e-2.
-- Residuo: notebooks/data/nba.sqlite (56 KB).
+  Test de cruce formato PDF↔JSON
+  (`test_camelcase_pdf_token_matches_json_player_name`) ✅.
+- ~~Deuda: pdfplumber no en imagen del job~~ → PAGADA (imagen del API la
+  incluye desde v1; la del job la recogerá en su próximo rebuild de imagen).
+- Limitación método 16 (`get_latest_model_version`): en cloud ordena por
+  nombre de blob (lexicográfico ≡ cronológico mientras el prefijo sea
+  v1_...); corregir a fecha-del-metadata ANTES de cualquier segundo modelo.
+  Pin manual: env var `NBA_PREDICTOR_MODEL_VERSION`.
+- Residuo: notebooks/data/nba.sqlite (56 KB) + scripts/spike_injury_report.py
+  (superseded; barrer en una pasada de limpieza).
 - .env local: sin NBA_PREDICTOR_MODE=cloud como default de trabajo.
 - Filosofía: fallar ruidosamente, nunca datos a medias en silencio.

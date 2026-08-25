@@ -242,7 +242,18 @@ def format_daily_message(result: DailyResult) -> str:
     if result.feed_down:
         lines.append(_FEED_DOWN_MSG)
 
-    for gp in result.games:
+    # Ordenar por tip-off ascendente; sin hora al final.
+    # Parsea la hora numéricamente para que "7:30 CDMX" < "17:30 CDMX".
+    def _tip_sort_key(g: GamePrediction) -> tuple:
+        if not g.tip_off_cdmx:
+            return (1, 0, 0)
+        try:
+            h, m = g.tip_off_cdmx.split(" ")[0].split(":")
+            return (0, int(h), int(m))
+        except Exception:
+            return (1, 0, 0)
+
+    for gp in sorted(result.games, key=_tip_sort_key):
         lines.append("")
 
         # Encabezado del partido: VISITANTE @ LOCAL [· HH:MM CDMX]

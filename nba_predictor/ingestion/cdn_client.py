@@ -53,9 +53,17 @@ INJURY_REPORT_DIAG_URL: str = (
     "Injury-Report_2026-03-13_01_15PM.pdf"
 )
 
+# Prefijo del gameId que identifica temporada regular en scheduleLeagueV2.
+# Gramática del gameId: 001=preseason, 002=regular season, 006=other (NBA Cup).
+# El schedule NO trae campo gameType (es vocabulario de boxscores) — el prefijo es
+# la ÚNICA señal disponible. Espejo exacto del filtro de future_schedule.py.
+_REGULAR_SEASON_PREFIX: str = "002"
+
 # Mapeo gameType CDN → season_type canónico del proyecto.
 # Valores int y string: el CDN puede enviar cualquiera de los dos.
 # Fuente: convención NBA (1=Pre, 2=Regular, 3=AllStar, 4=Post, 5=PlayIn).
+# NOTA: los BOXSCORES sí traen gameType; el SCHEDULE no. Este mapa NO gobierna el
+# filtro de _normalize_cdn_schedule (ver _REGULAR_SEASON_PREFIX).
 _GAME_TYPE_MAP: dict[Any, str] = {
     1: "Pre Season",     "1": "Pre Season",
     2: "Regular Season", "2": "Regular Season",
@@ -240,7 +248,8 @@ def _normalize_cdn_schedule(raw: dict) -> pd.DataFrame:
     Convierte el JSON de scheduleLeagueV2 al esquema canónico de la tabla games.
 
     Filtrado:
-    - Solo gameType == 2 (Regular Season). El CDN incluye preseason/playoffs.
+    - Solo temporada regular, por PREFIJO del gameId ("002"). El CDN incluye
+      preseason (001) y otros (006).
     - gameStatus == 3 (Final) → scores válidos → home_pts/away_pts/home_won poblados.
     - Resto → home_pts = pd.NA, igual que en el flujo legacy (filter "completed" en el job).
 
@@ -250,8 +259,13 @@ def _normalize_cdn_schedule(raw: dict) -> pd.DataFrame:
     game_date de 'gameDateEst' (YYYY-MM-DDTHH:MM:SS) truncado a fecha.
     season de leagueSchedule.seasonYear ("2026-27").
 
-    MAPEO de season_type: gameType int/str → _GAME_TYPE_MAP. El CDN puede enviar
-    el campo como int o string; el mapa cubre ambos (ver arriba).
+    season_type: constante "Regular Season" — es lo único que sobrevive al filtro.
+
+    HISTORIA (gemelo de la capa 4 de la cebolla, corregido 2026-08-27): este filtro
+    usó gameType, campo AUSENTE en scheduleLeagueV2. Consecuencia: games_df siempre
+    vacío → el job loggeaba "0 partidos de temporada regular" con exit 0 y las
+    features congeladas. Los fixtures sintéticos inyectaban el campo inexistente y
+    tenían los tests en verde; la guarda ahora desciende del documento real.
     """
     league = raw.get("leagueSchedule", {})
     season = _season_from_year(league.get("seasonYear", ""))
@@ -259,9 +273,8 @@ def _normalize_cdn_schedule(raw: dict) -> pd.DataFrame:
 
     for game_date_block in league.get("gameDates", []):
         for g in game_date_block.get("games", []):
-            game_type = g.get("gameType")
-            if game_type not in _GAME_TYPE_MAP or _GAME_TYPE_MAP[game_type] != "Regular Season":
-                continue  # preseason / playoffs / all-star
+            if not str(g.get("gameId", "")).startswith(_REGULAR_SEASON_PREFIX):
+                continue  # preseason (001) / other (006)
 
             raw_date = g.get("gameDateEst") or ""
             game_date = pd.to_datetime(raw_date).date() if raw_date else None

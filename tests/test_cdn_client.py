@@ -8,10 +8,12 @@ aislarla del retry de tenacity y del throttle.
 """
 from __future__ import annotations
 
+from datetime import date
+from unittest.mock import MagicMock, patch
+
+import pandas as pd
 import pytest
 import requests
-import pandas as pd
-from unittest.mock import MagicMock, patch
 
 from nba_predictor.ingestion.cdn_client import (
     CDNClient,
@@ -324,43 +326,219 @@ class TestNormalizeCDNPlayerStats:
 
 
 def _make_schedule_raw(
-    game_type: int | str = 2,
+    game_id: str = "0022600001",
     game_status: int = 3,
     home_score: Any = 110,
     away_score: Any = 100,
+    extra: dict | None = None,
 ) -> dict:
+    """Partido minimal con la forma REAL de scheduleLeagueV2.
+
+    SIN campo gameType: el payload real no lo trae (ver _REAL_SCHEDULE_FIXTURE).
+    El tipo de partido se decide por el PREFIJO del gameId — "002" por defecto.
+    `extra` permite inyectar claves ajenas al contrato para tests de precedencia.
+    """
+    game = {
+        "gameId": game_id,
+        "gameDateEst": "2026-10-22T00:00:00",
+        "gameStatus": game_status,
+        "homeTeam": {"teamId": "1610612747", "score": home_score},
+        "awayTeam": {"teamId": "1610612744", "score": away_score},
+    }
+    if extra:
+        game.update(extra)
     return {
         "leagueSchedule": {
             "seasonYear": "2026-27",
-            "gameDates": [
-                {
-                    "games": [
-                        {
-                            "gameId": "0022600001",
-                            "gameDateEst": "2026-10-22T00:00:00",
-                            "gameType": game_type,
-                            "gameStatus": game_status,
-                            "homeTeam": {"teamId": "1610612747", "score": home_score},
-                            "awayTeam": {"teamId": "1610612744", "score": away_score},
-                        }
-                    ]
-                }
-            ],
+            "gameDates": [{"games": [game]}],
         }
     }
 
 
+# ---------------------------------------------------------------------------
+# FIXTURE REAL — recorte de scheduleLeagueV2_2026-08-24.json
+# ---------------------------------------------------------------------------
+# Fuente: gs://predictorsnonprod-nba-predictors/raw/schedules/scheduleLeagueV2_2026-08-24.json
+# (el mismo documento del que desciende el fixture de test_future_schedule.py).
+#
+# El payload REAL de scheduleLeagueV2 NO trae campo gameType — es vocabulario de
+# boxscores. La unica senal de tipo de partido es el PREFIJO del gameId:
+#   001 = preseason - 002 = regular season - 006 = otros (NBA Cup final, etc.)
+#
+# Este fixture es la guarda contra el gemelo de la capa 4 de la cebolla: un filtro
+# por gameType descarta el 100% de los partidos reales y deja games_df vacio, lo
+# que en el job se ve como "0 partidos nuevos" con exit 0 — el fallo silencioso.
+_REAL_SCHEDULE_FIXTURE: dict = {
+    "leagueSchedule": {
+        "seasonYear": "2026-27",
+        "gameDates": [
+            {
+                # 21-oct-2026: 11 partidos regulares (semana inaugural, weekNumber=1)
+                "games": [
+                    {"gameId": "0022600004", "gameStatus": 1,
+                     "gameDateEst": "2026-10-21T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-21T19:30:00Z",
+                     "homeTeam": {"teamId": 1610612748, "teamTricode": "MIA"},
+                     "awayTeam": {"teamId": 1610612750, "teamTricode": "MIN"},
+                     "isNeutral": False},
+                    {"gameId": "0022600005", "gameStatus": 1,
+                     "gameDateEst": "2026-10-21T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-21T22:00:00Z",
+                     "homeTeam": {"teamId": 1610612747, "teamTricode": "LAL"},
+                     "awayTeam": {"teamId": 1610612744, "teamTricode": "GSW"},
+                     "isNeutral": False},
+                    {"gameId": "0022600085", "gameStatus": 1,
+                     "gameDateEst": "2026-10-21T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-21T19:00:00Z",
+                     "homeTeam": {"teamId": 1610612753, "teamTricode": "ORL"},
+                     "awayTeam": {"teamId": 1610612737, "teamTricode": "ATL"},
+                     "isNeutral": False},
+                    {"gameId": "0022600086", "gameStatus": 1,
+                     "gameDateEst": "2026-10-21T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-21T19:00:00Z",
+                     "homeTeam": {"teamId": 1610612764, "teamTricode": "WAS"},
+                     "awayTeam": {"teamId": 1610612749, "teamTricode": "MIL"},
+                     "isNeutral": False},
+                    {"gameId": "0022600087", "gameStatus": 1,
+                     "gameDateEst": "2026-10-21T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-21T19:30:00Z",
+                     "homeTeam": {"teamId": 1610612751, "teamTricode": "BKN"},
+                     "awayTeam": {"teamId": 1610612766, "teamTricode": "CHA"},
+                     "isNeutral": False},
+                    {"gameId": "0022600088", "gameStatus": 1,
+                     "gameDateEst": "2026-10-21T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-21T19:30:00Z",
+                     "homeTeam": {"teamId": 1610612761, "teamTricode": "TOR"},
+                     "awayTeam": {"teamId": 1610612741, "teamTricode": "CHI"},
+                     "isNeutral": False},
+                    {"gameId": "0022600089", "gameStatus": 1,
+                     "gameDateEst": "2026-10-21T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-21T20:00:00Z",
+                     "homeTeam": {"teamId": 1610612763, "teamTricode": "MEM"},
+                     "awayTeam": {"teamId": 1610612762, "teamTricode": "UTA"},
+                     "isNeutral": False},
+                    {"gameId": "0022600090", "gameStatus": 1,
+                     "gameDateEst": "2026-10-21T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-21T20:00:00Z",
+                     "homeTeam": {"teamId": 1610612740, "teamTricode": "NOP"},
+                     "awayTeam": {"teamId": 1610612754, "teamTricode": "IND"},
+                     "isNeutral": False},
+                    {"gameId": "0022600091", "gameStatus": 1,
+                     "gameDateEst": "2026-10-21T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-21T20:30:00Z",
+                     "homeTeam": {"teamId": 1610612745, "teamTricode": "HOU"},
+                     "awayTeam": {"teamId": 1610612742, "teamTricode": "DAL"},
+                     "isNeutral": False},
+                    {"gameId": "0022600092", "gameStatus": 1,
+                     "gameDateEst": "2026-10-21T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-21T22:00:00Z",
+                     "homeTeam": {"teamId": 1610612757, "teamTricode": "POR"},
+                     "awayTeam": {"teamId": 1610612756, "teamTricode": "PHX"},
+                     "isNeutral": False},
+                    {"gameId": "0022600093", "gameStatus": 1,
+                     "gameDateEst": "2026-10-21T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-21T22:30:00Z",
+                     "homeTeam": {"teamId": 1610612746, "teamTricode": "LAC"},
+                     "awayTeam": {"teamId": 1610612758, "teamTricode": "SAC"},
+                     "isNeutral": False},
+                ],
+            },
+            {
+                # 22-oct-2026: 2 partidos regulares
+                "games": [
+                    {"gameId": "0022600006", "gameStatus": 1,
+                     "gameDateEst": "2026-10-22T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-22T19:00:00Z",
+                     "homeTeam": {"teamId": 1610612755, "teamTricode": "PHI"},
+                     "awayTeam": {"teamId": 1610612739, "teamTricode": "CLE"},
+                     "isNeutral": False},
+                    {"gameId": "0022600007", "gameStatus": 1,
+                     "gameDateEst": "2026-10-22T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-22T21:30:00Z",
+                     "homeTeam": {"teamId": 1610612760, "teamTricode": "OKC"},
+                     "awayTeam": {"teamId": 1610612743, "teamTricode": "DEN"},
+                     "isNeutral": False},
+                ],
+            },
+            {
+                # Preseason (gameId 001 prefix) — deben EXCLUIRSE
+                "games": [
+                    {"gameId": "0012600009", "gameStatus": 1,
+                     "gameDateEst": "2026-10-03T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-03T19:00:00Z",
+                     "homeTeam": {"teamId": 1610612761, "teamTricode": "TOR"},
+                     "awayTeam": {"teamId": 1610612748, "teamTricode": "MIA"},
+                     "isNeutral": False},
+                    {"gameId": "0012600004", "gameStatus": 1,
+                     "gameDateEst": "2026-10-05T00:00:00Z",
+                     "gameDateTimeEst": "2026-10-05T19:00:00Z",
+                     "homeTeam": {"teamId": 1610612737, "teamTricode": "ATL"},
+                     "awayTeam": {"teamId": 1610612763, "teamTricode": "MEM"},
+                     "isNeutral": False},
+                ],
+            },
+            {
+                # Partido con prefijo 006 (Emirates NBA Cup final o similar) — debe EXCLUIRSE
+                "games": [
+                    {"gameId": "0062600001", "gameStatus": 1,
+                     "gameDateEst": "2026-12-11T00:00:00Z",
+                     "gameDateTimeEst": "2026-12-11T00:00:00Z",
+                     "homeTeam": {"teamId": 0, "teamTricode": ""},
+                     "awayTeam": {"teamId": 0, "teamTricode": ""},
+                     "isNeutral": True},
+                ],
+            },
+        ],
+    }
+}
+
+
+class TestNormalizeCDNScheduleRealPayload:
+    """Guarda de regresion contra el gemelo de la capa 4 (payload sin gameType).
+
+    Evidencia de produccion (cron 2026-08-27): el job loggeo "0 partidos de
+    temporada regular para '2026-27'" con el calendario ya publicado. Un filtro
+    por gameType sobre este payload devuelve SIEMPRE cero filas.
+    """
+
+    def test_regular_season_games_survive_el_filtro(self):
+        df = _normalize_cdn_schedule(_REAL_SCHEDULE_FIXTURE)
+        assert len(df) == 13  # 11 del 21-oct + 2 del 22-oct
+
+    def test_los_once_partidos_del_21_oct(self):
+        """Guarda numerica: la misma que la de future_schedule (capa 4)."""
+        df = _normalize_cdn_schedule(_REAL_SCHEDULE_FIXTURE)
+        oct21 = df[df["game_date"] == date(2026, 10, 21)]
+        assert len(oct21) == 11
+
+    def test_preseason_y_otros_excluidos_por_prefijo(self):
+        df = _normalize_cdn_schedule(_REAL_SCHEDULE_FIXTURE)
+        ids = set(df["game_id"])
+        assert not any(g.startswith("001") for g in ids)
+        assert not any(g.startswith("006") for g in ids)
+        assert all(g.startswith("002") for g in ids)
+
+    def test_programados_sin_score_no_rompen_el_normalizador(self):
+        """gameStatus=1 y sin clave 'score' — el payload real de un partido futuro."""
+        df = _normalize_cdn_schedule(_REAL_SCHEDULE_FIXTURE)
+        assert df["home_pts"].isna().all()
+        assert df["home_won"].isna().all()
+
+
 class TestNormalizeCDNSchedule:
     def test_regular_season_included(self):
-        df = _normalize_cdn_schedule(_make_schedule_raw(game_type=2))
+        """Prefijo 002 — y sin campo gameType en el payload, como el real."""
+        df = _normalize_cdn_schedule(_make_schedule_raw(game_id="0022600001"))
         assert "0022600001" in df["game_id"].values
 
     def test_preseason_filtered(self):
-        df = _normalize_cdn_schedule(_make_schedule_raw(game_type=1))
+        """Prefijo 001 = preseason."""
+        df = _normalize_cdn_schedule(_make_schedule_raw(game_id="0012600001"))
         assert len(df) == 0
 
-    def test_playoffs_filtered(self):
-        df = _normalize_cdn_schedule(_make_schedule_raw(game_type=4))
+    def test_other_prefix_filtered(self):
+        """Prefijo 006 = otros (NBA Cup final); presente en el payload archivado."""
+        df = _normalize_cdn_schedule(_make_schedule_raw(game_id="0062600001"))
         assert len(df) == 0
 
     def test_home_won_derived_home_wins(self):
@@ -396,10 +574,16 @@ class TestNormalizeCDNSchedule:
         df = _normalize_cdn_schedule(_make_schedule_raw())
         assert df.iloc[0]["home_team_id"] == 1610612747
 
-    def test_game_type_as_string_also_works(self):
-        """CDN puede enviar gameType como string o int."""
-        df = _normalize_cdn_schedule(_make_schedule_raw(game_type="2"))
-        assert "0022600001" in df["game_id"].values
+    def test_prefijo_manda_sobre_un_game_type_hipotetico(self):
+        """El prefijo es la unica senal: un gameType que contradiga NO se obedece.
+
+        Fija la precedencia por si el CDN algun dia empieza a emitir el campo:
+        gameType=2 sobre un gameId de preseason NO cuela el partido.
+        """
+        df = _normalize_cdn_schedule(
+            _make_schedule_raw(game_id="0012600001", extra={"gameType": 2})
+        )
+        assert len(df) == 0
 
 
 # ---------------------------------------------------------------------------

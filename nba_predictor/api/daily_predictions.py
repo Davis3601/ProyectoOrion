@@ -71,6 +71,14 @@ class GamePrediction:
     tip_off_cdmx: str | None = None
     # Hora del tip-off en hora del centro de México, formato "H:MM CDMX".
     # None si el schedule no provee hora (offseason, tests sin tip-off).
+    game_id: str | None = None
+    # game_id del schedule CDN. Clave del JOIN de grading en predictions_log
+    # (13e-2.4) — el log se cruza contra `games` por game_id, jamás por nombres.
+    home_absence_ids: list[int] = field(default_factory=list)
+    away_absence_ids: list[int] = field(default_factory=list)
+    # player_ids Out efectivamente aplicados al cálculo de availability_diff.
+    # Los campos *_absences de arriba son su versión display (para el mensaje);
+    # estos son la EVIDENCIA que va a predictions_log (ids, no nombres).
 
 
 @dataclass
@@ -486,6 +494,9 @@ def _predict_one(
         model_version=version,
         nys_tricodes=nys_tricodes,
         tip_off_cdmx=tip_off_cdmx,
+        game_id=sg.game_id,
+        home_absence_ids=list(absent_home),
+        away_absence_ids=list(absent_away),
     )
 
 

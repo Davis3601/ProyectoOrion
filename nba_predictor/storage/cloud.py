@@ -100,6 +100,27 @@ def _build_merge_sql(
     )
 
 
+# predictions_log (13e-2.4): tabla de EVIDENCIA append-only. NO figura en
+# _MERGE_KEYS a propósito — no tiene clave de idempotencia porque no debe
+# tenerla: cada servida es una fila nueva (ver save_predictions_log).
+_PREDICTIONS_LOG_TABLE: str = "predictions_log"
+
+# Orden y tipos del schema cerrado (9 campos). Explícito en vez de autodetect:
+# la tabla la provisiona el usuario y el log es evidencia — un tipo inferido
+# distinto por lote (p.ej. absences_applied vacío) rompería el JOIN de grading.
+_PREDICTIONS_LOG_SCHEMA: list[tuple[str, str]] = [
+    ("game_id", "STRING"),
+    ("game_date", "DATE"),
+    ("home_team", "STRING"),
+    ("away_team", "STRING"),
+    ("p_home_win", "FLOAT"),
+    ("model_version", "STRING"),
+    ("predicted_at_utc", "TIMESTAMP"),
+    ("served_by", "STRING"),
+    ("absences_applied", "STRING"),
+]
+
+
 # Claves de idempotencia por tabla (definición única, referenciada en _save_tabular)
 _MERGE_KEYS: dict[str, list[str]] = {
     "teams": ["team_id"],
@@ -433,6 +454,52 @@ class CloudDataStore(DataStore):
         self._gcs.bucket(self.bucket_name).blob(
             self._gcs_path(_gcs_injury_report_path(date_str, suffix))
         ).upload_from_string(pdf_bytes, content_type="application/pdf")
+
+    # ------------------------------------------------------------------
+    # predictions_log → BigQuery (APPEND puro, sin MERGE)
+    # ------------------------------------------------------------------
+
+    def save_predictions_log(self, rows: list[dict]) -> None:
+        """Anexa filas de evidencia. WRITE_APPEND — nunca MERGE, nunca staging.
+
+        DECISIÓN DE IMPLEMENTACIÓN (no de diseño): el patrón MERGE+staging del
+        resto de las tablas existe para garantizar idempotencia sobre una clave
+        natural, y su rama WHEN MATCHED THEN UPDATE es exactamente lo que el
+        diseño de predictions_log PROHÍBE ("grading = query; log = intocable").
+        Además no hay clave que matchear: dos servidas del mismo partido son dos
+        hechos distintos que el log debe conservar (Decisión 13e-2.4).
+        Por eso: load_table_from_dataframe con WRITE_APPEND — la misma máquina de
+        carga que usa _save_tabular para poblar su staging, sin la capa de MERGE.
+
+        Carga por lote (no streaming insert): sin cuota de streaming, sin buffer
+        que retrase el JOIN de grading, y consistente con el resto del adapter.
+        """
+        if not rows:
+            return
+
+        df = pd.DataFrame(rows)
+        # Fronteras de tipo del adapter (el resto del sistema pasa datetime/date
+        # nativos; BigQuery quiere TIMESTAMP y DATE, no texto).
+        if "predicted_at_utc" in df.columns:
+            df["predicted_at_utc"] = pd.to_datetime(df["predicted_at_utc"], utc=True)
+        if "game_date" in df.columns:
+            df["game_date"] = pd.to_datetime(df["game_date"]).dt.date
+
+        table_id = _full_table_id(self.project_id, self.dataset, _PREDICTIONS_LOG_TABLE)
+
+        job_config = None
+        if _bigquery is not None:
+            job_config = _bigquery.LoadJobConfig(
+                schema=[
+                    _bigquery.SchemaField(name, type_)
+                    for name, type_ in _PREDICTIONS_LOG_SCHEMA
+                ],
+                write_disposition=_bigquery.WriteDisposition.WRITE_APPEND,
+                create_disposition=_bigquery.CreateDisposition.CREATE_IF_NEEDED,
+            )
+
+        load_job = self._bq.load_table_from_dataframe(df, table_id, job_config=job_config)
+        load_job.result()
 
     def get_latest_model_version(self) -> str:
         """Versión más reciente del registry en GCS (gs://{bucket}/models/).

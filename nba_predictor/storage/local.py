@@ -1,13 +1,27 @@
 """Local implementation of DataStore: SQLite + filesystem."""
 import json
 import sqlite3
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 from .base import DataStore
+
+
+def _serialize_log_row(row: dict) -> dict:
+    """Adapta una fila de predictions_log al almacenamiento SQLite.
+
+    predicted_at_utc viaja como datetime tz-aware entre capas (la frontera de
+    tipos la resuelve cada adapter: BigQuery lo quiere TIMESTAMP nativo,
+    SQLite no tiene tipo fecha y guarda texto ISO 8601).
+    """
+    out = dict(row)
+    value = out.get("predicted_at_utc")
+    if isinstance(value, datetime):
+        out["predicted_at_utc"] = value.isoformat()
+    return out
 
 
 class LocalDataStore(DataStore):
@@ -96,6 +110,22 @@ class LocalDataStore(DataStore):
                 CREATE INDEX IF NOT EXISTS idx_pgs_player ON player_game_stats(player_id);
                 CREATE INDEX IF NOT EXISTS idx_pgs_team   ON player_game_stats(team_id);
                 CREATE INDEX IF NOT EXISTS idx_pgs_game   ON player_game_stats(game_id);
+
+                -- predictions_log (13e-2.4): EVIDENCIA append-only.
+                -- SIN PRIMARY KEY a propósito: cada servida se registra sin
+                -- deduplicar; predicted_at_utc las distingue. Nada de UPSERT.
+                CREATE TABLE IF NOT EXISTS predictions_log (
+                    game_id          TEXT NOT NULL,
+                    game_date        TEXT NOT NULL,
+                    home_team        TEXT NOT NULL,
+                    away_team        TEXT NOT NULL,
+                    p_home_win       REAL NOT NULL,
+                    model_version    TEXT,
+                    predicted_at_utc TEXT NOT NULL,
+                    served_by        TEXT NOT NULL,
+                    absences_applied TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_plog_date ON predictions_log(game_date);
             """)
     
     def save_teams(self, teams: pd.DataFrame) -> None:
@@ -329,3 +359,26 @@ class LocalDataStore(DataStore):
         target_dir = self.raw_dir / "injury_reports"
         target_dir.mkdir(parents=True, exist_ok=True)
         (target_dir / f"{date_str}_{suffix}.pdf").write_bytes(pdf_bytes)
+
+    # ----- predictions_log (Fase 5b / 13e-2.4) -----
+
+    def save_predictions_log(self, rows: list[dict]) -> None:
+        """Anexa filas al log. INSERT puro — jamás INSERT OR REPLACE.
+
+        El resto del contrato es idempotente porque la tabla física ES el
+        estado limpio; aquí la tabla es un EXPEDIENTE: dos servidas del mismo
+        partido son dos hechos distintos, no una colisión que resolver.
+        """
+        if not rows:
+            return
+        with sqlite3.connect(self.db_path) as conn:
+            conn.executemany(
+                """
+                INSERT INTO predictions_log
+                (game_id, game_date, home_team, away_team, p_home_win,
+                 model_version, predicted_at_utc, served_by, absences_applied)
+                VALUES (:game_id, :game_date, :home_team, :away_team, :p_home_win,
+                        :model_version, :predicted_at_utc, :served_by, :absences_applied)
+                """,
+                [_serialize_log_row(r) for r in rows],
+            )

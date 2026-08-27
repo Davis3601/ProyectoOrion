@@ -124,6 +124,29 @@ class DataStore(ABC):
         """Check which games are already stored."""
         ...
 
+    # ----- predictions_log (Fase 5b / 13e-2.4) -----
+
+    @abstractmethod
+    def save_predictions_log(self, rows: list[dict]) -> None:
+        """Anexa filas de evidencia al log de predicciones. APPEND-ONLY.
+
+        Una fila por partido por servida (Decisión 13e-2.4): se loggea CADA
+        servida SIN deduplicar — predicted_at_utc las distingue. La servida
+        "de record" del día se identifica en el ANÁLISIS, jamás en la escritura.
+
+        NUNCA actualiza ni sobreescribe filas existentes: el grading se computa
+        después como JOIN contra resultados (grading = query; log = intocable).
+        Por eso este método es la excepción documentada al patrón idempotente
+        MERGE/INSERT OR REPLACE del resto del contrato.
+
+        Cada fila lleva las 9 claves del schema cerrado:
+            game_id, game_date, home_team, away_team, p_home_win,
+            model_version, predicted_at_utc, served_by, absences_applied
+
+        rows vacía → no-op (día sin partidos: nada que registrar).
+        """
+        ...
+
     # ----- Injury Reports (Fase 5b / 13e-1) -----
 
     @abstractmethod

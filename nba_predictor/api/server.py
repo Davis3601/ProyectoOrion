@@ -27,6 +27,12 @@ from nba_predictor.api.daily_predictions import (
     build_daily_predictions,
     format_daily_message,
 )
+from nba_predictor.api.predictions_log import (
+    build_log_rows,
+    resolve_model_version,
+    resolve_served_by,
+    write_predictions_log,
+)
 from nba_predictor.storage import get_datastore
 
 _log = logging.getLogger(__name__)
@@ -101,6 +107,10 @@ async def lifespan(app: FastAPI):
     pipeline, metadata = store.load_model(version_name)
     app.state.store = _ModelCachedStore(store, pipeline, metadata)
     app.state.version_name = version_name
+    # model_version del schema de predictions_log: id del registry + hash del
+    # parquet. Se compone UNA vez al arranque (el metadata no cambia en vida
+    # de la instancia) y viaja idéntico a todas las filas que sirva.
+    app.state.log_model_version = resolve_model_version(version_name, metadata)
     _log.info("Modelo cargado: %s", version_name)
     yield
     _log.info("Shutdown.")
@@ -154,4 +164,22 @@ def predictions_today(
         version_name=app.state.version_name,
     )
     message = format_daily_message(result)
-    return {"message": message, "data": asdict(result)}
+    response = {"message": message, "data": asdict(result)}
+
+    # predictions_log (13e-2.4): la evidencia se registra DESPUÉS de tener la
+    # respuesta construida y ANTES de devolverla — una fila por partido servido,
+    # sin deduplicar (cada servida es un hecho distinto).
+    # Best-effort (Decisión CERRADA 2026-08-26): write_predictions_log jamás
+    # levanta; un fallo de escritura deja WARNING y la respuesta se sirve
+    # completa e intacta. Día sin partidos → cero filas, cero escritura.
+    write_predictions_log(
+        app.state.store,
+        build_log_rows(
+            result,
+            served_by=resolve_served_by(),
+            model_version=getattr(app.state, "log_model_version", None)
+            or result.model_version,
+        ),
+    )
+
+    return response

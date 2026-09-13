@@ -952,6 +952,7 @@ herramienta de testing.
 
 - [CERRADO 2026-08-26/27] Deploys v7 (predictions-api) y v5 (ingest-job) + RECETAS CANÓNICAS (deuda documental saldada; hallazgo: CLAUDE.md registraba decisiones de deploy pero no comandos — reconstruidos contra evidencia viva, no memoria). RECETA predictions-api: build con gcloud builds submit --config=cloudbuild.api.yaml --substitutions=_VERSION=vN --project=predictorsnonprod (usa Dockerfile.api: python:3.12-slim, requirements.lock, uvicorn server:app en 8080); deploy con gcloud run deploy predictions-api --image=us-south1-docker.pkg.dev/predictorsnonprod/nba-predictor/predictions-api:vN --region=us-south1 --project=predictorsnonprod (la config no especificada SE HEREDA de la revisión previa: SA, env vars, 1Gi, port 8080, maxScale 20, startup-cpu-boost, probe TCP 240s). RECETA ingest-job: build con gcloud builds submit --tag us-south1-docker.pkg.dev/predictorsnonprod/nba-predictor/ingest-job:vN --project=predictorsnonprod (usa Dockerfile raíz: ENTRYPOINT scripts/ingest_job.py); update con gcloud run jobs update nba-ingest-job --image=...:vN --region=us-south1 --project=predictorsnonprod (hereda SA, env vars, timeout 1800s). CONVENCIÓN DE TAGS: incremental vN por servicio, JAMÁS latest. Estado: predictions-api v7 (revisión 00007-94v, digest sha256:2138dde42240df9ccc116dc1d227ee036e2a34929599d3a4aba1fcf3a5ef7c74) con snapshot-persist + predictions_log; ingest-job v5 (digest sha256:c4ca1b7b184ba705880c8f777ca73104e049378a75f30f670d713e5b91d476b6) con archivo best-effort del PDF — verificación del ingest: cron 12:00 UTC del 27, expectativa SUCCESS + primer PDF en raw/injury_reports/ (WARNING sin fila también sería contrato OK). Verificación v7: 200 heartbeat UTF-8 íntegro contra bytes crudos; model_version null CORRECTO en rest day (adjudicado con código: None reservado a games vacía, fallo real de resolución = 500, jamás null; regla de lectura: games!=[] && model_version==null = estado imposible = bug); verificación plena de model_version/campos nuevos/primera fila del log DIFERIDA al primer día con partidos. Tabla predictions_log creada (PARTITION BY game_date, 9 campos idénticos al schema del código) + predictions-api-sa dataEditor A NIVEL TABLA (mínimo privilegio, sin ACL legacy). TRAMPAS NUEVAS PowerShell/entorno: (a) curl es alias de Invoke-WebRequest — sintaxis nativa con -Headers @{}; (b) usar -UseBasicParsing para evitar prompt interactivo; (c) mojibake de PANTALLA: Invoke-RestMethod decodifica Latin-1 si el Content-Type no declara charset — juzgar encoding SOLO contra bytes crudos con UTF8.GetString(RawContentStream); FastAPI responde UTF-8 correcto (backlog cosmético: declarar charset=utf-8); (d) ADC puede fallar con RefreshError internal_failure retryable — ante rojos masivos de TestSanityRealData, primer sospechoso credenciales (gcloud auth application-default login), no datos; (e) gcloud logging read en PowerShell exige comillas internas escapadas con backslash. BACKLOG: except ancho en load_features (cloud.py) convierte fallos de auth en FileNotFoundError falso — afinar a NotFound de GCS. Base de tests oficial: 531 passed, 15 deselected.
 - [HALLAZGO+FIX+CERRADO 2026-08-28] EL GEMELO DE LA CAPA 4 — el bug más caro del proyecto, muerto 54 días antes de cobrar. RETRACTACIÓN previa: el pendiente "migrar future_schedule.py a CDN" estaba MUERTO (superado por la capa 2 del 2026-08-25; el renglón de Fase 5a en CLAUDE.md:188 es registro histórico) — lección: la lista de pendientes se deriva del registro completo, no de la memoria del chat. El diagnóstico de solo-lectura que lo confirmó encontró al culpable real al lado: _normalize_cdn_schedule (cdn_client.py) filtraba por gameType, campo AUSENTE en scheduleLeagueV2 → games_df SIEMPRE vacío → el ingest job jamás habría visto partidos en octubre (exit 0 silencioso, features congeladas en abril, el endpoint publicando toda la temporada con rolling rancio — degradación silenciosa de la evidencia del criterio). Evidencia de producción: log del cron "0 partidos de temporada regular para '2026-27'" con calendario ya publicado. El endpoint nunca lo sufrió porque future_schedule descarta el DataFrame y parsea el payload crudo (por eso la capa 4 se corrigió ahí y el gemelo sobrevivió). FIX (commit f2ac143, test-first): test de regresión con fixture REAL en rojo ANTES (Empty DataFrame reproducido) → filtro por prefijo de gameId ("002", espejo de capa 4) → verde; sintéticos migrados 4-por-4; _GAME_TYPE_MAP conservado con nota (boxscores sí traen el campo). Suite: 531 limpia / 539 mixta — ARTEFACTO DEL 535 RESUELTO de rebote: live_equivalence aporta exactamente 4 tests en modo mixto (535=531+4 antes, 539=535+4 ahora; el "+13" supuesto era erróneo). DEPLOY: ingest-job:v6, jobs update, ejecución manual verificada: "Schedule CDN: 1206 partidos de temporada regular para '2026-27'" (0→1206 con el mismo payload; los ~24 faltantes = huecos TBD de NBA Cup que payloads futuros rellenarán — si en diciembre no crece, ESO es hallazgo), "0 partidos jugados" intacto, guard OK, exit=0. BACKLOG derivado del diagnóstico: (a) DOBLE PARSER de scheduleLeagueV2 (future_schedule por prefijo/seasonYear vs normalizador por prefijo/_season_from_year) — unificar para que el gemelo no pueda renacer; (b) fetch_todays_schedule sin call sites — adjudicar API-futura vs residuo; (c) deuda nba_api (nba_client.py, predict_game.py, scripts de exploración). Verificación de octubre pre-registrada: primer día de PRESEASON en el calendario (partidos "001") → el heartbeat debe seguir diciendo "sin partidos" (ambos filtros de prefijo excluyen 001) y el job debe ingestarlos como... NO: los 001 quedan fuera de regular season por diseño — expectativa: ni el endpoint ni games_df los reportan; el primer número >0 de "partidos jugados" llega con los 002 del 21-oct.
+- [CORRECCIÓN 2026-09-13] Base oficial de tests: 535 limpia / 539 mixta (4 = live_equivalence). El 531 del bloque 2026-08-26/27 quedó obsoleto con f2ac143.
 
 ### Fase 6 — Monetización + agente (documentada; NO implementar)
 Especificación completa en la sección "Fase 6" de decisiones (arriba).
@@ -963,6 +964,198 @@ Ponderación temporal, ventanas 5/15/20, SRS, calibración explícita, injury
 reports históricos para G5 (archivo diario vía método 15 + experimento
 P(juega|Doubtful/Questionable) pre-registrado), comparación vs Vegas
 (benchmark final).
+
+**D-RES-2 — Spike backfill injury reports (PRE-REGISTRO 2026-09-13).**
+Medición por muestreo estratificado de cuánta cobertura de PDFs historicos
+sigue viva en ak-static.cms.nba.com. NO es el backfill completo: es la
+medicion que decide si el backfill completo se hace.
+
+HIPOTESIS: la NBA retiene PDFs de injury report al menos dos temporadas
+atras (evidencia: Injury-Report_2024-03-13_11PM.pdf descargado en agosto de
+2026). EXPECTATIVA DE COBERTURA (fraccion de fechas muestreadas con al menos
+un PDF): 2025-26 alta, >80%; 2024-25 media-alta, 50-80%; 2023-24 incierta,
+>=50% seria sorpresa positiva. CRITERIO DE PROMOCION pre-registrado: si al
+menos DOS temporadas tienen cobertura >=70% con al menos un corte por dia, el
+backfill completo se convierte en la siguiente tarea y el experimento
+P(juega | Questionable) entra a la cola de 2026. Si no, A1/A2 se difieren a
+2027-28 y el archivo diario sigue acumulando. Desviacion de esta expectativa
+= hallazgo a adjudicar, no a aceptar en silencio.
+
+DISEÑO. Fase 0, calibracion de sufijos (3 fechas conocidas): 2026-03-13
+(formato nuevo, hit conocido _01_15PM), 2024-03-13 (formato viejo, hit
+conocido _11PM) y una fecha de 2024-25 elegida y registrada (2025-01-15).
+Por fecha, barrido amplio: formato viejo {01..12}{AM,PM} (24 probes) y
+formato nuevo {01..12}_{00,15,30,45}{AM,PM} (96 probes), cap 150 HEAD por
+fecha; se registran TODOS los hits, no solo el primero, para aprender horas y
+minutos reales de publicacion por era y reducir el set en fase 1. Fase 1,
+muestreo estratificado: temporadas 2023-24, 2024-25 y 2025-26, solo fechas de
+temporada regular tomadas del calendario real ya ingestado (tabla games), 30
+fechas por temporada estratificadas por mes (~5 por mes), seed fijo 42; la
+lista se escribe a data/spike_backfill/dates.json ANTES de sondear y es
+INMUTABLE una vez escrita. Set de sufijos por fecha: el reducido aprendido en
+fase 0 para la era correspondiente, cap 30 HEAD por fecha, registrando todos
+los hits. Cada hit: GET, verificacion de b'%PDF' en los primeros 4 bytes y
+persistencia con save_raw_injury_report (metodo 15, modo local) — los PDFs
+recuperados son archivo real, no descartables. CONDUCTA DE RED (no
+negociable): se reutiliza el cliente HTTP y los headers de injury_report.py
+(sin inventar otro), sleep 0.5s entre requests, timeout 10s; regla de parada
+= 429, o 403 en una URL que antes dio 200, o 10 errores de red consecutivos →
+ABORTAR, guardar lo acumulado y reportar, sin reintentar en bucle y sin
+cambiar User-Agent para evadir; todo corre desde la laptop (IP local), NO
+desde Cloud Run. SALIDA: data/spike_backfill/results.json (por fecha: sufijos
+probados, hits, tamaño de cada PDF, status codes) + tabla resumen por
+temporada. Pertenece al Camino 5 y no toca nada del pipeline de produccion.
+
+**D-RES-2 — RESULTADO FASE 0 (2026-09-12) + DETENTE ANTES DE FASE 1.**
+Fase 0 corrio completa (360 HEAD, 3 fechas x 120 sufijos, regla de parada NO
+activada). Fase 1 NO se ejecuto: la clausula DETENTE del encargo se activo con
+dos hallazgos que invalidan parte del diseño pre-registrado. dates.json NO se
+escribio (la lista inmutable no quedo congelada bajo un diseño a revisar) y
+CERO PDFs se archivaron.
+
+SUFIJOS OBSERVADOS POR ERA (fase 0, literal): 2026-03-13 → 96/96 hits del
+formato nuevo, 0/24 del viejo (status {200:96, 403:24}); 2024-03-13 → 24/24
+del viejo, 0/96 del nuevo; 2025-01-15 → 24/24 del viejo, 0/96 del nuevo. Los
+dos sets quedan CLAROS y disjuntos: era vieja = las 24 horas {01..12}{AM,PM};
+era nueva = los 96 cuartos {01..12}_{00,15,30,45}{AM,PM}.
+
+HALLAZGO 1 — EL FEED PUBLICA UN CORTE CADA 15 MINUTOS, TODO EL DIA, no uno o
+dos. Adjudicado con evidencia interna, no por inferencia del status: el PDF de
+2026-03-13_12_00AM existe, pesa 72 922 bytes y su /CreationDate interno es
+D:20260313000004-04'00 (creado a las 00:00:04 de ese dia); el de
+2024-03-13_04AM pesa 78 981 y declara D:20240313043002 (la hora del sufijo
+viejo mapea a un corte generado a :30). Control negativo sano: 1999-01-01_11PM
+responde 403 con cuerpo XML AccessDenied — el servidor SI discrimina
+existencia, no devuelve 200 a todo. CONSECUENCIA SOBRE EL DISEÑO: (a) la
+metrica "distribucion de cortes por dia (1/2/3+)" queda SIN SENTIDO — la
+respuesta es 24 (era vieja) o 96 (era nueva) para toda fecha viva; (b) la
+cobertura ("¿existe al menos un PDF?") se contesta con 2-4 probes por fecha,
+no con 30; (c) archivar TODOS los hits, como pedia el encargo, significaria
+~24-30 PDFs por fecha x 90 fechas = ~2 700 PDFs y ~5 400 requests, no el
+archivo modesto que el diseño suponia. Nada de esto se resolvio por cuenta
+propia: es decision de Antonio.
+
+HALLAZGO 2 — LA FRONTERA DE FORMATO CAE DENTRO DE LA TEMPORADA 2025-26, no
+entre temporadas. Calibracion complementaria (4 probes/fecha): 2025-04-01
+viejo, 2025-10-22 viejo, 2025-11-15 viejo, 2025-12-15 viejo, 2026-01-15 NUEVO.
+El mapeo temporada→era del script (2025-26 = "new") era un SUPUESTO no
+validado por las 3 fechas de fase 0, y de haber corrido fase 1 con el habria
+sondeado solo sufijos nuevos en oct-dic 2025 → COBERTURA CERO FALSA para media
+temporada, con exit 0 y tabla de aspecto sano. Misma familia que el gemelo de
+la capa 4: un vocabulario equivocado que ningun invariante automatico delata.
+La era debe derivarse POR FECHA (probe de un sufijo de cada familia), jamas por
+temporada.
+
+SEÑAL LATERAL SOBRE LA HIPOTESIS (no es el veredicto): toda fecha sondeada
+hasta ahora esta viva — 2024-03, 2025-01, 2025-04, 2025-10, 2025-11, 2025-12,
+2026-01, 2026-03. La retencion aparenta ser excelente y apunta hacia promocion,
+pero el criterio pre-registrado exige las 30 fechas por temporada del muestreo
+estratificado: NO se declara veredicto con evidencia de calibracion. El
+criterio de promocion sigue intacto y sin adjudicar.
+
+ESTADO: fase 1 BLOQUEADA a la espera de decision sobre (1) que significa
+"cobertura" y "cortes por dia" ahora que hay 24-96 cortes diarios, (2) cuantos
+y cuales cortes archivar por fecha, (3) derivacion de era por fecha. El script
+vive en scripts/spike_backfill_injury_reports.py (funciones puras separadas del
+CLI, borrable sin residuo); phase0.json en data/spike_backfill/. Cero cambios
+al pipeline de produccion: suite 531 passed, 15 deselected, sin cambios.
+
+**D-RES-2 — ENMIENDA de metodo (2026-09-13).**
+MOTIVO: fase 0 mostro (a) un corte cada 15 min en era nueva y cada hora en era
+vieja, y (b) frontera de formato dentro de 2025-26. La medicion cambia; el
+CRITERIO DE PROMOCION NO CAMBIA (>=70% de cobertura en >=2 temporadas).
+
+DEFINICIONES ENMENDADAS:
+- Era por FECHA, detectada con 2 probes (07PM y 07_30PM), nunca por temporada.
+- Cobertura = existe el corte canonico o uno de sus dos vecinos inmediatos.
+- Corte canonico = ultimo PDF con hora de creacion ET <= 13:00 CDMX de esa
+  fecha convertido a ET. Se calcula con zoneinfo (America/Mexico_City y
+  America/New_York), nunca con offset fijo: CDMX no tiene DST desde 2022, ET
+  si. El sufijo viejo HH mapea a creacion HH:30 (evidencia de fase 0: 04AM ->
+  /CreationDate 04:30:02); el sufijo nuevo HH_MM mapea a creacion HH:MM. La
+  regla de mapeo queda documentada en el script.
+- Densidad de cortes: se mide solo en una submuestra de 3 fechas nuevas (una
+  por temporada, la de 2025-26 dentro de oct-dic 2025, era vieja), con barrido
+  completo de su familia. Junto con las 3 de fase 0 son 6.
+- Archivado: SOLO el corte canonico por fecha (o el vecino que exista). Nada de
+  24-96 PDFs por fecha.
+
+PROCEDIMIENTO: (1) congelar dates.json con 30 fechas de temporada regular por
+temporada (2023-24, 2024-25, 2025-26), estratificadas por mes, seed 42, desde
+el calendario real ya ingestado; inmutable una vez escrito. (2) Biseccion de la
+frontera entre 2025-12-15 y 2026-01-15, 2 probes por fecha, maximo 12 requests,
+hasta fijar el primer dia con era nueva. (3) Fase 1 por fecha: 2 probes de era
+-> calcular sufijo canonico -> HEAD; si 403, HEAD a los dos vecinos inmediatos
+(anterior y posterior); maximo 5 HEAD por fecha; si hay hit, GET, verificar
+b'%PDF' y persistir con save_raw_injury_report (metodo 15, modo local).
+(4) Submuestra de densidad: 3 fechas, barrido completo de su familia, solo HEAD,
+sin archivar. PRESUPUESTO TOTAL del spike: maximo 700 requests; si se agota,
+abortar y reportar. Conducta de red identica a fase 0: sleep 0.5s, timeout 10s,
+regla de parada por 429 / 403 sobre URL que antes dio 200 / 10 errores de red
+consecutivos.
+
+**D-RES-2 — RESULTADO fase 1 (2026-09-13): VEREDICTO VERDE, PROMOCION ACTIVADA.**
+Corrida completa con el diseño enmendado: 449 de 700 requests, regla de parada
+NO activada, 89 PDFs recuperados (6.53 MB). dates.json quedo congelado antes de
+sondear (30 fechas por temporada, estratificadas por mes, seed 42, desde la
+tabla games).
+
+TABLA POR TEMPORADA (cobertura = corte canonico o vecino inmediato):
+  temporada    sondeadas  canonico  vecino  sin PDF  cobertura
+  2023-24             30        29       0        1      96.7%
+  2024-25             30        30       0        0     100.0%
+  2025-26             30        30       0        0     100.0%
+  Eras detectadas: 2023-24 {old:30} | 2024-25 {old:30} | 2025-26 {old:13, new:17}
+Ningun vecino hizo falta: donde hay archivo, el corte canonico existe. La
+politica de vecinos costo 0 hits extra y se queda como red barata.
+
+FRONTERA DE FORMATO (biseccion, 10 de 12 requests): ultimo dia VIEJO
+2025-12-21 | primer dia NUEVO 2025-12-22, CONTIGUAS. El cambio de esquema de
+nombrado ocurrio a MITAD de la temporada 2025-26, no entre temporadas —
+confirma el hallazgo 2 de fase 0 y fija la fecha exacta. Cualquier consumidor
+del archivo historico debe derivar la era por FECHA con esa frontera.
+
+DENSIDAD DE CORTES (6 fechas: 3 de fase 1 + 3 de fase 0): 2023-10-24 old 7/24 |
+2024-10-22 old 24/24 | 2025-10-21 old 24/24 | 2026-03-13 new 96/96 |
+2024-03-13 old 24/24 | 2025-01-15 old 24/24. El dia inaugural de 2023-24 es el
+unico con densidad parcial.
+
+VEREDICTO contra el criterio pre-registrado (>=70% en >=2 temporadas): SE
+CUMPLE CON LAS TRES, la peor en 96.7%. El backfill completo se promueve a
+siguiente tarea y el experimento P(juega | Questionable) entra a la cola de
+2026. NO se ejecuto el backfill completo (prohibido en el encargo).
+
+HALLAZGO DECLARADO — DESVIACION AL ALZA DE LA EXPECTATIVA: se pre-registro
+2025-26 >80% (dio 100%), 2024-25 entre 50-80% (dio 100%, POR ENCIMA del rango)
+y 2023-24 incierta con >=50% como sorpresa positiva (dio 96.7%). La hipotesis
+"la NBA retiene al menos dos temporadas atras" se queda corta: hay archivo vivo
+hasta octubre de 2023, casi tres años. El riesgo que motivaba la urgencia del
+archivo diario (PDFs no recuperables retroactivamente) resulta MENOR de lo
+temido para el pasado reciente — pero la Decision 4 del feed no se toca: la
+retencion es una politica no documentada del proveedor, puede cambiar sin
+aviso, y el archivo diario sigue siendo la unica garantia bajo control propio.
+
+UNICA FECHA SIN PDF — NO ES FALLO DE RETENCION: 2023-10-24 (noche inaugural de
+2023-24). Su probe de era dio 200 en 07PM, o sea el dia SI tiene archivo; lo que
+falta es el corte de la ventana canonica (02PM, 01PM y 03PM dieron 403) porque
+ese dia solo se publicaron 7 de 24 cortes. Es una miss de CALENDARIO DE
+PUBLICACION, no de retencion: el feed arranco tarde ese dia. Si el backfill
+completo quiere cobertura total, para fechas sin corte canonico debe barrer la
+familia entera en vez de rendirse tras los dos vecinos.
+
+INCIDENTE DE CUMPLIMIENTO (declarado, sin excusa): el encargo exigia "modo local
+unicamente, NO tocar GCS". El script llamo a get_datastore(), y el .env del
+proyecto trae NBA_PREDICTOR_MODE=cloud, asi que la factory devolvio un
+CloudDataStore y los 89 PDFs se archivaron en
+gs://predictorsnonprod-nba-predictors/raw/injury_reports/ en vez de en disco
+local. La medicion NO queda afectada (cobertura, frontera y densidad se miden
+sobre respuestas HTTP, no sobre donde aterriza el byte), pero la restriccion se
+violo. No se verifico el bucket ni se borro nada: ambas cosas son volver a tocar
+GCS y la limpieza es decision de Antonio. FIX aplicado al script: construye
+LocalDataStore explicitamente con las rutas de settings, nunca get_datastore().
+LECCION: en scripts auxiliares, el modo de almacenamiento se FIJA, no se hereda
+del ambiente — la factory obedece al .env, y el .env de esta laptop apunta a la
+nube (riesgo ya listado en "Consideraciones y riesgos vigentes").
 
 ## Temporadas (referencia)
 

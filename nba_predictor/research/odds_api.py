@@ -84,7 +84,8 @@ def single(items: list[dict], key: str, value: str) -> dict:
     return matches[0]
 
 
-def build_snapshot(capture: dict, prediction: dict, *, event_id: str, bookmaker: str) -> dict:
+def build_snapshot(capture: dict, prediction: dict, *, event_id: str, bookmaker: str,
+                   schedule: dict | None = None, allow_ten_minute_offset: bool = False) -> dict:
     """Cruce estricto: ID proveedor + equipos + hora exacta del calendario NBA.
 
     prediction es una fila de predictions_log exportada, enriquecida con
@@ -101,7 +102,21 @@ def build_snapshot(capture: dict, prediction: dict, *, event_id: str, bookmaker:
         expected = TEAM_NAMES.get(prediction[f"{side}_team"])
         if expected is None or expected != event[f"{side}_team"]:
             raise ValueError(f"El equipo {side} no coincide; revisar mapeo explícitamente")
-    if timestamp(prediction["tip_off_utc"]) != timestamp(event["commence_time"]):
+    match_metadata = {"matching_rule": "exact_v1", "offset_seconds": 0}
+    if allow_ten_minute_offset and schedule is None:
+        raise ValueError("El modo +10 minutos requiere calendario NBA")
+    if schedule is not None:
+        from nba_predictor.research.reconcile_odds import reconcile
+        audit = reconcile(capture, schedule, allow_ten_minute_offset=allow_ten_minute_offset)
+        match = single(audit["rows"], "provider_event_id", event_id)
+        if match["status"] not in {"matched", "matched_offset"}:
+            raise ValueError("Evento sin coincidencia ?nica en el calendario")
+        if (match["game_id"] != prediction["game_id"] or
+                timestamp(match["nba_tip_off_utc"]) != timestamp(prediction["tip_off_utc"])):
+            raise ValueError("Predicci?n no corresponde al ID/horario NBA verificado")
+        match_metadata = {"matching_rule": audit["matching_rule"],
+                          "offset_seconds": match["offset_seconds"]}
+    elif timestamp(prediction["tip_off_utc"]) != timestamp(event["commence_time"]):
         raise ValueError("La hora del calendario no coincide con el proveedor")
     book = single(event["bookmakers"], "key", bookmaker)
     market = single(book["markets"], "key", "h2h")
@@ -112,7 +127,9 @@ def build_snapshot(capture: dict, prediction: dict, *, event_id: str, bookmaker:
     updated = market.get("last_update") or book["last_update"]
     if timestamp(updated) > timestamp(capture["fetched_at_utc"]):
         raise ValueError("Cuota posterior a la captura")
-    return {**prediction, "bookmaker": bookmaker,
+    return {**prediction, **match_metadata, "bookmaker": bookmaker,
+            "nba_tip_off_utc": prediction["tip_off_utc"],
+            "provider_tip_off_utc": event["commence_time"],
             "source": f"{ENDPOINT}#event={event_id}",
             "provider_event_id": event_id,
             "fetched_at_utc": capture["fetched_at_utc"],
@@ -133,6 +150,8 @@ def main() -> None:
     register.add_argument("--event-id", required=True)
     register.add_argument("--bookmaker", required=True)
     register.add_argument("--directory", type=Path, required=True)
+    register.add_argument("--schedule", type=Path)
+    register.add_argument("--allow-ten-minute-offset", action="store_true")
     args = parser.parse_args()
     try:
         if args.command == "capture":
@@ -148,7 +167,10 @@ def main() -> None:
             data = json.loads(args.capture.read_text(encoding="utf-8-sig"))
             prediction = json.loads(args.prediction.read_text(encoding="utf-8-sig"))
             snapshot = build_snapshot(data, prediction, event_id=args.event_id,
-                                      bookmaker=args.bookmaker)
+                                      bookmaker=args.bookmaker,
+                                      schedule=json.loads(args.schedule.read_text(
+                                          encoding="utf-8-sig")) if args.schedule else None,
+                                      allow_ten_minute_offset=args.allow_ten_minute_offset)
             row = record(args.directory, snapshot)
             print(json.dumps(row, indent=2, allow_nan=False))
     except (ValueError, RuntimeError, OSError, KeyError, TypeError) as exc:

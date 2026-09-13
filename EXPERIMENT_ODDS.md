@@ -168,3 +168,46 @@ El auditor excluye preseason y exige equipos, UTC exacto y unicidad tanto del ID
 NBA como del ID externo. Próximo paso: resolver/documentar el desfase de 10 minutos
 antes de ampliar las coincidencias. Una eventual tolerancia deberá conservar ambos
 horarios y usar el inicio NBA como límite conservador para registro prepartido.
+
+## Resolución operativa del desfase (2026-09-13)
+
+Sustituye únicamente la restricción de coincidencia exacta cuando se utiliza la
+opción explícita --allow-ten-minute-offset. Sin esa opción, sigue el modo estricto.
+
+La documentación del proveedor describe commence_time como inicio del evento y
+contiene ejemplos NBA con minutos :10, pero no confirma una regla universal de
++10 minutos. Fuentes revisadas:
+https://the-odds-api.com/sports-odds-data/nba-odds.html
+https://the-odds-api.com/liveapi/guides/v4/
+No se atribuye el desfase a TV, tip-off real u otra causa no verificada.
+
+Regla experimental exact_or_plus_600s_v1: mismos equipos local/visitante y un único
+candidato con diferencia (Odds menos NBA) de 0 o +600 segundos, exclusivamente.
+No es una tolerancia de +/-10 minutos. Otros desfases y cualquier ambigüedad se
+rechazan. Se consideran juntos candidatos exactos y +600: no se favorece uno si
+existen dos. No ajusta las fuentes originales.
+
+```powershell
+python -m nba_predictor.research.reconcile_odds --capture data/paper/captures/nba-20260913T165900546522Z.json --schedule data/paper/captures/schedule-20260913T170057304259Z.json --output data/paper/reports/reconciliation-offset-recheck.json --allow-ten-minute-offset
+```
+
+Resultado sobre la captura: 8 matched + 33 matched_offset; cero ambiguos.
+Informe: data/paper/reports/reconciliation-offset-20260913.json. El informe estricto
+previo se conserva. Son coincidencias de identidad bajo la regla experimental, no
+confirmación de frescura de las cuotas ni autorización para apostar.
+
+Para registrar con la regla opcional, añade a odds_api record:
+
+```text
+--schedule RUTA_AL_CALENDARIO_JSON --allow-ten-minute-offset
+```
+
+El calendario es obligatorio en este modo. Se recomputa el cruce completo para
+verificar unicidad y se compara game_id y tip_off_utc de la predicción contra NBA.
+El snapshot guarda nba_tip_off_utc, provider_tip_off_utc, offset_seconds y
+matching_rule. tip_off_utc sigue siendo NBA: nunca se amplía la ventana prepartido.
+La antigüedad de predicción/cuota sigue validándose, sin alterar timestamps.
+Antes de una captura operativa se debe renovar el calendario para detectar cambios.
+La opción se registra por snapshot; no está aún congelada en policy.json, por lo
+que debe fijarse de antemano para una evaluación formal, como la selección de casa.
+No se generaron predicciones ni decisiones simuladas con esta captura antigua.

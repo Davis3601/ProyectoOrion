@@ -115,3 +115,34 @@ def test_market_timestamp_takes_precedence(capture, prediction):
     capture["events"][0]["bookmakers"][0]["markets"][0]["last_update"] = (
         "2026-10-21T17:59:00Z")
     assert convert(capture, prediction)["quoted_at_utc"] == "2026-10-21T17:59:00Z"
+
+
+def test_offset_preserves_nba_deadline(tmp_path, capture, prediction):
+    event = capture['events'][0]
+    event['commence_time'] = '2026-10-21T23:40:00Z'
+    schedule = {'leagueSchedule': {'gameDates': [{'games': [{
+        'gameId': prediction['game_id'], 'homeTeam': {'teamTricode': 'BOS'},
+        'awayTeam': {'teamTricode': 'LAL'},
+        'gameDateTimeUTC': prediction['tip_off_utc']}]}]}}
+    with pytest.raises(ValueError, match='requiere calendario'):
+        build_snapshot(capture, prediction, event_id='provider-id', bookmaker='testbook',
+                       allow_ten_minute_offset=True)
+    # Cuota y predicción frescas entre el inicio NBA y el inicio del proveedor.
+    late = '2026-10-21T23:35:00Z'
+    capture['fetched_at_utc'] = late
+    event['bookmakers'][0]['last_update'] = late
+    prediction['predicted_at_utc'] = late
+    snapshot = build_snapshot(capture, prediction, event_id='provider-id', bookmaker='testbook',
+                              schedule=schedule, allow_ten_minute_offset=True)
+    assert snapshot['offset_seconds'] == 600
+    assert snapshot['tip_off_utc'] == '2026-10-21T23:30:00Z'
+    assert snapshot['provider_tip_off_utc'] == '2026-10-21T23:40:00Z'
+    now = datetime(2026, 10, 21, 23, 35, tzinfo=timezone.utc)
+    initialize(tmp_path, min_ev=0.02, stake=100, max_age_seconds=300, commission=0,
+               now=now-timedelta(hours=1))
+    with pytest.raises(ValueError, match='antes del partido'):
+        record(tmp_path, snapshot, now=now)
+    prediction['game_id'] = '0022600002'
+    with pytest.raises(ValueError, match='ID/horario'):
+        build_snapshot(capture, prediction, event_id='provider-id', bookmaker='testbook',
+                       schedule=schedule, allow_ten_minute_offset=True)

@@ -1,4 +1,4 @@
-﻿"""Auditoría local reproducible Odds API vs calendario NBA; nunca crea apuestas."""
+"""Auditoría local reproducible Odds API vs calendario NBA; nunca crea apuestas."""
 from __future__ import annotations
 
 import argparse
@@ -11,7 +11,7 @@ from nba_predictor.research.odds_api import TEAM_NAMES
 from nba_predictor.research.paper_trading import timestamp, write_new
 
 
-def reconcile(capture: dict, schedule: dict) -> dict:
+def reconcile(capture: dict, schedule: dict, *, allow_ten_minute_offset: bool = False) -> dict:
     """Solo asigna game_id con equipos, UTC exacto y candidato único.
 
     Candidatos con los mismos equipos y hora distinta son diagnósticos; nunca
@@ -30,11 +30,15 @@ def reconcile(capture: dict, schedule: dict) -> dict:
                       and TEAM_NAMES.get(g['awayTeam']['teamTricode']) == event['away_team']]
         start = timestamp(event['commence_time'])
         exact = [g for g in candidates if g.get('gameDateTimeUTC')
-                 and timestamp(g['gameDateTimeUTC']) == start]
+                 and (start - timestamp(g['gameDateTimeUTC'])).total_seconds()
+                 in ((0, 600) if allow_ten_minute_offset else (0,))]
         if event.get('sport_key') != 'basketball_nba':
             row['status'] = 'wrong_sport'
         elif len(exact) == 1:
-            row.update(status='matched', game_id=exact[0]['gameId'],
+            delta = (start - timestamp(exact[0]['gameDateTimeUTC'])).total_seconds()
+            row.update(status='matched' if delta == 0 else 'matched_offset',
+                       nba_tip_off_utc=exact[0]['gameDateTimeUTC'],
+                       offset_seconds=int(delta), game_id=exact[0]['gameId'],
                        home_tricode=exact[0]['homeTeam']['teamTricode'],
                        away_tricode=exact[0]['awayTeam']['teamTricode'])
         elif len(exact) > 1:
@@ -54,7 +58,8 @@ def reconcile(capture: dict, schedule: dict) -> dict:
         if external_counts[row['provider_event_id']] > 1 or (
                 row['game_id'] and game_counts[row['game_id']] > 1):
             row.update(status='ambiguous', game_id=None)
-    return {'season': league.get('seasonYear'), 'regular_season_games': len(games),
+    return {'matching_rule': 'exact_or_plus_600s_v1' if allow_ten_minute_offset else 'exact_v1',
+            'season': league.get('seasonYear'), 'regular_season_games': len(games),
             'odds_events': len(rows), 'counts': dict(Counter(r['status'] for r in rows)),
             'rows': rows}
 
@@ -64,10 +69,12 @@ def main() -> None:
     parser.add_argument('--capture', type=Path, required=True)
     parser.add_argument('--schedule', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--allow-ten-minute-offset', action='store_true')
     args = parser.parse_args()
     capture_bytes = args.capture.read_bytes()
     schedule_bytes = args.schedule.read_bytes()
-    result = reconcile(json.loads(capture_bytes), json.loads(schedule_bytes))
+    result = reconcile(json.loads(capture_bytes), json.loads(schedule_bytes),
+                       allow_ten_minute_offset=args.allow_ten_minute_offset)
     result['sources'] = {
         'capture': str(args.capture), 'schedule': str(args.schedule),
         'capture_sha256': hashlib.sha256(capture_bytes).hexdigest(),

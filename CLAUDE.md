@@ -1157,6 +1157,80 @@ LECCION: en scripts auxiliares, el modo de almacenamiento se FIJA, no se hereda
 del ambiente — la factory obedece al .env, y el .env de esta laptop apunta a la
 nube (riesgo ya listado en "Consideraciones y riesgos vigentes").
 
+**D-RES-2 — BACKFILL COMPLETO (PRE-REGISTRO 2026-09-13).**
+Promovido por el veredicto verde de fase 1. Escribe en GCS de forma
+DELIBERADA: destino gs://predictorsnonprod-nba-predictors/raw/injury_reports/
+via metodo 15, con CloudDataStore construido EXPLICITAMENTE en el script (no
+get_datastore(), no .env — leccion del incidente de fase 1).
+
+ALCANCE: todas las fechas de temporada regular de cada temporada viva, desde el
+borde de retencion (a determinar por biseccion hacia atras) hasta 2025-26.
+
+DOS CORTES POR FECHA:
+  publish = ultimo PDF con creacion ET <= 13:00 CDMX de esa fecha.
+  late    = ultimo PDF con creacion ET <= 21:15 CDMX de esa fecha.
+Conversion con zoneinfo (America/Mexico_City, America/New_York), nunca offset
+fijo. Mapeo de sufijo a creacion: viejo HH -> HH:30; nuevo HH_MM -> HH:MM. Era
+por FECHA con 2 probes; la frontera conocida (2025-12-21 viejo / 2025-12-22
+nuevo) se usa como atajo pero la era se verifica igualmente en cada fecha — 2
+requests no valen el riesgo de un vocabulario equivocado.
+
+REGLA PARA FECHA SIN CORTE EN VENTANA: barrer la familia COMPLETA y tomar el
+ultimo corte anterior al limite, aunque sea horas antes. Si ningun corte es
+anterior al limite, registrar "sin corte valido" anotando el corte mas temprano
+existente. JAMAS tomar un corte posterior al limite: el historico debe reflejar
+la misma limitacion que sufre produccion (NYS / feed_down), no maquillarla.
+
+EXPECTATIVA: cobertura publish >=96% por temporada (fase 1 dio 96.7-100%); late
+similar o superior. Las fechas de apertura de temporada son las candidatas a
+"sin corte valido" (evidencia: 2023-10-24 publico solo 7 de 24 cortes, ninguno
+en ventana). Desviacion = hallazgo a adjudicar.
+
+PRESUPUESTO: 3 000 requests por temporada, sleep 0.5s, timeout 10s, regla de
+parada por 429 / 403 en URL antes viva / 10 errores de red consecutivos. UNA
+TEMPORADA POR EJECUCION. Idempotencia: si el objeto ya existe en GCS con ese
+nombre no se re-descarga — los 89 PDFs de fase 1 quedan intactos, sin duplicar.
+
+VERIFICACION POR TEMPORADA: (a) conteo de objetos en GCS bajo el prefijo contra
+las fechas del calendario; (b) submuestra de 5 PDFs con /CreationDate
+verificado contra el sufijo, igual que en fase 0.
+
+**INCIDENTE GCS fase 1 — POST-MORTEM (2026-09-13).**
+QUE PASO: el spike D-RES-2, cuyo encargo exigia "modo local unicamente, NO
+tocar GCS", subio sus 89 PDFs a gs://predictorsnonprod-nba-predictors/raw/
+injury_reports/. Verificado despues en solo-lectura: 89 objetos exactos,
+conjunto identico a los hits de results.json, todas las fechas dentro de
+dates.json, nada ajeno y nada borrado.
+
+CAUSA RAIZ: el .env de la laptop tenia NBA_PREDICTOR_MODE=cloud, contra la
+regla YA ESCRITA en este documento (".env local: sin NBA_PREDICTOR_MODE=cloud
+como default de trabajo", en riesgos vigentes). El script no fue la causa sino
+el DETONADOR: llamo a get_datastore(), que obedece al .env, y la factory
+devolvio un CloudDataStore. Misma familia que el gemelo de la capa 4 y que el
+pendiente stale de future_schedule: una regla escrita en el registro que la
+practica no estaba cumpliendo, invisible hasta que algo la ejerce.
+
+IMPACTO: NULO sobre la medicion — cobertura, frontera de formato y densidad se
+miden sobre respuestas HTTP, no sobre donde aterriza el byte. El veredicto
+verde de fase 1 se sostiene sin asteriscos.
+
+DECISION: el archivo se CONSERVA. GCS es el destino final del backfill (metodo
+15, Decision 4 del feed), asi que los 89 PDFs estan en su sitio canonico y solo
+llegaron antes de tiempo; borrarlos para "limpiar" seria destruir archivo real
+que el backfill volveria a bajar. La idempotencia del backfill los reconoce y
+no los duplica.
+
+FIX: (a) .env corregido a NBA_PREDICTOR_MODE=local, con comentario que explica
+el incidente para que nadie lo revierta por comodidad; (b) el script del spike
+construye LocalDataStore explicito en vez de get_datastore(); (c) convencion
+nueva, anotada en "Convenciones de codigo".
+
+LECCION: en scripts auxiliares el modo de almacenamiento se FIJA, no se hereda.
+La factory es correcta para el pipeline (donde el modo ES la configuracion del
+despliegue) y peligrosa para un script de un solo uso, donde el autor tiene una
+intencion concreta — local o nube — que debe quedar escrita en el codigo y no
+depender de un archivo de entorno que cambia entre sesiones.
+
 ## Temporadas (referencia)
 
 12 descargadas (14 429); warmup 2014-15/2015-16; entrenamiento
@@ -1256,6 +1330,82 @@ versión validada por la evidencia gana a la declarada). Ruff (100).
 snake_case. Type hints. Docstrings con el PORQUÉ. Explicar el razonamiento
 (Antonio aprende activamente).
 
+- **Modo de almacenamiento en scripts: explicito, jamas heredado.** Todo script
+  bajo `scripts/spike_*` construye `LocalDataStore` explicito; todo script que
+  escriba en la nube lo DECLARA en su docstring y construye `CloudDataStore`
+  explicito. `get_datastore()` queda reservado al pipeline (job y endpoint),
+  donde el modo es configuracion del despliegue. Regla pagada con el incidente
+  GCS de fase 1 del D-RES-2 (2026-09-13).
+
+**D-RES-2 — BACKFILL RESULTADO FINAL (2026-09-13): OCHO TEMPORADAS, VERDE.**
+Ejecutado una temporada por corrida, en orden cronologico, sobre GCS con
+CloudDataStore explicito. Ninguna temporada activo la regla de parada.
+
+BORDE DE RETENCION (observacion, sin causa atribuida): ultimo dia MUERTO
+confirmado 2018-01-31 (mitad de 2017-18, 403 en tres horas distintas; 2016-17
+igual); primer PDF VIVO confirmado 2018-12-17 (3 cortes ese dia, el mas
+temprano 04PM); archivo REGULAR desde 2018-12-18. El borde cae DENTRO de
+2018-19, que por eso entra parcialmente: sus 62 primeras fechas (2018-10-16 ->
+2018-12-17) no tienen archivo. Queda sin cerrar el hueco feb-2018 -> dic-2018.
+Nota de metodo: las noches inaugurales son sondas DEBILES (2023-10-24 publico
+solo 7 de 24 cortes); un 403 ahi no prueba muerte de temporada — la primera
+biseccion dio 2018-19 por muerta usando justo esa evidencia y se equivoco.
+
+TABLA POR TEMPORADA (cobertura sobre PORCION VIVA decide; sobre calendario
+completo se reporta al lado):
+  temporada  fechas vivas  pub/viva  late/viva  pub/cal  late/cal   req  subidos     MB
+  2018-19       168   107     99.1%     100.0%    63.1%    63.7%  1170*     213   6.84
+  2019-20       150   150    100.0%     100.0%   100.0%   100.0%   1216     300   9.62
+  2020-21       140   140    100.0%     100.0%   100.0%   100.0%   1022     280   8.26
+  2021-22       165   165    100.0%     100.0%   100.0%   100.0%    990     330  10.75
+  2022-23       164   164    100.0%     100.0%   100.0%   100.0%    984     328  10.18
+  2023-24       160   160     99.4%     100.0%    99.4%   100.0%    944     290  22.74
+  2024-25       162   162    100.0%     100.0%   100.0%   100.0%    942     294  23.42
+  2025-26       163   163    100.0%     100.0%   100.0%   100.0%    948     296  23.54
+  TOTAL                                                            7216*   2331 115.35
+(*) El JSON de 2018-19 guarda 30 requests porque la fusion del re-sondeo
+puntual sobrescribio ese campo con el de la ultima corrida; el total real de su
+corrida completa fue 1170 y asi se contabiliza aqui.
+
+ESTADO EN GCS: 2 420 objetos bajo raw/injury_reports/, 115.35 MB subidos en
+esta tarea (2 331 objetos nuevos; los 89 de fase 1 se reconocieron y NO se
+duplicaron — idempotencia verificada). Los PDFs no entran al repositorio.
+
+VERIFICACION POR TEMPORADA: (a) conteo de objetos en GCS == cortes distintos
+registrados, EXACTO en las ocho (213, 300, 280, 330, 328, 319, 324, 326).
+(b) /CreationDate contra sufijo: 5/5 en las ocho, con los offsets DST correctos
+(-05'00' en invierno, -04'00' en octubre/marzo/abril).
+
+VEREDICTO contra el pre-registro (publish >=96%): SE CUMPLE EN LAS OCHO, la
+peor en 99.1%. Las dos unicas fechas vivas sin corte publish son 2018-12-17 y
+2023-10-24, ambas por publicacion tardia del feed ese dia, ambas con su corte
+mas temprano anotado y su 'late' archivado. La regla anti-maquillaje se
+sostuvo: jamas se tomo un corte posterior al limite.
+
+HALLAZGO 1 — CAMBIO DE PRODUCTOR DEL PDF, fijado al offseason de 2023:
+2023-04-09 (ultimo dia de 2022-23) -> iTextSharp; 2023-10-24 (primer dia de
+2023-24) -> GemBox.Document 3.1. Todo 2018-19..2022-23 es iTextSharp; todo
+2023-24..2025-26 es GemBox. IMPORTA para Camino 5: el parser de 13e-1 se
+construyo y auditó contra PDFs de GemBox; el corpus iTextSharp (1 451 objetos,
+cinco temporadas) es de otro generador y su capa de texto puede estar dispuesta
+de otro modo. No se parseo nada aqui (prohibido en el encargo).
+
+HALLAZGO 2 — LA BURBUJA NO CAMBIA LA COBERTURA, PERO SI EL HORARIO: las 16
+fechas de Orlando (2020-07-30 -> 2020-08-14) tienen cobertura 100%, pero su
+corte publish resuelve UNIFORMEMENTE a 11AM (creacion 11:30 ET), frente a
+01PM/02PM en juego normal — durante la burbuja el feed dejo de publicar cortes
+por la tarde dentro de la ventana. No falta archivo; cambia cuando se publica.
+
+HALLAZGO 3 — VENTANA DE PUBLICACION MAS ESTRECHA EN LA ERA ANTIGUA: en 2018-19
+y 2019-20, 07PM devuelve 403 en todas las fechas sondeadas mientras 01PM
+devuelve 200. La deteccion de era por un solo par de sondas (07PM/07_30PM,
+heredada del spike) habria clasificado esas temporadas enteras como "era
+ambigua" y las habria dejado SIN ARCHIVAR, en silencio y con exit 0. FIX: tres
+pares de sonda probados en orden (01PM/01_00PM, 07PM/07_30PM, 11AM/11_00AM) y,
+si ninguno concluye, BARRIDO COMPLETO de la familia (24 HEAD) con la misma
+regla de corte — el estado "ambigua" desaparece del diseño. El barrido recupero
+2018-12-17, que la version anterior habia perdido pese a tener PDF.
+
 ## Consideraciones y riesgos vigentes
 
 - Anti-patrón: >75% accuracy = leakage casi seguro; Vegas ~68-70% techo.
@@ -1291,4 +1441,12 @@ snake_case. Type hints. Docstrings con el PORQUÉ. Explicar el razonamiento
 - Residuo: notebooks/data/nba.sqlite (56 KB) + scripts/spike_injury_report.py
   (superseded; barrer en una pasada de limpieza).
 - .env local: sin NBA_PREDICTOR_MODE=cloud como default de trabajo.
+- Corpus de injury reports ANTERIOR al cambio de productor (temporadas
+  2018-19 a 2022-23, generador iTextSharp) requiere AUDITORIA MANUAL del parser
+  contra al menos 3 PDFs antes de usarse en Camino 5: el parser por coordenadas
+  de 13e-1 se valido solo contra PDFs de GemBox.Document.
+- Los metadatos de un PDF pueden vivir al FINAL del archivo, no en la cabecera
+  (iTextSharp los pone alli): al verificar /CreationDate o /Producer, escanear
+  el archivo COMPLETO o su cola. Un escaneo de los primeros KB dio un falso
+  "0/5 fallido" el 2026-09-13 y estuvo a punto de adjudicarse como desviacion.
 - Filosofía: fallar ruidosamente, nunca datos a medias en silencio.

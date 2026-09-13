@@ -1,0 +1,820 @@
+{
+  "cap_per_date": 150,
+  "dates": {
+    "2026-03-13": {
+      "probed": 120,
+      "hits": [
+        {
+          "suffix": "01_45PM",
+          "era": "new"
+        },
+        {
+          "suffix": "01_30PM",
+          "era": "new"
+        },
+        {
+          "suffix": "01_15PM",
+          "era": "new"
+        },
+        {
+          "suffix": "01_00PM",
+          "era": "new"
+        },
+        {
+          "suffix": "02_45PM",
+          "era": "new"
+        },
+        {
+          "suffix": "02_30PM",
+          "era": "new"
+        },
+        {
+          "suffix": "02_15PM",
+          "era": "new"
+        },
+        {
+          "suffix": "02_00PM",
+          "era": "new"
+        },
+        {
+          "suffix": "03_45PM",
+          "era": "new"
+        },
+        {
+          "suffix": "03_30PM",
+          "era": "new"
+        },
+        {
+          "suffix": "03_15PM",
+          "era": "new"
+        },
+        {
+          "suffix": "03_00PM",
+          "era": "new"
+        },
+        {
+          "suffix": "04_45PM",
+          "era": "new"
+        },
+        {
+          "suffix": "04_30PM",
+          "era": "new"
+        },
+        {
+          "suffix": "04_15PM",
+          "era": "new"
+        },
+        {
+          "suffix": "04_00PM",
+          "era": "new"
+        },
+        {
+          "suffix": "05_45PM",
+          "era": "new"
+        },
+        {
+          "suffix": "05_30PM",
+          "era": "new"
+        },
+        {
+          "suffix": "05_15PM",
+          "era": "new"
+        },
+        {
+          "suffix": "05_00PM",
+          "era": "new"
+        },
+        {
+          "suffix": "06_45PM",
+          "era": "new"
+        },
+        {
+          "suffix": "06_30PM",
+          "era": "new"
+        },
+        {
+          "suffix": "06_15PM",
+          "era": "new"
+        },
+        {
+          "suffix": "06_00PM",
+          "era": "new"
+        },
+        {
+          "suffix": "07_45PM",
+          "era": "new"
+        },
+        {
+          "suffix": "07_30PM",
+          "era": "new"
+        },
+        {
+          "suffix": "07_15PM",
+          "era": "new"
+        },
+        {
+          "suffix": "07_00PM",
+          "era": "new"
+        },
+        {
+          "suffix": "08_45PM",
+          "era": "new"
+        },
+        {
+          "suffix": "08_30PM",
+          "era": "new"
+        },
+        {
+          "suffix": "08_15PM",
+          "era": "new"
+        },
+        {
+          "suffix": "08_00PM",
+          "era": "new"
+        },
+        {
+          "suffix": "09_45PM",
+          "era": "new"
+        },
+        {
+          "suffix": "09_30PM",
+          "era": "new"
+        },
+        {
+          "suffix": "09_15PM",
+          "era": "new"
+        },
+        {
+          "suffix": "09_00PM",
+          "era": "new"
+        },
+        {
+          "suffix": "10_45PM",
+          "era": "new"
+        },
+        {
+          "suffix": "10_30PM",
+          "era": "new"
+        },
+        {
+          "suffix": "10_15PM",
+          "era": "new"
+        },
+        {
+          "suffix": "10_00PM",
+          "era": "new"
+        },
+        {
+          "suffix": "11_45PM",
+          "era": "new"
+        },
+        {
+          "suffix": "11_30PM",
+          "era": "new"
+        },
+        {
+          "suffix": "11_15PM",
+          "era": "new"
+        },
+        {
+          "suffix": "11_00PM",
+          "era": "new"
+        },
+        {
+          "suffix": "12_45PM",
+          "era": "new"
+        },
+        {
+          "suffix": "12_30PM",
+          "era": "new"
+        },
+        {
+          "suffix": "12_15PM",
+          "era": "new"
+        },
+        {
+          "suffix": "12_00PM",
+          "era": "new"
+        },
+        {
+          "suffix": "01_45AM",
+          "era": "new"
+        },
+        {
+          "suffix": "01_30AM",
+          "era": "new"
+        },
+        {
+          "suffix": "01_15AM",
+          "era": "new"
+        },
+        {
+          "suffix": "01_00AM",
+          "era": "new"
+        },
+        {
+          "suffix": "02_45AM",
+          "era": "new"
+        },
+        {
+          "suffix": "02_30AM",
+          "era": "new"
+        },
+        {
+          "suffix": "02_15AM",
+          "era": "new"
+        },
+        {
+          "suffix": "02_00AM",
+          "era": "new"
+        },
+        {
+          "suffix": "03_45AM",
+          "era": "new"
+        },
+        {
+          "suffix": "03_30AM",
+          "era": "new"
+        },
+        {
+          "suffix": "03_15AM",
+          "era": "new"
+        },
+        {
+          "suffix": "03_00AM",
+          "era": "new"
+        },
+        {
+          "suffix": "04_45AM",
+          "era": "new"
+        },
+        {
+          "suffix": "04_30AM",
+          "era": "new"
+        },
+        {
+          "suffix": "04_15AM",
+          "era": "new"
+        },
+        {
+          "suffix": "04_00AM",
+          "era": "new"
+        },
+        {
+          "suffix": "05_45AM",
+          "era": "new"
+        },
+        {
+          "suffix": "05_30AM",
+          "era": "new"
+        },
+        {
+          "suffix": "05_15AM",
+          "era": "new"
+        },
+        {
+          "suffix": "05_00AM",
+          "era": "new"
+        },
+        {
+          "suffix": "06_45AM",
+          "era": "new"
+        },
+        {
+          "suffix": "06_30AM",
+          "era": "new"
+        },
+        {
+          "suffix": "06_15AM",
+          "era": "new"
+        },
+        {
+          "suffix": "06_00AM",
+          "era": "new"
+        },
+        {
+          "suffix": "07_45AM",
+          "era": "new"
+        },
+        {
+          "suffix": "07_30AM",
+          "era": "new"
+        },
+        {
+          "suffix": "07_15AM",
+          "era": "new"
+        },
+        {
+          "suffix": "07_00AM",
+          "era": "new"
+        },
+        {
+          "suffix": "08_45AM",
+          "era": "new"
+        },
+        {
+          "suffix": "08_30AM",
+          "era": "new"
+        },
+        {
+          "suffix": "08_15AM",
+          "era": "new"
+        },
+        {
+          "suffix": "08_00AM",
+          "era": "new"
+        },
+        {
+          "suffix": "09_45AM",
+          "era": "new"
+        },
+        {
+          "suffix": "09_30AM",
+          "era": "new"
+        },
+        {
+          "suffix": "09_15AM",
+          "era": "new"
+        },
+        {
+          "suffix": "09_00AM",
+          "era": "new"
+        },
+        {
+          "suffix": "10_45AM",
+          "era": "new"
+        },
+        {
+          "suffix": "10_30AM",
+          "era": "new"
+        },
+        {
+          "suffix": "10_15AM",
+          "era": "new"
+        },
+        {
+          "suffix": "10_00AM",
+          "era": "new"
+        },
+        {
+          "suffix": "11_45AM",
+          "era": "new"
+        },
+        {
+          "suffix": "11_30AM",
+          "era": "new"
+        },
+        {
+          "suffix": "11_15AM",
+          "era": "new"
+        },
+        {
+          "suffix": "11_00AM",
+          "era": "new"
+        },
+        {
+          "suffix": "12_45AM",
+          "era": "new"
+        },
+        {
+          "suffix": "12_30AM",
+          "era": "new"
+        },
+        {
+          "suffix": "12_15AM",
+          "era": "new"
+        },
+        {
+          "suffix": "12_00AM",
+          "era": "new"
+        }
+      ],
+      "status_counts": {
+        "403": 24,
+        "200": 96
+      }
+    },
+    "2024-03-13": {
+      "probed": 120,
+      "hits": [
+        {
+          "suffix": "01PM",
+          "era": "old"
+        },
+        {
+          "suffix": "02PM",
+          "era": "old"
+        },
+        {
+          "suffix": "03PM",
+          "era": "old"
+        },
+        {
+          "suffix": "04PM",
+          "era": "old"
+        },
+        {
+          "suffix": "05PM",
+          "era": "old"
+        },
+        {
+          "suffix": "06PM",
+          "era": "old"
+        },
+        {
+          "suffix": "07PM",
+          "era": "old"
+        },
+        {
+          "suffix": "08PM",
+          "era": "old"
+        },
+        {
+          "suffix": "09PM",
+          "era": "old"
+        },
+        {
+          "suffix": "10PM",
+          "era": "old"
+        },
+        {
+          "suffix": "11PM",
+          "era": "old"
+        },
+        {
+          "suffix": "12PM",
+          "era": "old"
+        },
+        {
+          "suffix": "01AM",
+          "era": "old"
+        },
+        {
+          "suffix": "02AM",
+          "era": "old"
+        },
+        {
+          "suffix": "03AM",
+          "era": "old"
+        },
+        {
+          "suffix": "04AM",
+          "era": "old"
+        },
+        {
+          "suffix": "05AM",
+          "era": "old"
+        },
+        {
+          "suffix": "06AM",
+          "era": "old"
+        },
+        {
+          "suffix": "07AM",
+          "era": "old"
+        },
+        {
+          "suffix": "08AM",
+          "era": "old"
+        },
+        {
+          "suffix": "09AM",
+          "era": "old"
+        },
+        {
+          "suffix": "10AM",
+          "era": "old"
+        },
+        {
+          "suffix": "11AM",
+          "era": "old"
+        },
+        {
+          "suffix": "12AM",
+          "era": "old"
+        }
+      ],
+      "status_counts": {
+        "200": 24,
+        "403": 96
+      }
+    },
+    "2025-01-15": {
+      "probed": 120,
+      "hits": [
+        {
+          "suffix": "01PM",
+          "era": "old"
+        },
+        {
+          "suffix": "02PM",
+          "era": "old"
+        },
+        {
+          "suffix": "03PM",
+          "era": "old"
+        },
+        {
+          "suffix": "04PM",
+          "era": "old"
+        },
+        {
+          "suffix": "05PM",
+          "era": "old"
+        },
+        {
+          "suffix": "06PM",
+          "era": "old"
+        },
+        {
+          "suffix": "07PM",
+          "era": "old"
+        },
+        {
+          "suffix": "08PM",
+          "era": "old"
+        },
+        {
+          "suffix": "09PM",
+          "era": "old"
+        },
+        {
+          "suffix": "10PM",
+          "era": "old"
+        },
+        {
+          "suffix": "11PM",
+          "era": "old"
+        },
+        {
+          "suffix": "12PM",
+          "era": "old"
+        },
+        {
+          "suffix": "01AM",
+          "era": "old"
+        },
+        {
+          "suffix": "02AM",
+          "era": "old"
+        },
+        {
+          "suffix": "03AM",
+          "era": "old"
+        },
+        {
+          "suffix": "04AM",
+          "era": "old"
+        },
+        {
+          "suffix": "05AM",
+          "era": "old"
+        },
+        {
+          "suffix": "06AM",
+          "era": "old"
+        },
+        {
+          "suffix": "07AM",
+          "era": "old"
+        },
+        {
+          "suffix": "08AM",
+          "era": "old"
+        },
+        {
+          "suffix": "09AM",
+          "era": "old"
+        },
+        {
+          "suffix": "10AM",
+          "era": "old"
+        },
+        {
+          "suffix": "11AM",
+          "era": "old"
+        },
+        {
+          "suffix": "12AM",
+          "era": "old"
+        }
+      ],
+      "status_counts": {
+        "200": 24,
+        "403": 96
+      }
+    }
+  },
+  "stopped": null,
+  "hits_by_era": {
+    "old": [
+      "01PM",
+      "02PM",
+      "03PM",
+      "04PM",
+      "05PM",
+      "06PM",
+      "07PM",
+      "08PM",
+      "09PM",
+      "10PM",
+      "11PM",
+      "12PM",
+      "01AM",
+      "02AM",
+      "03AM",
+      "04AM",
+      "05AM",
+      "06AM",
+      "07AM",
+      "08AM",
+      "09AM",
+      "10AM",
+      "11AM",
+      "12AM",
+      "01PM",
+      "02PM",
+      "03PM",
+      "04PM",
+      "05PM",
+      "06PM",
+      "07PM",
+      "08PM",
+      "09PM",
+      "10PM",
+      "11PM",
+      "12PM",
+      "01AM",
+      "02AM",
+      "03AM",
+      "04AM",
+      "05AM",
+      "06AM",
+      "07AM",
+      "08AM",
+      "09AM",
+      "10AM",
+      "11AM",
+      "12AM"
+    ],
+    "new": [
+      "01_45PM",
+      "01_30PM",
+      "01_15PM",
+      "01_00PM",
+      "02_45PM",
+      "02_30PM",
+      "02_15PM",
+      "02_00PM",
+      "03_45PM",
+      "03_30PM",
+      "03_15PM",
+      "03_00PM",
+      "04_45PM",
+      "04_30PM",
+      "04_15PM",
+      "04_00PM",
+      "05_45PM",
+      "05_30PM",
+      "05_15PM",
+      "05_00PM",
+      "06_45PM",
+      "06_30PM",
+      "06_15PM",
+      "06_00PM",
+      "07_45PM",
+      "07_30PM",
+      "07_15PM",
+      "07_00PM",
+      "08_45PM",
+      "08_30PM",
+      "08_15PM",
+      "08_00PM",
+      "09_45PM",
+      "09_30PM",
+      "09_15PM",
+      "09_00PM",
+      "10_45PM",
+      "10_30PM",
+      "10_15PM",
+      "10_00PM",
+      "11_45PM",
+      "11_30PM",
+      "11_15PM",
+      "11_00PM",
+      "12_45PM",
+      "12_30PM",
+      "12_15PM",
+      "12_00PM",
+      "01_45AM",
+      "01_30AM",
+      "01_15AM",
+      "01_00AM",
+      "02_45AM",
+      "02_30AM",
+      "02_15AM",
+      "02_00AM",
+      "03_45AM",
+      "03_30AM",
+      "03_15AM",
+      "03_00AM",
+      "04_45AM",
+      "04_30AM",
+      "04_15AM",
+      "04_00AM",
+      "05_45AM",
+      "05_30AM",
+      "05_15AM",
+      "05_00AM",
+      "06_45AM",
+      "06_30AM",
+      "06_15AM",
+      "06_00AM",
+      "07_45AM",
+      "07_30AM",
+      "07_15AM",
+      "07_00AM",
+      "08_45AM",
+      "08_30AM",
+      "08_15AM",
+      "08_00AM",
+      "09_45AM",
+      "09_30AM",
+      "09_15AM",
+      "09_00AM",
+      "10_45AM",
+      "10_30AM",
+      "10_15AM",
+      "10_00AM",
+      "11_45AM",
+      "11_30AM",
+      "11_15AM",
+      "11_00AM",
+      "12_45AM",
+      "12_30AM",
+      "12_15AM",
+      "12_00AM"
+    ]
+  },
+  "reduced_set": {
+    "old": [
+      "01PM",
+      "02PM",
+      "03PM",
+      "04PM",
+      "05PM",
+      "06PM",
+      "07PM",
+      "08PM",
+      "09PM",
+      "10PM",
+      "11PM",
+      "12PM",
+      "01AM",
+      "02AM",
+      "03AM",
+      "04AM",
+      "05AM",
+      "06AM",
+      "07AM",
+      "08AM",
+      "09AM",
+      "10AM",
+      "11AM",
+      "12AM"
+    ],
+    "new": [
+      "01_45PM",
+      "01_30PM",
+      "01_15PM",
+      "01_00PM",
+      "02_45PM",
+      "02_30PM",
+      "02_15PM",
+      "02_00PM",
+      "03_45PM",
+      "03_30PM",
+      "03_15PM",
+      "03_00PM",
+      "04_45PM",
+      "04_30PM",
+      "04_15PM",
+      "04_00PM",
+      "05_45PM",
+      "05_30PM",
+      "05_15PM",
+      "05_00PM",
+      "06_45PM",
+      "06_30PM",
+      "06_15PM",
+      "06_00PM",
+      "07_45PM",
+      "07_30PM",
+      "07_15PM",
+      "07_00PM",
+      "08_45PM",
+      "08_30PM"
+    ]
+  },
+  "total_requests": 360
+}

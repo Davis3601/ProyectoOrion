@@ -1,0 +1,1552 @@
+{
+  "boundary": {
+    "last_old": "2025-12-21",
+    "first_new": "2025-12-22",
+    "contiguous": true,
+    "steps": [
+      {
+        "date": "2025-12-30",
+        "era": "new",
+        "codes": {
+          "07PM": 403,
+          "07_30PM": 200
+        }
+      },
+      {
+        "date": "2025-12-22",
+        "era": "new",
+        "codes": {
+          "07PM": 403,
+          "07_30PM": 200
+        }
+      },
+      {
+        "date": "2025-12-18",
+        "era": "old",
+        "codes": {
+          "07PM": 200,
+          "07_30PM": 403
+        }
+      },
+      {
+        "date": "2025-12-20",
+        "era": "old",
+        "codes": {
+          "07PM": 200,
+          "07_30PM": 403
+        }
+      },
+      {
+        "date": "2025-12-21",
+        "era": "old",
+        "codes": {
+          "07PM": 200,
+          "07_30PM": 403
+        }
+      }
+    ],
+    "requests": 10
+  },
+  "results": [
+    {
+      "season": "2023-24",
+      "date": "2023-10-24",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 403,
+        "01PM": 403,
+        "03PM": 403
+      },
+      "hit": null,
+      "hit_kind": null,
+      "bytes": null
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-10-25",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 85486
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-10-26",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 64728
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-10-29",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 69839
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-10-31",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 66745
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-11-04",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 72855
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-11-05",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 71840
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-11-09",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 66136
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-11-24",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 79601
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-11-26",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 77186
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-12-04",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 62122
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-12-21",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 90647
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-12-22",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 76289
+    },
+    {
+      "season": "2023-24",
+      "date": "2023-12-28",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 92206
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-01-01",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 74949
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-01-02",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 72840
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-01-03",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 79902
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-01-14",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 70607
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-02-07",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 74294
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-02-08",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 79690
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-02-23",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 73639
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-02-26",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 69708
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-03-01",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 79414
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-03-07",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 73953
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-03-18",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 78790
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-03-23",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 77154
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-04-04",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 73720
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-04-07",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 85232
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-04-10",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 81660
+    },
+    {
+      "season": "2023-24",
+      "date": "2024-04-12",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 88494
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-10-22",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 64658
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-10-23",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 72625
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-10-26",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 73683
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-10-28",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 77578
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-10-31",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 67971
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-11-04",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 88038
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-11-06",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 85445
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-11-19",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 74950
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-11-23",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 73186
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-11-25",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 79482
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-12-02",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 69982
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-12-03",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 82252
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-12-15",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 76099
+    },
+    {
+      "season": "2024-25",
+      "date": "2024-12-22",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 69870
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-01-01",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 78687
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-01-03",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 79679
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-01-07",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 74988
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-01-08",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 79038
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-02-01",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 78766
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-02-22",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 71116
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-02-23",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 79625
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-02-25",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 73856
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-03-07",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 79406
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-03-18",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 71761
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-03-21",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 83601
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-03-23",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 82380
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-04-04",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 82506
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-04-05",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 72098
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-04-07",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 68746
+    },
+    {
+      "season": "2024-25",
+      "date": "2025-04-08",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 82135
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-10-21",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 67033
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-10-22",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 73683
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-10-25",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 70150
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-10-30",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 69029
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-10-31",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "02PM",
+      "tried": {
+        "02PM": 200
+      },
+      "hit": "02PM",
+      "hit_kind": "canonical",
+      "bytes": 75667
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-11-04",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 73493
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-11-05",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 79519
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-11-08",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 76938
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-11-22",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 73719
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-11-24",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 78849
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-12-03",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 82426
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-12-20",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 82733
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-12-21",
+      "era": "old",
+      "era_probe_codes": {
+        "07PM": 200,
+        "07_30PM": 403
+      },
+      "canonical": "01PM",
+      "tried": {
+        "01PM": 200
+      },
+      "hit": "01PM",
+      "hit_kind": "canonical",
+      "bytes": 72432
+    },
+    {
+      "season": "2025-26",
+      "date": "2025-12-27",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "02_00PM",
+      "tried": {
+        "02_00PM": 200
+      },
+      "hit": "02_00PM",
+      "hit_kind": "canonical",
+      "bytes": 79226
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-01-01",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "02_00PM",
+      "tried": {
+        "02_00PM": 200
+      },
+      "hit": "02_00PM",
+      "hit_kind": "canonical",
+      "bytes": 74621
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-01-02",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "02_00PM",
+      "tried": {
+        "02_00PM": 200
+      },
+      "hit": "02_00PM",
+      "hit_kind": "canonical",
+      "bytes": 83038
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-01-03",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "02_00PM",
+      "tried": {
+        "02_00PM": 200
+      },
+      "hit": "02_00PM",
+      "hit_kind": "canonical",
+      "bytes": 75094
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-01-14",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "02_00PM",
+      "tried": {
+        "02_00PM": 200
+      },
+      "hit": "02_00PM",
+      "hit_kind": "canonical",
+      "bytes": 78944
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-02-07",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "02_00PM",
+      "tried": {
+        "02_00PM": 200
+      },
+      "hit": "02_00PM",
+      "hit_kind": "canonical",
+      "bytes": 81637
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-02-08",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "02_00PM",
+      "tried": {
+        "02_00PM": 200
+      },
+      "hit": "02_00PM",
+      "hit_kind": "canonical",
+      "bytes": 73258
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-02-23",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "02_00PM",
+      "tried": {
+        "02_00PM": 200
+      },
+      "hit": "02_00PM",
+      "hit_kind": "canonical",
+      "bytes": 70364
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-02-26",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "02_00PM",
+      "tried": {
+        "02_00PM": 200
+      },
+      "hit": "02_00PM",
+      "hit_kind": "canonical",
+      "bytes": 83003
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-03-01",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "02_00PM",
+      "tried": {
+        "02_00PM": 200
+      },
+      "hit": "02_00PM",
+      "hit_kind": "canonical",
+      "bytes": 82643
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-03-07",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "02_00PM",
+      "tried": {
+        "02_00PM": 200
+      },
+      "hit": "02_00PM",
+      "hit_kind": "canonical",
+      "bytes": 75541
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-03-18",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "03_00PM",
+      "tried": {
+        "03_00PM": 200
+      },
+      "hit": "03_00PM",
+      "hit_kind": "canonical",
+      "bytes": 83171
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-03-23",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "03_00PM",
+      "tried": {
+        "03_00PM": 200
+      },
+      "hit": "03_00PM",
+      "hit_kind": "canonical",
+      "bytes": 82823
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-04-04",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "03_00PM",
+      "tried": {
+        "03_00PM": 200
+      },
+      "hit": "03_00PM",
+      "hit_kind": "canonical",
+      "bytes": 70476
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-04-07",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "03_00PM",
+      "tried": {
+        "03_00PM": 200
+      },
+      "hit": "03_00PM",
+      "hit_kind": "canonical",
+      "bytes": 85466
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-04-09",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "03_00PM",
+      "tried": {
+        "03_00PM": 200
+      },
+      "hit": "03_00PM",
+      "hit_kind": "canonical",
+      "bytes": 80144
+    },
+    {
+      "season": "2025-26",
+      "date": "2026-04-12",
+      "era": "new",
+      "era_probe_codes": {
+        "07PM": 403,
+        "07_30PM": 200
+      },
+      "canonical": "03_00PM",
+      "tried": {
+        "03_00PM": 200
+      },
+      "hit": "03_00PM",
+      "hit_kind": "canonical",
+      "bytes": 103974
+    }
+  ],
+  "summary": [
+    {
+      "season": "2023-24",
+      "probed": 30,
+      "canonical": 29,
+      "neighbor": 0,
+      "no_pdf": 1,
+      "coverage_pct": 96.7,
+      "eras": {
+        "old": 30
+      }
+    },
+    {
+      "season": "2024-25",
+      "probed": 30,
+      "canonical": 30,
+      "neighbor": 0,
+      "no_pdf": 0,
+      "coverage_pct": 100.0,
+      "eras": {
+        "old": 30
+      }
+    },
+    {
+      "season": "2025-26",
+      "probed": 30,
+      "canonical": 30,
+      "neighbor": 0,
+      "no_pdf": 0,
+      "coverage_pct": 100.0,
+      "eras": {
+        "old": 13,
+        "new": 17
+      }
+    }
+  ],
+  "density": {
+    "2023-10-24": {
+      "era": "old",
+      "hits": 7,
+      "slots": 24
+    },
+    "2024-10-22": {
+      "era": "old",
+      "hits": 24,
+      "slots": 24
+    },
+    "2025-10-21": {
+      "era": "old",
+      "hits": 24,
+      "slots": 24
+    }
+  },
+  "archived_pdfs": 89,
+  "archived_bytes": 6843027,
+  "total_requests": 449,
+  "budget": 700,
+  "stopped": null
+}

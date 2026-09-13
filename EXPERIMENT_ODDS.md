@@ -1,9 +1,9 @@
-﻿# Experimento local de cuotas y apuestas simuladas
+# Experimento local de cuotas y apuestas simuladas
 
 Esta rama añade una herramienta independiente del modelo y del gate oficial.
-No coloca apuestas, no consulta la nube, no lee .env y no ejecuta predicciones.
-Usa únicamente la biblioteca estándar. Las cuotas se capturan manualmente:
-no existe todavía un proveedor conectado ni evidencia de ejecución real.
+No coloca apuestas, no accede a GCP, no lee .env y no ejecuta predicciones.
+Usa únicamente la biblioteca estándar. Admite captura manual y The Odds API;
+la integración se ha validado con HTTP simulado, sin evidencia de ejecución real.
 
 ## Uso (desde la raíz del repositorio)
 
@@ -85,4 +85,58 @@ Verificación local sin red ni datos de producción:
 
 ```powershell
 python -m pytest tests/test_paper_trading.py -q
+```
+
+## The Odds API (ejercicio separado)
+
+Proveedor: https://the-odds-api.com/ (dominio con guiones).
+Contrato consultado: https://the-odds-api.com/liveapi/guides/v4/
+Cliente: nba_predictor/research/odds_api.py. Solo NBA, h2h y cuotas decimales.
+No modifica main, el modelo, la API oficial ni la configuración de GCP.
+
+1. Crea una cuenta en el proveedor. Configura ODDS_API_KEY en el entorno de tu
+   terminal local; no pegues la clave en el chat, en archivos versionados ni en
+   argumentos del comando. El cliente no carga .env automáticamente.
+2. Inicializa el experimento con el comando init descrito arriba.
+3. Captura cuotas (una petición, sin reintentos automáticos):
+
+```powershell
+python -m nba_predictor.research.odds_api capture --region us --output data/paper/captures/nba-001.json
+```
+
+La respuesta completa queda archivada con fetched_at_utc y contadores de créditos,
+sin la clave ni la URL autenticada. El nombre debe ser nuevo en cada ejecución.
+Una lista vacía de eventos se conserva como observación válida; no se inventan cuotas.
+El comando muestra número de eventos y cuota restante. El crédito se consume incluso
+si no consigues registrar después una decisión (por ejemplo, por cuota antigua).
+
+4. Prepara prediction.json como una fila exportada de predictions_log:
+   game_id, home_team y away_team (abreviaturas NBA), p_home_win, model_version,
+   predicted_at_utc. Añade tip_off_utc desde el calendario del partido. No cambies
+   el timestamp de la predicción: si es antigua, se necesita una nueva predicción.
+5. Identifica id del evento y key de la casa en la captura y registra:
+
+```powershell
+python -m nba_predictor.research.odds_api record --capture data/paper/captures/nba-001.json --prediction prediction.json --event-id ID_DEL_PROVEEDOR --bookmaker CLAVE_DE_LA_CASA --directory data/paper/demo
+```
+
+No se escoge una casa automáticamente. Para una evaluación formal, fija la casa
+antes de observar las cuotas; el CLI actual exige seleccionarla pero no congela
+esa selección en policy.json. No uses esta flexibilidad para elegir retrospectivamente.
+
+El cruce exige ID único del proveedor, equipos exactos y hora de inicio idéntica.
+Si hay un alias no reconocido o un partido reprogramado, falla para revisión; nunca
+usa coincidencia aproximada ni confunde el ID externo con game_id. Las reglas de
+regular season, antigüedad y registro prepartido las aplica el ledger existente.
+quoted_at_utc sale de last_update del mercado o de la casa, nunca de la descarga.
+El mercado h2h NBA se trata como moneyline de dos resultados incluyendo prórroga;
+verifica las reglas de liquidación de la casa elegida antes de una evaluación real.
+
+El report existente sigue recibiendo resultados explícitos. Pendientes fuera de
+esta integración: captura programada, exportación automática de predicciones,
+selección congelada de casa, resultados automáticos, históricos y CLV.
+Para validar cobertura real hace falta una clave y una respuesta real del proveedor.
+
+```powershell
+python -m pytest tests/test_odds_api.py tests/test_paper_trading.py -q
 ```

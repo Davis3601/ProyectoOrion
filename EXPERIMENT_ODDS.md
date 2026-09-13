@@ -233,3 +233,58 @@ no una cartera de tres apuestas. Se verificaron rechazos de duplicados, cuotas
 antiguas y registro posterior al inicio. La suite adicional cubre abstenciones.
 Resultado: demostración correcta, 40 pruebas aprobadas, Ruff limpio; cero consultas
 API. No aporta evidencia sobre rentabilidad real.
+
+## Política v2 congelada (2026-09-13)
+
+Sustituye los pendientes de congelación de casa/regla descritos arriba para el
+nuevo ejercicio data/paper/odds-v2. Los experimentos anteriores se conservan sin
+migrarlos. Archivo real: data/paper/odds-v2/policy.json (local, no versionado).
+
+Valores iniciales elegidos para el ejercicio, no optimizados por rendimiento:
+- Casa: draftkings. Mayor cobertura de la captura inicial: 41 eventos frente a
+  betmgm 19, bovada 17, fanduel 10 y betrivers 8. No se compararon precios para elegir.
+  Es referencia de simulación, sin afirmar acceso o ejecutabilidad en México.
+- Regla: exact_or_plus_600s_v1, con verificación del calendario NBA.
+- Momento: objetivo 60 minutos antes de NBA; registro Y descarga entre 65 y 55
+  minutos antes, inclusive. Predicción, cuota y descarga con antigüedad máxima 300s.
+- Presupuesto: 300 intentos por mes calendario UTC para este directorio. Una región
+  (us), un mercado (h2h), una petición por captura; sin reintentos automáticos.
+- Importe simulado fijo: 100 unidades; EV neto estrictamente >0.02; comisión 0.
+  No modela impuestos, deslizamiento ni aceptación. Parámetros ilustrativos.
+
+El contador SQLite reserva atómicamente ANTES del HTTP; fallos también consumen
+intento. La falta de clave y el archivo de salida existente se detectan antes de
+reservar. No se reinicia con cada proceso, sí por mes UTC. No representa el saldo
+real de Odds API ni el total de otros scripts/cuentas/directorios. Conserva headers
+reales de cuota para contrastarlos. No se debe borrar el contador para evadir el tope.
+
+Inicialización reproducible para OTRO directorio nuevo:
+
+```powershell
+python -m nba_predictor.research.paper_trading --directory data/paper/odds-v2-new init --min-ev 0.02 --stake 100 --max-age-seconds 300 --commission 0 --bookmaker draftkings --matching-rule exact_or_plus_600s_v1 --monthly-requests 300
+```
+
+Captura gobernada, con ODDS_API_KEY disponible en el entorno:
+
+```powershell
+python -m nba_predictor.research.odds_api capture --directory data/paper/odds-v2 --region us --output data/paper/captures/governed-001.json
+```
+
+El registro exige la marca de presupuesto de esta política; una captura exploratoria
+sin --directory no sirve para registrar en v2. Puede capturarse fuera de la ventana
+para diagnosticar cobertura, pero esa captura no será elegible para una decisión.
+Un único fetch puede servir a varios partidos si todos cumplen su ventana NBA.
+
+```powershell
+python -m nba_predictor.research.odds_api record --directory data/paper/odds-v2 --capture data/paper/captures/governed-001.json --prediction prediction.json --event-id ID_EXTERNO --bookmaker draftkings --schedule CALENDARIO_JSON --allow-ten-minute-offset
+```
+
+Los archivos de política siguen protegidos contra sobrescritura desde init; su hash
+viaja con capturas y registros y el contador detecta ediciones posteriores a su primer
+uso. No son almacenamiento inmutable contra edición manual del dueño del disco.
+Si hay que cambiar reglas, crea un ejercicio nuevo e identifica la nueva versión.
+Los init sin --bookmaker siguen disponibles para demos/compatibilidad v1.
+
+Validación: 51 pruebas aprobadas, incluidas reglas, ventanas, límite y cambio mensual.
+No se hicieron peticiones ni apuestas para congelar esta política. No se programó
+ninguna tarea automática: el siguiente trabajo es el planificador de capturas.

@@ -132,6 +132,7 @@ def build_snapshot(capture: dict, prediction: dict, *, event_id: str, bookmaker:
             "provider_tip_off_utc": event["commence_time"],
             "source": f"{ENDPOINT}#event={event_id}",
             "provider_event_id": event_id,
+            "request_budget": capture.get("request_budget"),
             "fetched_at_utc": capture["fetched_at_utc"],
             "market": "moneyline_including_overtime", "quoted_at_utc": updated,
             "home_decimal_odds": single(outcomes, "name", event["home_team"])["price"],
@@ -143,6 +144,7 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     capture = commands.add_parser("capture")
     capture.add_argument("--output", type=Path, required=True)
+    capture.add_argument("--directory", type=Path, help="Pol?tica v2 y presupuesto local")
     capture.add_argument("--region", choices=["us", "us2", "uk", "eu", "au"], default="us")
     register = commands.add_parser("record")
     register.add_argument("--capture", type=Path, required=True)
@@ -159,7 +161,19 @@ def main() -> None:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             if args.output.exists():
                 raise FileExistsError("La captura ya existe; usa otro nombre")
-            data = fetch_odds(os.environ.get("ODDS_API_KEY", ""), region=args.region)
+            key = os.environ.get("ODDS_API_KEY", "")
+            if not key.strip():
+                raise ValueError("Configura ODDS_API_KEY en el entorno local")
+            budget = None
+            if args.directory:
+                from nba_predictor.research.request_budget import reserve_request
+                policy = json.loads((args.directory / "policy.json").read_text(encoding="utf-8"))
+                if args.region != policy.get("region"):
+                    raise ValueError("Regi?n distinta de la pol?tica congelada")
+                budget = reserve_request(args.directory)
+            data = fetch_odds(key, region=args.region)
+            if budget:
+                data["request_budget"] = budget
             write_new(args.output, data)
             print(json.dumps({"file": str(args.output), "events": len(data["events"]),
                               "quota": data["quota"]}))

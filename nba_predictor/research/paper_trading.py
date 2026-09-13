@@ -40,7 +40,9 @@ def write_new(path: Path, value: dict) -> None:
 
 
 def initialize(root: Path, *, min_ev: float, stake: float, max_age_seconds: float,
-               commission: float, now: datetime | None = None) -> None:
+               commission: float, now: datetime | None = None,
+               bookmaker: str | None = None, matching_rule: str = "exact_or_plus_600s_v1",
+               monthly_requests: int = 300) -> None:
     """Congela reglas antes de registrar observaciones. Comisión sobre ganancias."""
     policy = {
         "min_ev": number(min_ev, 0, 1),
@@ -51,6 +53,18 @@ def initialize(root: Path, *, min_ev: float, stake: float, max_age_seconds: floa
         "market": "moneyline_including_overtime",
         "selection": "highest_net_ev_first_snapshot_one_bet_per_game",
     }
+    if bookmaker is not None:
+        if not re.fullmatch(r"[a-z0-9_]+", bookmaker):
+            raise ValueError("Casa inv?lida")
+        if matching_rule not in {"exact_v1", "exact_or_plus_600s_v1"}:
+            raise ValueError("Regla de vinculaci?n inv?lida")
+        if type(monthly_requests) is not int or not 1 <= monthly_requests <= 500:
+            raise ValueError("Presupuesto debe ser entero entre 1 y 500")
+        policy.update(schema_version=2, bookmaker=bookmaker, matching_rule=matching_rule,
+                      capture_min_minutes_before=55, capture_max_minutes_before=65,
+                      monthly_request_limit=monthly_requests, region="us",
+                      provider="the-odds-api.com", budget_period="UTC calendar month",
+                      budget_unit="attempts", capture_market="h2h")
     root.mkdir(parents=True, exist_ok=True)
     write_new(root / "policy.json", policy)
 
@@ -82,6 +96,28 @@ def record(root: Path, snapshot: dict, *, now: datetime | None = None) -> dict:
         age = (now - stamp).total_seconds()
         if not 0 <= age <= policy["max_age_seconds"]:
             raise ValueError("Predicción/cuota futura o demasiado antigua")
+    if policy.get("schema_version") == 2:
+        budget = snapshot.get("request_budget") or {}
+        if budget.get("policy_sha256") != digest(policy):
+            raise ValueError("Captura sin presupuesto de esta pol?tica")
+        if snapshot["bookmaker"] != policy["bookmaker"]:
+            raise ValueError("Casa distinta de la pol?tica congelada")
+        if snapshot.get("matching_rule") != policy["matching_rule"]:
+            raise ValueError("Regla horaria distinta de la pol?tica congelada")
+        if timestamp(snapshot["nba_tip_off_utc"]) != start:
+            raise ValueError("El l?mite debe ser el horario NBA")
+        offset = (timestamp(snapshot["provider_tip_off_utc"]) - start).total_seconds()
+        allowed = (0,) if policy["matching_rule"] == "exact_v1" else (0, 600)
+        if offset not in allowed:
+            raise ValueError("Desfase no permitido")
+        for instant in (now, timestamp(snapshot["fetched_at_utc"])):
+            minutes = (start - instant).total_seconds() / 60
+            if not policy["capture_min_minutes_before"] <= minutes <= (
+                    policy["capture_max_minutes_before"]):
+                raise ValueError("Fuera de ventana de captura 55-65 minutos antes de NBA")
+        fetched = timestamp(snapshot["fetched_at_utc"])
+        if not 0 <= (now-fetched).total_seconds() <= policy["max_age_seconds"]:
+            raise ValueError("Captura antigua o futura")
     p_home = number(snapshot["p_home_win"], 0, 1)
     candidates = []
     for side, probability in (("home", p_home), ("away", 1 - p_home)):
@@ -158,6 +194,10 @@ def main() -> None:
     init.add_argument("--stake", type=float, required=True)
     init.add_argument("--max-age-seconds", type=float, default=300)
     init.add_argument("--commission", type=float, default=0)
+    init.add_argument("--bookmaker")
+    init.add_argument("--matching-rule", choices=["exact_v1", "exact_or_plus_600s_v1"],
+                      default="exact_or_plus_600s_v1")
+    init.add_argument("--monthly-requests", type=int, default=300)
     capture = commands.add_parser("record")
     capture.add_argument("snapshot", type=Path)
     evaluate = commands.add_parser("report")
@@ -165,7 +205,9 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "init":
         initialize(args.directory, min_ev=args.min_ev, stake=args.stake,
-                   max_age_seconds=args.max_age_seconds, commission=args.commission)
+                   max_age_seconds=args.max_age_seconds, commission=args.commission,
+                   bookmaker=args.bookmaker, matching_rule=args.matching_rule,
+                   monthly_requests=args.monthly_requests)
         output = {"initialized": str(args.directory)}
     elif args.command == "record":
         output = record(args.directory, json.loads(args.snapshot.read_text(encoding="utf-8-sig")))

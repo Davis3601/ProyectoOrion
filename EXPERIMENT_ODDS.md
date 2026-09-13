@@ -211,3 +211,25 @@ Antes de una captura operativa se debe renovar el calendario para detectar cambi
 La opción se registra por snapshot; no está aún congelada en policy.json, por lo
 que debe fijarse de antemano para una evaluación formal, como la selección de casa.
 No se generaron predicciones ni decisiones simuladas con esta captura antigua.
+
+## Demostración completa sin API
+
+```powershell
+python -m nba_predictor.research.demo_paper_trading --output data/paper/synthetic-demo-002
+```
+
+Exige directorio nuevo. No carga .env, no usa red ni altera el reloj del equipo.
+Inyecta un reloj ficticio de 2030 únicamente a las funciones del experimento.
+Todos los datos son sintéticos; no son predicciones del modelo entrenado.
+
+La ejecución inicial quedó en data/paper/synthetic-demo-001/. Abre LEEME.txt para
+recorrer los archivos, o summary.json para el resumen. Conserva predicción, cuotas,
+calendario, cruce, snapshot, reglas, decisión y resultados alternativos.
+
+Con P(local)=0.60, cuota=1.80, importe=100, comisión=0 y umbral=0.02: EV=0.08 y
+selección local. Victoria: +80 (ROI 80%); derrota: -100 (ROI -100%); anulación: 0,
+ROI null por no existir importe liquidado elegible. Son tres escenarios excluyentes,
+no una cartera de tres apuestas. Se verificaron rechazos de duplicados, cuotas
+antiguas y registro posterior al inicio. La suite adicional cubre abstenciones.
+Resultado: demostración correcta, 40 pruebas aprobadas, Ruff limpio; cero consultas
+API. No aporta evidencia sobre rentabilidad real.

@@ -140,3 +140,31 @@ Para validar cobertura real hace falta una clave y una respuesta real del provee
 ```powershell
 python -m pytest tests/test_odds_api.py tests/test_paper_trading.py -q
 ```
+
+## Auditoría de calendario (2026-09-13)
+
+Se contrastó la primera captura real con una descarga del calendario NBA 2026-27.
+Resultado: 41 eventos; 8 coincidencias exactas y 33 discrepancias de horario.
+En las 33 discrepancias, el candidato con los mismos equipos más cercano figura
+exactamente 10 minutos ANTES en el calendario NBA. Esto es una observación de esta
+muestra, no una explicación confirmada del proveedor ni autorización para corregirla.
+El matcher conserva su regla estricta; los 33 casos quedan sin game_id asignado.
+
+Ejemplo: Orlando local vs Atlanta, 2026-10-21: Odds API 23:10 UTC,
+calendario NBA 23:00 UTC. No se cambiaron horarios ni se registraron apuestas.
+También se observó inicio del calendario regular el 20 de octubre en las capturas;
+las fechas del documento canónico deben contrastarse con el calendario actualizado
+antes de operación. No se modificó CLAUDE.md ni el protocolo oficial en esta rama.
+
+Informe local: data/paper/reports/reconciliation-20260913.json. Incluye todos los
+candidatos, identificadores y SHA-256 de ambas fuentes. Capturas e informe permanecen
+bajo data/ (ignorado por Git). Reproducir sin red, usando un nombre de salida nuevo:
+
+```powershell
+python -m nba_predictor.research.reconcile_odds --capture data/paper/captures/nba-20260913T165900546522Z.json --schedule data/paper/captures/schedule-20260913T170057304259Z.json --output data/paper/reports/reconciliation-recheck.json
+```
+
+El auditor excluye preseason y exige equipos, UTC exacto y unicidad tanto del ID
+NBA como del ID externo. Próximo paso: resolver/documentar el desfase de 10 minutos
+antes de ampliar las coincidencias. Una eventual tolerancia deberá conservar ambos
+horarios y usar el inicio NBA como límite conservador para registro prepartido.

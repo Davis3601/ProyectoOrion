@@ -1934,3 +1934,144 @@ ESTADO: market_odds OPERATIVA Y AUTONOMA desde 2026-09-21, tres
 snapshots diarios, 70 filas iniciales matched=true con odds reales de
 la primera semana de temporada. El sistema acumula evidencia CLV desde
 31 dias antes de la ventana de validacion.
+
+## D-EXP-1: EXPERIMENTO P(juega | estatus) SOBRE CORPUS GEMBOX
+(PRE-REGISTRO 2026-09-21)
+
+Entra en ejecucion el experimento pre-registrado en las Decisiones del
+feed (2026-08-22). Corpus: SOLO GemBox (2023-24..2025-26, parser
+auditado de 13e-1); iTextSharp excluido hasta cerrar D-RES-3. Es
+MEDICION pura: cero cambios a modelos, features o pipeline.
+
+Definiciones congeladas: instancia = (fecha, jugador, estatus) con
+game_date igual a la fecha objetivo (PDF multi-fecha: filas del dia
+siguiente se capturan en su propio dia). "Jugo" primaria = minutes > 0
+en player_game_stats; secundaria = fila presente (activado). Corte
+primario = publish (condicion de produccion); late = secundario
+(maduracion intradia). Exclusiones contadas aparte: partido fuera de
+games, jugador sin match del NameIndex (tasa reportada por temporada).
+
+Expectativas: P(juega|Out) < 2% (sanity del instrumento);
+Probable 80-95%; Questionable 45-65%; Doubtful 5-20%; ordenamiento
+estricto Out < D < Q < P en las tres temporadas por separado; corte
+late con menos masa en Questionable y probabilidades mas extremas.
+Desviacion = hallazgo a adjudicar, jamas aceptar en silencio.
+
+Los agregados NO son oficiales hasta que Antonio adjudique la muestra
+de auditoria (2 fechas, seed 42, listado instancia por instancia
+cotejado contra PDF y boxscore; protocolo 13e-1).
+
+USO POSTERIOR (fuera de esta tarea): si las expectativas se sostienen,
+los valores medidos alimentan el diseño del candidato sombra
+"disponibilidad v2" (ponderar ausencias esperadas en vez de binarias),
+como MODELO NUEVO via model_version en predictions_log (D-ODDS-5).
+B-limpia intacta.
+
+RESULTADO: pendiente de ejecucion y auditoria.
+
+## D-EXP-1 RESULTADO (2026-09-21): agregados PROVISIONALES + adjudicaciones
+
+INSTRUMENTO SANO: 78 121 instancias, 0 PDFs ilegibles, 0 equipos sin
+match, inclusion 95.7-96.4% en las seis celdas temporada x corte.
+Exclusiones: 13-15 nombres distintos sin resolver por temporada
+(repetidos a lo largo del calendario) y sin_partido 0/47/70. Ajuste
+declarado: _normalize_name del parser es para personas ("Philadelphia
+76ers" -> "philadelphia ers"); el experimento usa normalizador
+alfanumerico propio con alias LAClippers/LALakers, local al script.
+
+TABLA publish (corte de produccion), P(juega) primaria (minutes > 0):
+  estatus       2023-24        2024-25        2025-26       pre-registro
+  Out           0.003 (7750)   0.004 (8620)   0.001 (8625)  <2%      OK
+  Doubtful      0.021 (244)    0.035 (283)    0.013 (390)   5-20%    DESVIACION
+  Questionable  0.467 (2130)   0.477 (1996)   0.494 (1788)  45-65%   OK
+  Probable      0.909 (619)    0.898 (746)    0.919 (628)   80-95%   OK
+  Available     0.722 (485)    0.800 (491)    0.817 (812)   no pre-reg
+Ordenamiento estricto Out < D < Q < P: SE CUMPLE en las tres temporadas
+por separado. El dato central del experimento: ~50% de los Questionable
+juegan, y v1 los cuenta como disponibles al 100%.
+
+ADJUDICACION 1 (Doubtful bajo el rango, las tres temporadas): HALLAZGO,
+no fallo. El rango pre-registrado era estimacion de conocimiento publico
+y los datos lo contradicen de forma consistente con n sano; el
+pre-registro funciono cazando la expectativa mala. Sustancia: Doubtful
+opera como eufemismo de Out (~98% no juega). Peso de Doubtful ~ peso de
+Out para el candidato sombra.
+
+ADJUDICACION 2 (Available < Probable): la etiqueta mezcla poblaciones,
+no es escalon de gravedad. Descompuesto 2023-24: G-League/Two-Way
+P(juega)=0.448 (n=67) vs resto 0.766 (n=418). Consecuencia v2: Available
+jamas se trata como "mas disponible que Probable"; la descomposicion por
+razon entra al diseño del candidato.
+
+ADJUDICACION 3 (corte late INVALIDADO como medicion de maduracion para
+partidos del mismo dia): los sufijos late del backfill caen en
+09PM-11:15PM ET, con partidos en curso o terminados; el reporte ya dice
+quien jugo (P(juega|Out)=0.000 exacto; masa D+Q+P colapsa de 24.8% a
+0.2%). Es RETROSPECTIVA, no pronostico. Los numeros late NO se usan como
+medicion predictiva. El archivo late del backfill queda intacto (es
+registro de lo publicado, no esta corrupto). Variante que SI mediria
+maduracion: filas del dia siguiente del mismo PDF; queda nombrada como
+D-EXP-1b, con pre-registro propio SI algun dia se necesita. NO ejecutada.
+
+GEMELO EN market_odds (nombrado aqui, verificacion pre-registrada):
+CDMX sin DST, ET con DST. En octubre (EDT) los snapshots caen en 15:00 /
+19:45 / 23:15 ET: late es post-tipoff para casi todos los partidos y
+evening para los tempranos. Consecuencias: (a) el proxy de cierre de
+D-ODDS-3 para partidos tempranos sera publish (4 horas antes del
+tipoff), mas debil de lo estimado; (b) VERIFICAR en octubre que devuelve
+The Odds API para eventos ya iniciados (odds en vivo vs evento ausente);
+filas en vivo mezcladas con pre-partido corromperian el CLV. El analisis
+de CLV DEBE comparar capture_ts contra el tipoff real del CDN
+(gameDateTimeUTC; jamas gameDateTimeEst, cuyo Z es decorativo). Desde
+noviembre (EST) evening pasa a 18:45 ET y vuelve a preceder la mayoria
+de tipoffs: la severidad varia con el DST ajeno.
+
+USO POSTERIOR confirmado: los pesos medidos (Out ~0, Doubtful ~0.02,
+Questionable ~0.48, Probable ~0.91, Available descompuesto por razon)
+alimentan el diseño del candidato sombra disponibilidad-v2 (D-ODDS-5).
+B-limpia intacta.
+
+ESTADO: agregados PROVISIONALES. Oficiales solo cuando Antonio adjudique
+los dos listados de auditoria (auditoria_2023-11-24.txt, 194 instancias;
+auditoria_2025-10-27.txt, 174), protocolo 13e-1.
+
+CORRECCION DE BASE DE TESTS: la base vigente es 605 limpia / 609 mixta,
+15 deselected (584 post-D-ODDS + 21 del experimento). El 550/554 del
+bloque 2026-09-20 quedo obsoleto con los 30 tests de odds_logic + 4 de
+Settings ya contados en 584; se conserva como registro historico.
+
+## D-EXP-1 CERRADO (2026-09-21): auditoria humana adjudicada, agregados
+OFICIALES
+
+Antonio adjudico los dos listados de auditoria (auditoria_2023-11-24.txt,
+194 instancias; auditoria_2025-10-27.txt, 174 instancias) contra PDF y
+boxscore: SIN misatribuciones, sin fantasmas, sin perdidos, sin
+veredictos contradichos. Los agregados del corte publish pasan de
+provisionales a OFICIALES tal como estan tabulados en el bloque
+D-EXP-1 RESULTADO, con sus tres adjudicaciones (Doubtful como hallazgo,
+Available como mezcla de poblaciones, late invalidado como pronostico
+del mismo dia).
+
+PESOS OFICIALES PARA EL CANDIDATO disponibilidad-v2 (promedio simple de
+las tres temporadas, redondeo a 2 decimales; la estabilidad entre
+temporadas justifica el promedio):
+  Out          0.00
+  Doubtful     0.02
+  Questionable 0.48
+  Probable     0.91
+  Available    sin peso unico: requiere descomposicion por razon
+               (G-League/Two-Way vs resto) en el diseño del candidato
+NOTA DE VIGENCIA: pesos medidos sobre 2023-24..2025-26 (corpus GemBox).
+Si el corpus iTextSharp se incorpora tras cerrar D-RES-3, los pesos se
+RE-MIDEN con el corpus ampliado y ambas versiones quedan registradas;
+jamas se mezclan mediciones de parsers no auditados.
+
+DESBLOQUEADO: diseño del candidato sombra disponibilidad-v2 como MODELO
+NUEVO (D-ODDS-5): availability_diff ponderada por P(juega|estatus) en
+lugar de binaria por Out. B-limpia intacta como unico modelo publicado.
+El diseño del candidato lleva su propio pre-registro antes de escribir
+codigo.
+
+Los archivos de data/experiment_pjuega/ entran al repositorio como
+evidencia con git add -f (mismo criterio que los JSON del spike
+D-RES-2), a discrecion de Antonio en el proximo commit.

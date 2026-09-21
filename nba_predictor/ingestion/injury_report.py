@@ -94,6 +94,11 @@ class InjuryRow:
     player_name: str       # Formato PDF: "Apellido [Sufijo], Nombre"
     status: InjuryStatus
     reason: str
+    # Columnas que solo existen en los layouts iTextSharp (corpus 2018-19 a
+    # 2022-23; ver D-RES-3b). Opcionales y al final para que la ruta GemBox y
+    # sus 91 tests sigan construyendo InjuryRow igual que antes.
+    category: str | None = None          # "Injury/Illness", "G League Team"…
+    previous_status: str | None = None   # estatus del reporte anterior
 
 
 @dataclass

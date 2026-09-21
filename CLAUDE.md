@@ -1406,6 +1406,337 @@ si ninguno concluye, BARRIDO COMPLETO de la familia (24 HEAD) con la misma
 regla de corte — el estado "ambigua" desaparece del diseño. El barrido recupero
 2018-12-17, que la version anterior habia perdido pese a tener PDF.
 
+**D-RES-3 — Auditoria parser iTextSharp (PRE-REGISTRO 2026-09-13).**
+Objetivo: determinar si parse_pdf() (13e-1, parser por coordenadas) lee
+correctamente PDFs generados por iTextSharp. El parser se construyo y auditó
+en 6 rondas contra PDFs de GemBox.Document; el backfill D-RES-2 revelo que las
+temporadas 2018-19 a 2022-23 (1 451 objetos) las genero iTextSharp. NO se
+corrige el parser en esta tarea: si falla, se reporta y el fix se diseña aparte.
+
+MUESTRA (4 PDFs de GCS, corte publish, elegidos ANTES de mirar su contenido y
+sin sustituciones posibles una vez fijados): 2019-01-15, 2020-08-05 (burbuja,
+corte 11AM), 2021-02-10, 2023-01-20.
+
+EXPECTATIVA: DESCONOCIDA — no se pre-registra exito ni fallo. El parser ancla
+bandas por fila al X de las columnas; un generador distinto puede mover
+columnas, cambiar el vocabulario de estatus o el encabezado de partido. Apostar
+por un resultado aqui seria inventar una hipotesis que no se tiene.
+
+CRITERIO DE EXITO: para cada PDF, el listado COMPLETO del parser (equipo,
+jugador, estatus, razon, game_date) coincide con la lectura HUMANA del
+documento; cero filas fantasma, cero jugadores perdidos, cero equipos mal
+atribuidos. Lo adjudica Antonio, no el script — protocolo de auditoria de
+13e-1, cobrado cinco veces: los invariantes automaticos NO detectan
+misatribucion (la capa 3 los paso todos y solo "Trae Young no juega en
+Portland" la cazo).
+
+INVARIANTES AUTOMATICOS (guardas, NO prueba de correccion): (1) total de filas
+del parser contra un conteo independiente por extract_text() de lineas con
+patron "Apellido, Nombre"; (2) conjunto de estatus observados contenido en
+{Out, Doubtful, Questionable, Probable, Available}; (3) todo game_date igual a
+la fecha del PDF o al dia siguiente (el PDF es multi-fecha, hallazgo de
+2026-08-22); (4) NYS con fecha.
+
+SALIDA: data/audit_itextsharp/{fecha}_listado.txt con todas las filas mas el
+bloque NYS, y {fecha}_invariantes.txt con los cuatro invariantes. Solo lectura
+de GCS con CloudDataStore explicito. No se modifica injury_report.py ni ningun
+test.
+
+RESULTADO: pendiente de auditoria humana.
+
+RESULTADO D-RES-3 (2026-09-13, adjudicado por Antonio): ROJO para filas de
+jugador, VERDE para NYS. parse_pdf() devuelve 0 filas en los 4 PDFs
+iTextSharp (extract_text cuenta 61/25/81/77 candidatas) sin lanzar
+excepción: fallo SILENCIOSO, la peor categoría. El bloque NYS parsea
+correcto con fecha en los cuatro. Los invariantes 2 y 3 pasaron vacuamente;
+solo el 1 informó. Causa NO diagnosticada aquí; diferencias estructurales
+documentadas: 9 columnas vs 7 (Category y Previous Status solo en
+iTextSharp; Reason y Current Status intercambiadas), espacios reales en
+valores (invierte la premisa de 13e-1), 75 vs 20 coordenadas X, encabezado
+en top=58 vs 107.74. Consecuencia: el corpus 2018-19 a 2022-23 NO es
+utilizable en Camino 5 hasta que exista un parser para esa familia,
+auditado con el protocolo de 13e-1.
+
+**D-RES-3b — Encuesta de layouts del corpus iTextSharp (2026-09-13).**
+19 PDFs publish: 15 de muestra congelada ANTES de mirar contenido (inicio,
+mitad y final de temporada regular de cada temporada iTextSharp) mas los 4 ya
+auditados en D-RES-3. Solo lectura y descripcion; no se parsearon filas, no se
+diseño parser. Muestra en data/audit_itextsharp/layout_survey_muestra.json,
+datos completos en layout_survey.json.
+
+DOS FIRMAS DISTINTAS (firma = tokens del encabezado + X0 redondeados a 5 pt):
+
+FIRMA 1 — 5 PDFs, rango 2018-12-18 -> 2019-10-22
+  tokens : Game Date Game Time Matchup Team Player Name Category Reason
+           Current Status Previous Status
+  X0 (5pt): [20, 40, 75, 95, 125, 180, 270, 290, 380, 495, 605, 635, 720, 750]
+  fechas : 2018-12-18, 2019-01-15, 2019-02-10, 2019-04-10, 2019-10-22
+
+FIRMA 2 — 14 PDFs, rango 2020-01-07 -> 2023-04-09
+  tokens : Game Date Game Time Matchup Team Player Name Current Status Reason
+  X0 (5pt): [20, 40, 95, 115, 170, 245, 370, 395, 500, 525, 605]
+  fechas : 2020-01-07, 2020-08-05, 2020-08-14, 2020-12-22, 2021-02-10,
+           2021-03-03, 2021-05-16, 2021-10-19, 2022-01-11, 2022-04-10,
+           2022-10-18, 2023-01-11, 2023-01-20, 2023-04-09
+
+La transicion cae entre 2019-10-22 (firma 1) y 2020-01-07 (firma 2), dentro de
+la temporada 2019-20 y sin acotar mas: la muestra no tiene fechas intermedias.
+[Acotada despues en D-RES-3c: 2019-11-14 / 2019-11-15, y con MAS variantes de
+las que esta encuesta vio.] Ambas firmas comparten pagina apaisada 842x595 y
+encabezado en top=58.0; las 19 traen espacios internos en los valores. Paginas
+por PDF: 2 a 8.
+
+VOCABULARIO OBSERVADO POR BANDA DE COLUMNA (tokens sueltos, no filas):
+  Current Status (5 distintos, 456 ocurrencias): Out 360, Questionable 49,
+    Probable 25, Doubtful 14, Available 8. Coincide EXACTAMENTE con el
+    vocabulario de InjuryStatus del parser actual.
+  Category (19 distintos, 242 ocurrencias; columna exclusiva de la firma 1):
+    Injury/Illness 89, "G League Team" 29/29/26, "NOT YET SUBMITTED" 11,
+    "Two-Way" 4, "Personal Reasons" 3, "Not With Team" 1, mas restos de pie de
+    pagina ("Page 1 of 3") que caen en esa banda de X.
+
+NOTA DE INSTRUMENTO (no del corpus): la primera corrida reporto 188 "estatus"
+distintos porque la banda de Current Status no tenia tope en la firma 2 — sin
+columna Previous, se extendia hasta el infinito y se tragaba Reason entera.
+Corregido saltando al siguiente token que EMPIEZA columna ("Current Status" y
+"Player Name" son dos tokens de una sola columna). Los 5 valores de arriba son
+la medicion buena. Registro de la leccion: una banda mal acotada produce un
+vocabulario verosimil y falso.
+
+RESULTADO: pendiente de auditoria humana.
+
+[REPUESTO 2026-09-14: el bloque se perdió en una edición manual; tercera
+pérdida documental del proyecto]
+
+**D-RES-3c — Parser legacy (IMPLEMENTACION 2026-09-14).**
+
+TRANSICION DE FIRMAS (biseccion sobre PDFs publish ya archivados, sin sondear la
+red de la NBA): ultimo dia FIRMA 1 = 2019-11-14; primer dia FIRMA 2 =
+2019-11-15; CONTIGUAS en el calendario.
+
+HALLAZGO — EL CORPUS iTextSharp TIENE MAS DE DOS LAYOUTS. Al inspeccionar la
+transicion aparecieron encabezados que la encuesta previa no habia muestreado:
+  2019-11-14 (14 tokens) Game Date | Game Time | Matchup | Team | Player Name |
+                         Category | Reason | Current Status | Previous Status
+  2019-11-15 (13 tokens) ... Player Name | Reason | Current Status | Previous Status
+  2019-11-30 (13 tokens) ... Player Name | Current Status | Reason | Previous Status
+  2019-12-15 (13 tokens) idem 2019-11-30
+  2020-01-07 (11 tokens) ... Player Name | Current Status | Reason
+Entre 2019-11-15 y finales de diciembre hay AL MENOS dos variantes mas (una sin
+Category con Reason antes de Current Status; otra con esas dos intercambiadas).
+La lista blanca implementada cubre solo ITEXT_V1 (<=2019-11-14) e ITEXT_V2
+(>=2020-01-07); las intermedias caen deliberadamente en UnknownLayoutError hasta
+que se adjudiquen. Sin diagnostico de por que el formato cambio tres veces en
+dos meses: solo la observacion.
+
+DESVIACION DE PROCEDIMIENTO DECLARADA: el paso 0 fijaba un maximo de 8 lecturas.
+Se usaron 11 (6 de biseccion + 5 de inspeccion de encabezados). La biseccion
+sola cabia en presupuesto; la inspeccion extra revelo el hallazgo de arriba,
+pero se hizo sin autorizacion para ampliarlo.
+
+DISEÑO APLICADO: modulo nuevo nba_predictor/ingestion/injury_report_legacy.py;
+parse_pdf() y la ruta GemBox NO se tocaron. detect_layout() lee /Producer
+(escaneando el archivo COMPLETO: iTextSharp escribe metadatos al final) y los
+tokens del encabezado en la banda Y anclada a "Matchup"; empareja contra la
+lista blanca GEMBOX / ITEXT_V1 / ITEXT_V2 por SECUENCIA DE TOKENS y levanta
+UnknownLayoutError con productor y tokens observados si no hay match. Layout es
+un dataclass de columnas ordenadas con su X0; las bandas se derivan
+[X0_i, X0_{i+1}) y la ultima cierra en el ancho de pagina — ninguna sin tope.
+Filas por bandas Y ancladas a la columna Player Name; encabezado de partido y
+equipo se propagan hacia abajo; pie de pagina excluido por banda Y, no por
+texto. InjuryRow gana category y previous_status opcionales (default None), con
+los 91 tests de 13e-1 en verde sin tocarlos. NYS reutiliza la maquinaria
+existente. parse_pdf_any() despacha; get_absences no se toco.
+
+AJUSTE DE IMPLEMENTACION MEDIDO: los datos se alinean ~1 pt a la IZQUIERDA del
+encabezado de su columna (header "Game Time" en x=74.0, dato "07:00" en x=72.9).
+Con las bandas empezando en el X0 del encabezado, la hora caia en la columna de
+fecha. Se introdujo _BAND_EPSILON = 4 pt de holgura izquierda, muy por debajo
+del hueco minimo entre columnas (53 pt).
+
+LISTADOS (data/audit_itextsharp/{fecha}_listado_legacy.txt):
+  2019-01-15_01PM  layout ITEXT_V1  filas=61  candidatas=55  NYS=13
+  2021-02-10_01PM  layout ITEXT_V2  filas=81  candidatas=76  NYS=10
+Las "candidatas" SUBESTIMAN por construccion: la primera fila de cada bloque de
+partido empieza con la fecha y no con el apellido, y la regex no la cuenta.
+Sirven de piso para la guarda de cobertura, no de conteo esperado.
+
+DEFECTOS YA VISIBLES EN EL LISTADO V1 (reportados, NO corregidos aqui): las
+filas 47, 53 y 61 absorben los bloques NYS intercalados entre filas de jugador
+— el equipo sale como "Detroit Pistons Orlando Magic Brooklyn Nets" y la
+category como "NOT YET SUBMITTED NOT YET SUBMITTED"; y las filas 30-31 reparten
+mal una razon multilinea (Robinson se queda con el texto de Giannis, que hereda
+"hip contusion"), con el agravante de que Duncan Robinson aparece atribuido a
+Milwaukee cuando en 2019 jugaba en Miami — misma clase que el caso Trae Young ->
+Portland de 13e-1. El listado V2 no muestra esos sintomas a simple vista.
+CONSECUENCIA OPERATIVA: los listados NO estan listos para auditoria humana;
+pedirla ahora gastaria el recurso caro (lectura humana) sobre defectos ya
+conocidos.
+
+TESTS: solo de contrato (despacho por layout; UnknownLayoutError ante firma
+alterada y ante ausencia de ancla; bandas con tope y contiguas; guarda de
+cobertura por monkeypatch; retrocompatibilidad de InjuryRow). Los dos PDFs de
+auditoria NO entraron como fixtures; sus conteos NO son oficiales.
+
+RESULTADO: pendiente de auditoria humana de los listados.
+
+**D-RES-3c RONDA 2 (2026-09-14) — diagnostico geometrico y fix de los dos
+defectos.**
+
+DEFECTO (b) — CORRIMIENTO EN FRONTERA DE BLOQUE. Evidencia (2019-01-15,
+pagina 2, coordenadas de extract_words):
+    top=113.00 x0=268.11 Robinson,   x0=302.24 Duncan   | G(380) | Out(606)
+    top=131.00 x0=177.89 Milwaukee   x0=215.52 Bucks    | Right(493) quadriceps(512) soreness/Left(549)
+    top=135.00 x0=268.11 Antetokounmpo, x0=325.32 Giannis | Injury/Illness(380) | Probable(606)
+    top=139.00 x0=493.67 hip         x0=505.71 contusion
+    top=157.00 x0=268.11 DiVincenzo, x0=308.16 Donte
+DIAGNOSTICO: las filas NO son planas cuando la razon ocupa dos lineas. El
+generador CENTRA verticalmente las celdas de una sola linea (jugador, category,
+status: top=135) respecto al bloque de razon de dos lineas (131 y 139), y
+alinea el equipo con el borde superior del bloque (131). Anclar la banda Y en
+el top del jugador hacia que el 131 —equipo y primera linea de razon de
+Antetokounmpo— cayera en la banda de la fila ANTERIOR. De ahi que Robinson,
+Duncan saliera con "Milwaukee Bucks" (jugaba en Miami) y con la razon de
+Giannis, y que Giannis se quedara solo con "hip contusion".
+FIX: bandas por PUNTO MEDIO entre anclas consecutivas, no por top del ancla.
+El punto medio cae donde no hay texto, asi que cada fila recoge sus propios
+fragmentos superiores e inferiores. Una sola regla, sin heuristicas apiladas.
+
+DEFECTO (a) — BLOQUES NYS ABSORBIDOS. Evidencia (2019-01-15, pagina 3):
+    top=149.00 x0=177.89 Milwaukee Bucks | NOT(380) YET(397) SUBMITTED(410)
+    top=167.00 x0=125.26 TOR@BOS | Boston Celtics | NOT YET SUBMITTED
+    top=185.00 x0=177.89 Toronto Raptors | x0=268.11 Anunoby, OG | ...
+DIAGNOSTICO: una fila NYS no tiene ancla de jugador, asi que vivia dentro de la
+banda del jugador anterior y su equipo se concatenaba con el de una fila real
+("Detroit Pistons Orlando Magic Brooklyn Nets" como equipo de Williams,
+Johnathan; category "NOT YET SUBMITTED NOT YET SUBMITTED").
+FIX: los tops NYS se identifican ANTES de anclar (por el token "SUBMITTED") y
+su banda Y se excluye del cuerpo. No se filtra por texto despues: para cuando
+se filtrara, el equipo ya estaria fundido.
+
+VERIFICACION DEL FIX (mismas filas, mismo conteo de filas: 61 y 81):
+  fila 30  Miami Heat        Robinson, Duncan        G League Team  Out  razon "-"
+  fila 31  Milwaukee Bucks   Antetokounmpo, Giannis  Injury/Illness Probable
+           razon "Right quadriceps soreness/Left hip contusion" (completa)
+  filas 47/53/61  Los Angeles Lakers / Houston Rockets / Dallas Mavericks
+           (antes: cadenas de equipos NYS concatenados)
+
+INVARIANTE NUEVO DE ATRIBUCION DE EQUIPO (en el script de listados, NO en el
+paquete): cruza (jugador, equipo atribuido) contra los pares (player_id,
+team_id) de player_game_stats via NameIndex.
+  2019-01-15 (2018-19): CONFIRMADO 58, POSIBLE MOV. 0, NO VERIFICABLE 0,
+                        JAMAS JUGO 0, SIN DATOS 0, SIN MATCH 3
+                        (Roberson/Andre, Porter Jr./Michael, Valentine/Denzel:
+                         el nombre no resolvio a player_id)
+  2021-02-10 (2020-21): CONFIRMADO 77, POSIBLE MOV. 0, NO VERIFICABLE 1,
+                        JAMAS JUGO 0, SIN DATOS 0, SIN MATCH 3
+                        (Claxton/Nicolas sin pid; LA Clippers sin tid x2)
+
+FALSO POSITIVO DEL INVARIANTE, ADJUDICADO CONTRA EL DOCUMENTO: la primera
+corrida marco "JAMAS JUGO" en la fila 73 de 2021-02-10, Ariza, Trevor /
+Oklahoma City Thunder. El PDF dice literalmente, en top=401:
+"Oklahoma City Thunder | Ariza, Trevor | Out | Not With Team". Ariza fue
+traspasado a OKC en nov-2020, NUNCA debuto con ellos y acabo jugando 31
+partidos en Miami esa temporada. El parser transcribio bien; la REGLA del
+invariante era falsa por construccion: un jugador puede figurar en el reporte
+de un equipo sin haber jugado jamas con el. Se añadio la categoria NO
+VERIFICABLE para las filas que el propio documento declara fuera de plantilla
+("Not With Team", G League, two-way). Se corrigio el INSTRUMENTO, no el parser.
+
+EL INVARIANTE SIGUE SIENDO GUARDA, NO PRUEBA: cero "JAMAS JUGO" no demuestra
+correccion. La misatribucion de 13e-1 (Trae Young -> Portland) habria caido
+aqui, pero un error que respete la plantilla no. Las 6 filas SIN MATCH son
+huecos del instrumento (normalizacion de nombres y "LA Clippers" vs el nombre
+del catalogo), no del parser.
+
+TESTS: 9 de contrato + 2 de regresion, uno por defecto, sobre geometria
+SINTETICA que reproduce las coordenadas medidas. Los PDFs de auditoria NO son
+fixtures y sus conteos NO son oficiales.
+
+D-RES-3d PENDIENTE: variantes intermedias de firma entre 2019-11-15 y
+2019-12-31 (~40 fechas), con encuesta propia antes de ampliar la lista blanca.
+Hoy caen en UnknownLayoutError.
+
+RESULTADO: pendiente de auditoria humana.
+
+## PUNTO DE ENTRADA — ACTUALIZACION DE ESTADO (2026-09-20)
+
+Este bloque SUPERSEDE, sin borrarlo, al "PUNTO DE ENTRADA" del 2026-08-25 y a
+los conteos de las secciones "Estructura de archivos", "Estado actual" y
+"Proximos pasos". Aquellos quedan como registro historico (regla de
+mantenimiento del documento); lo de abajo es lo vigente.
+
+**13e-2 CERRADA ✅ — EL SISTEMA PUBLICA SOLO.** Desde 2026-08-28 corre el ciclo
+autonomo diario completo, sin intervencion humana: 12:58 warmup (nba-warmup-daily)
+-> 13:00 disparo (nba-publish-daily) -> webhook n8n -> token OIDC -> GET
+/predictions/today -> prediccion -> predictions_log -> mensaje en el canal de
+Telegram. Verificado en frio el 2026-08-27 con testigo independiente en los logs
+de predictions-api. Lo que el PUNTO DE ENTRADA de agosto listaba como "NO existe
+aun" (canal de Telegram, n8n, predictions_log, archivo del PDF en el job) EXISTE
+Y ESTA VERIFICADO.
+
+ESTADO DE PRODUCCION:
+  predictions-api   v7 (revision 00007-94v) — snapshot-persist + predictions_log
+  ingest-job        v6 — fix del gemelo de la capa 4 (1206 partidos, no 0)
+  n8n               Cloud Run + Cloud SQL, cron invertido de doble toque
+  Telegram          canal privado, bot admin, mensaje limpio UTF-8 end-to-end
+  predictions_log   tabla BigQuery creada (PARTITION BY game_date), 9 campos
+  Scheduler         2 jobs (warmup 12:58 + publish 13:00 CDMX)
+
+ARCHIVO HISTORICO DE INJURY REPORTS (D-RES-2, cerrado 2026-09-13): backfill de
+OCHO temporadas (2018-19 .. 2025-26) en gs://.../raw/injury_reports/ — 2 420
+objetos, 115.35 MB, dos cortes por fecha (publish <=13:00 CDMX, late <=21:15
+CDMX), cobertura >=99.1% sobre porcion viva en las ocho, verificado con conteo
+de objetos y /CreationDate contra sufijo. Borde de retencion: primer PDF vivo
+2018-12-17, archivo regular desde 2018-12-18.
+
+PARSER DEL CORPUS HISTORICO (D-RES-3, EN CURSO — NO CERRADO): parse_pdf()
+devuelve CERO filas sobre PDFs iTextSharp (2018-19..2022-23) sin lanzar —
+adjudicado ROJO por Antonio el 2026-09-13. Se implemento un modulo aparte,
+injury_report_legacy.py, con deteccion de layout por lista blanca
+(GEMBOX / ITEXT_V1 / ITEXT_V2), bandas X con tope explicito, filas por punto
+medio entre anclas y guarda de cobertura anti-silencio. Ronda 2 corrigio los dos
+defectos geometricos detectados (bloques NYS absorbidos; corrimiento en frontera
+de bloque). ESTADO: los listados de 2019-01-15 y 2021-02-10 ESPERAN AUDITORIA
+HUMANA; sus conteos NO son oficiales y los PDFs NO son fixtures. Pendiente
+D-RES-3d: variantes intermedias de firma entre 2019-11-15 y 2019-12-31
+(~40 fechas) que hoy caen en UnknownLayoutError.
+
+BASE DE TESTS VIGENTE: **550 limpia / 554 mixta** (4 = live_equivalence),
+15 deselected. Supersede al 535/539 del 2026-09-13: +11 del parser legacy
+(9 de contrato + 2 de regresion) y +4 de Settings/SecretStr.
+
+MODULOS NUEVOS desde el PUNTO DE ENTRADA de agosto:
+  nba_predictor/ingestion/injury_report_legacy.py   parser del corpus iTextSharp
+  nba_predictor/api/predictions_log.py              evidencia append-only
+  scripts/spike_backfill_injury_reports.py          spike D-RES-2 (fases 0 y 1)
+  scripts/backfill_injury_reports.py                backfill a GCS
+  scripts/survey_layouts_itextsharp.py              encuesta de layouts
+  scripts/audit_parser_itextsharp.py                auditoria D-RES-3
+  scripts/audit_listados_legacy.py                  listados + invariante de equipo
+  tests/test_config.py, tests/test_injury_report_legacy.py
+
+CONFIG: Settings gana odds_api_key (SecretStr, opcional). ATENCION: la linea
+ODDS_API_KEY del .env NO puebla el campo — con env_prefix NBA_PREDICTOR_, el
+nombre que funciona es NBA_PREDICTOR_ODDS_API_KEY. Hoy settings.odds_api_key
+es None aunque el archivo tenga la clave.
+
+ARBOL SIN COMMITEAR al cerrar este bloque (los commits los hace Antonio):
+  M CLAUDE.md, nba_predictor/config.py, nba_predictor/ingestion/injury_report.py
+  ?? injury_report_legacy.py, 3 scripts de auditoria/encuesta, 2 archivos de tests
+Los JSON de data/backfill_injury/ y data/audit_itextsharp/ siguen fuera del
+repositorio (data/ esta en .gitignore; entran con git add -f si se quieren como
+evidencia, igual que los de data/spike_backfill/).
+
+PROXIMO PASO REAL (el "← AQUI" de la seccion Proximos pasos se mueve aqui):
+  1. Auditoria humana de los dos listados legacy (bloquea D-RES-3).
+  2. D-RES-3d: encuesta de las variantes de nov-dic 2019.
+  3. HITO DE OCTUBRE (sin cambios): primera prediccion real publicada por el
+     pipeline completo, 2026-10-21. La infraestructura ya esta rodada; lo que
+     falta es que haya partidos.
+  4. Verificacion diferida al primer dia con partidos: model_version poblado,
+     campos nuevos de GamePrediction y primera fila real de predictions_log.
+
 ## Consideraciones y riesgos vigentes
 
 - Anti-patrón: >75% accuracy = leakage casi seguro; Vegas ~68-70% techo.
@@ -1449,4 +1780,157 @@ regla de corte — el estado "ambigua" desaparece del diseño. El barrido recupe
   (iTextSharp los pone alli): al verificar /CreationDate o /Producer, escanear
   el archivo COMPLETO o su cola. Un escaneo de los primeros KB dio un falso
   "0/5 fallido" el 2026-09-13 y estuvo a punto de adjudicarse como desviacion.
+- Ningún secreto entra a .env sin estar antes declarado como SecretStr
+  en Settings. Pydantic imprime el valor completo de un campo extra en
+  el error de validación (incidente 2026-09-13, clave rotada).
 - Filosofía: fallar ruidosamente, nunca datos a medias en silencio.
+
+## DECISIONES D-ODDS (tomadas 2026-09-04 en chat de diseño; documentadas
+2026-09-20 con la implementación; el lag es deuda documental reconocida)
+
+D-ODDS-1. Secuencia reabierta el 2026-09-04: mejoras del modelo NBA antes
+de continuar con tenis. Tenis pausado al final de su Fase 0 (hallazgos en
+el chat de diseño: fuente histórica candidata TennisMyLife con licencia
+MIT a auditar; Sackmann descartado para uso comercial por licencia
+CC BY-NC; fixtures diarios sin fuente gratuita resuelta; riesgo de
+licencia elevado a gate). Ventana de mejoras: hasta 2026-10-21.
+
+D-ODDS-2. market_odds (BigQuery): captura de odds de mercado, 3 snapshots
+diarios (publish 13:00, evening 17:45, late 21:15 CDMX). USO
+EXCLUSIVAMENTE DIAGNÓSTICO. La prohibición del criterio de
+comercialización sigue intacta y se precisa: (a) las odds NUNCA entran
+como feature de ningún modelo; (b) sigue prohibido afirmar rentabilidad
+en apuestas; (c) capturar odds para medición interna no viola (a) ni (b).
+Fundamento cuantitativo registrado: proyección honesta de EV apostando
+con B-limpia contra el mercado = NEGATIVO (~-5% a -10% por apuesta;
+mercado ~0.59-0.61 LL vs B-limpia 0.63138 + vig ~4.5%). La prohibición
+no es solo prudencia: es aritmética.
+
+D-ODDS-3. Métrica CLV adoptada como diagnóstico: predicción publicada
+(snapshot publish) vs proxy de cierre (último snapshot anterior al
+tipoff). Limitación aceptada: snapshots fijos subestiman movimiento de
+última hora. Los cortes publish/late replican deliberadamente los del
+backfill de injury reports (comparabilidad histórica).
+
+D-ODDS-4. Pre-registros:
+- Expectativa: CLV agregado de B-limpia indistinguible de cero.
+- Única hipótesis estructural de CLV positivo: partidos con injury
+  report ambiguo (experimento P(juega|Questionable), en cola).
+- Toda decisión de producto basada en CLV se toma tras el cierre de la
+  ventana de validación, no antes. Puerta de producto con dos salidas:
+  CLV demostrado -> producto para apostadores con afirmación verificable
+  ("batimos la línea de cierre", jamás "ganarás dinero"); CLV cero ->
+  el producto de picks no existe y el canal vive de las otras propuestas
+  (honestidad auditable, contexto, educación).
+- The Odds API tier gratuito asumido suficiente (>=93 llamadas/mes);
+  verificación en Paso 0.
+
+D-ODDS-5. Los candidatos de mejora (P(juega|Questionable), continuidad
+de roster, bottom-up) serán MODELOS NUEVOS en modo sombra vía
+model_version en predictions_log. B-limpia intacta como artefacto y único
+modelo publicado durante la ventana. Test de equivalencia (rtol=1e-9)
+sigue siendo guardián de cualquier cambio en pipeline compartido.
+
+D-ODDS-6. Alcance de partidos (decisión del 2026-09-04, chat de diseño):
+B-limpia predice y publica SOLO temporada regular. Pretemporada excluida
+permanentemente de predicción (proceso generador distinto: rotaciones
+experimentales, sin intención de ganar); su único uso futuro es como
+insumo de features de continuidad. Playoffs 2027: modo sombra
+(predicciones a predictions_log con flag, sin publicar), con expectativa
+pre-registrada de Brier peor que temporada regular; si se confirma, la
+ruta es recalibración posterior (Platt/isotónica), jamás tocar B-limpia.
+market_odds SÍ captura pretemporada (la tabla archiva; el análisis
+filtra por tipo de partido).
+
+## D-ODDS — RESULTADO DE IMPLEMENTACION (2026-09-20/21)
+
+BUG FATAL CAZADO EN REVISION DE DISEÑO, PRE-DESPLIEGUE: el matching de
+game_id leia la tabla `games`, que solo contiene partidos JUGADOS
+(Decision 1 de Fase 5a; verificado: cero filas con fecha >= hoy y 2026-27
+inexistente). El indice habria salido vacio -> todos los eventos sin
+match -> market_odds vacia para siempre con exit 0 y logs de aspecto
+sano. QUINTA instancia del patron "logica jamas ejercida en offseason que
+revienta en silencio el primer dia real" (capa 4, gemelo de la capa 4,
+era-por-temporada del spike, sondas de era del backfill, y esta). La cazo
+la revision de diseño en el chat, NO un test: los 23 unit tests pasaban
+en verde sobre el bug, porque el test del partido nocturno construia su
+indice a mano y probaba la aritmetica de fechas, no la procedencia del
+dato (misma leccion que los fixtures sinteticos de 13e-1 y de la capa 4).
+FIX: el indice sale de fetch_future_schedule (CDN dual-URL, el mismo
+camino del endpoint); game_id canonico por construccion. Guarda
+anti-silencio con dos casos distinguidos: calendario CDN vacio con API
+con partidos = excepcion ruidosa (fuente rota); ventana vacia con
+calendario lleno = log informativo (no hay partidos, legitimo).
+
+ENMIENDA DE ESQUEMA (adjudicada por Antonio): las filas sin match se
+ESCRIBEN, no se descartan (filosofia RAW: la odd capturada es evidencia
+irrecuperable; la interpretacion se arregla despues). Columnas nuevas
+api_event_id (NOT NULL, identidad nativa del dato) y matched (BOOL);
+game_id anulable (canonico si matched). CLAVE DE IDEMPOTENCIA ENMENDADA:
+(game_date, api_event_id, bookmaker, snapshot_label) — game_id anulable
+no puede ser clave (dos sin-match del mismo dia colisionarian en NULL).
+game_date de filas sin match se deriva de commence_time con la aritmetica
+ET del matching, jamas de la fecha de captura. CONSECUENCIA DELIBERADA:
+la pretemporada (prefijo 001) entra como matched=false — D-ODDS-6 se
+cumple sin tercer lector de scheduleLeagueV2 (opcion b descartada por el
+backlog del doble parser; opcion c descartada por perdida de dato).
+
+DESVIACIONES DE LA SPEC ORIGINAL, DECLARADAS Y ACEPTADAS:
+(1) MERGE sin tabla staging: bigquery.tables.create es permiso de
+DATASET, incompatible con dataEditor a nivel TABLA. Se conservo el
+privilegio minimo; el MERGE toma su fuente de ARRAY<STRUCT> como
+parametro de consulta (misma garantia de idempotencia en la escritura,
+sin interpolacion SQL). La Decision 3 de Fase 5b queda ENMENDADA para
+SAs de tabla unica, no violada.
+(2) Permiso adicional: dataViewer a nivel tabla sobre teams para
+normalizacion de nombres (games ya no se lee: el indice viene del CDN).
+
+THE ODDS API (Paso 0 verificado): tier Starter 500 creditos/mes; coste
+= markets x regions; h2h x 1 region = 1 credito/llamada; bookmakers
+explicitos (draftkings,fanduel,betmgm) sin coste extra (grupos de 10 =
+1 region). Consumo proyectado 93/mes, margen 5.4x. RESTRICCION CONOCIDA:
+odds HISTORICAS x10 creditos — backfill de odds seria de pago; razon
+adicional para capturar en vivo desde ya. Formato americano pedido a la
+API; decimal derivado por conversion exacta (no segunda llamada).
+
+PRE-REGISTRO DE VERIFICACION DIFERIDA: primer dia en que The Odds API
+liste partidos NBA (pretemporada ~1-oct): filas en market_odds con
+matched=false y game_date correcto; tres snapshots del dia presentes.
+Primer dia de temporada regular (21-oct): filas matched=true con game_id
+del CDN; un mar de WARNINGs de matching ESE dia seria hallazgo a
+adjudicar, no ruido. Consumo real de creditos contra el proyectado.
+
+## D-ODDS — ADDENDUM POST-CIERRE (2026-09-21): dos bugs destapados por la
+ejecucion real, ya corregidos
+
+(1) CAPA 5 REINCIDENTE: .to_dataframe() exige
+bigquery.readsessions.create (documentado en CLAUDE.md desde 2026-08-25)
+y aun asi se reintrodujo. FIX por privilegio minimo: iterar filas del
+query result (jobUser lo cubre) en vez de conceder el rol de proyecto
+para leer 30 equipos. LECCION: una regla documentada no se auto-aplica;
+readsessions entra al checklist mental de todo codigo nuevo que lea
+BigQuery.
+
+(2) VENTANA DE MATCHING ESTRECHA, FALLO SILENCIOSO REAL: el indice
+limitaba a +-2 dias de hoy; The Odds API lista partidos con semanas de
+antelacion. Primera corrida real: 41/41 eventos SIN match, archivados
+como matched=false con exit 0, corrompiendo la columna de la que
+depende el analisis de CLV. SEXTA instancia del patron de silencio, y
+la primera que llego a escribir datos mal etiquetados en produccion.
+La cazo la inspeccion de la corrida real, no los tests. FIX: sin tope
+superior, el indice lleva los 1206 futuros del CDN. Las filas mal
+etiquetadas se ACTUALIZARON in situ en la corrida siguiente:
+idempotencia por clave (game_date, api_event_id, bookmaker,
+snapshot_label) demostrada sobre datos reales. Verificacion posterior:
+70/70 matched en los tres labels.
+
+OPERATIVO: --max-retries=1 implica 2 creditos por ejecucion fallida;
+fallo sistematico duplicaria el consumo (93 -> 186 de 500, aun con
+margen). Los 6 partidos con team_id 0 son los huecos TBD de NBA Cup ya
+anticipados, no fallo. Consumo verificado: 1 credito/llamada
+(x-requests-last: 1), 494 restantes.
+
+ESTADO: market_odds OPERATIVA Y AUTONOMA desde 2026-09-21, tres
+snapshots diarios, 70 filas iniciales matched=true con odds reales de
+la primera semana de temporada. El sistema acumula evidencia CLV desde
+31 dias antes de la ventana de validacion.

@@ -1,23 +1,35 @@
 from pathlib import Path
 from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Project configuration. Reads from .env and environment variables."""
-    
+
     model_config = SettingsConfigDict(env_file=".env", env_prefix="NBA_PREDICTOR_")
-    
+
     mode: Literal["local", "cloud"] = "local"
     data_dir: Path = Path("./data")
     db_path: Path = Path("./data/nba.sqlite")
-    
+
     # Estos solo se usan en mode='cloud'
     gcp_project_id: str = "predictorsnonprod"
     gcs_bucket: str = "predictorsnonprod-nba-predictors"
     bq_dataset: str = "nba_predictor"
-    
+
+    # Cuotas (Camino 5 / criterio v2): OPCIONAL porque el job que las consume
+    # todavía no existe — declararla aquí solo evita que su presencia en .env
+    # rompa la carga de Settings. SecretStr y no str: el valor jamás aparece en
+    # repr(), logs ni tracebacks. Cobrado el 2026-09-13, cuando el campo aún no
+    # estaba declarado y pydantic volcó la clave COMPLETA en el error de
+    # validación de campo extra (clave rotada después).
+    # extra="forbid" se conserva a propósito: un typo en .env debe seguir
+    # fallando ruidosamente, que es exactamente lo que este incidente demostró
+    # que funciona.
+    odds_api_key: SecretStr | None = None
+
     @property
     def raw_dir(self) -> Path:
         return self.data_dir / "raw"

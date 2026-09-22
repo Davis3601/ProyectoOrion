@@ -2175,3 +2175,182 @@ urgencia, no bloqueante.
 
 Base de tests: 630 limpia / 634 mixta, 15 deselected (605 + 25 del
 experimento).
+
+## D-EXP-3: FUNDACIÓN DE JUGADOR, EXPERIMENTO minutos x tasa
+(PRE-REGISTRO 2026-09-21)
+
+Pregunta fundacional del sistema de stats por jugador (y del bottom-up
+de victoria del Camino 5): ¿la descomposición minutos x tasa le gana al
+rolling directo del stat? OFFLINE, cero despliegue, B-limpia intacta.
+
+Diseño: targets PTS/REB/AST/3PM; universo minutes > 0 con >= 10
+partidos previos, 2016-17..2025-26, walk-forward oficial; B0 = rolling
+10 del stat (shift 1); C1 = rolling minutos x rolling tasa (misma
+información, distinta estructura); C2 (solo GemBox) = C1 + señal de
+disponibilidad del rival desde PDFs publish con pesos D-EXP-1. MAE
+primaria, diferencias pareadas.
+
+REGLA DE D-EXP-2 APLICADA COMO MECANISMO: fase 0 de potencia computa el
+MDE por stat ANTES de comparar; stat con MDE relativo > 3% del MAE
+baseline = SIN RESOLUCIÓN, descriptivo pero no inferencial; cuatro sin
+resolución = detenerse y reportar. El MDE deja de ser promesa y pasa a
+ser gate ejecutable.
+
+Expectativas: mejora relativa 0-3% por stat, mayor en PTS que en 3PM;
+nulo plausible y legítimo (rolling directo ya mezcla ambos); C2 con
+efecto concentrado en ausencias importantes del rival; sanity MAE(PTS)
+de B0 en 4.5-6.5. Desviación = adjudicar.
+
+Puerta: C1 fuera del ruido en >= 3 de 4 stats -> se diseña la fundación
+de jugador (pre-registro propio); menos -> producto de stats sobre
+rolling transparente y bottom-up archivado salvo evidencia nueva. AMBAS
+salidas producen producto publicable con honestidad.
+
+RESULTADO: pendiente de fase 0 y ejecución.
+
+## D-EXP-3 RESULTADO (2026-09-22): NEGATIVO CON RESOLUCIÓN, puerta NO
+cruzada, rolling directo gana
+
+FASE 0 (gate de potencia, estreno como mecanismo): MDE relativo ~0.1%
+en los cuatro stats, treinta veces bajo el umbral del 3%; n=148 484
+jugador-partidos de validación (desviación menor declarada: por debajo
+del ~150k-200k proyectado). Sanity MAE(PTS) B0 = 4.674, dentro del
+rango 4.5-6.5. Orden fase 0 -> resultados verificado por timestamps.
+
+TABLA C1 (minutos x tasa) vs B0 (rolling directo), agregado:
+  stat  MAE B0   MAE C1   mejora rel   t       folds ganados (de 6)
+  PTS   4.7300   4.7370   -0.15%       -4.48   0
+  REB   1.9613   1.9745   -0.67%      -12.74   0
+  AST   1.3585   1.3634   -0.36%       -9.59   0
+  3PM   0.8930   0.8923   +0.08%       +2.33   6
+Los efectos negativos son ~10x el MDE: NEGATIVO CON RESOLUCIÓN, no null
+ambiguo. El instrumento podía ver y vio que la descomposición PIERDE.
+
+ADJUDICACIÓN DE LA PUERTA (regla pre-registrada, gana en 1 de 4 contra
+el umbral de >=3): el producto de stats por jugador, si se construye,
+se diseña sobre ROLLING DIRECTO transparente; el bottom-up de victoria
+por agregación de jugadores queda ARCHIVADO salvo evidencia nueva. La
+fundación compartida "un modelo paralelo para victoria + stats"
+(pregunta que originó D-EXP-3) NO se construye: su motor perdió contra
+el baseline con potencia sobrada y en igualdad de información.
+
+DESVIACIONES ADJUDICADAS COMO HALLAZGOS (segundo error consecutivo de
+expectativa propia, registrado): (a) rango pre-registrado 0%-3% no
+contiene el resultado (tres stats negativos con t entre -4.5 y -12.7);
+(b) expectativa direccional INVERTIDA: se esperó mayor ganancia en PTS
+que en 3PM y PTS es de los peores mientras 3PM es el único positivo
+(económicamente irrelevante: +0.08%). Patrón de tres experimentos: las
+expectativas a priori han fallado en dirección optimista hacia la
+sofisticación (Doubtful intermedio, ponderar, descomponer). La moraleja
+empírica del proyecto se refuerza: los baselines simples de este
+dominio son brutalmente fuertes.
+
+INTERPRETACIÓN POST-HOC (no pre-registrada, es hipótesis y no
+conclusión): el producto de dos rollings compone el error de estimación
+de ambos; el rolling directo ya integra la covarianza minutos-producción
+en una sola estimación. La descomposición solo pagaría con información
+exógena mejor que el rolling en alguno de sus componentes (rotación
+anunciada, cambio de rol), que C1 no tenía.
+
+BRAZO C2 (disponibilidad del rival, con resolución en los 8 contrastes):
+nulo o levemente negativo en todo; en 3PM estorba (-0.0011, t=-6.04).
+Consistente con lo pre-registrado. Con esto, la señal de los PDFs queda
+medida en sus tres usos: no mueve el modelo de equipo (D-EXP-2), no
+mueve stats de jugador (C2), y su valor confirmado vive en la capa
+editorial (pesos D-EXP-1) y en el gating de quién juega.
+
+CONSECUENCIA DE PRODUCTO: un producto de proyecciones por jugador sigue
+siendo viable y publicable con honestidad ejemplar: "promedios móviles
+transparentes, con la disponibilidad declarada del injury report". Es
+un rolling B0 con capa editorial, barato de construir y auditable
+línea por línea. Queda como opción de contenido del canal, sin
+pre-registro pendiente (no hay hipótesis que probar: B0 ES el modelo),
+gateado solo por decisión de producto tras la ventana.
+
+Base de tests: 649 limpia / 653 mixta, 15 deselected.
+
+## D-EXP-4: COBERTURA DE INTERVALOS EMPÍRICOS POR JUGADOR
+(PRE-REGISTRO 2026-09-22)
+
+Insumo del producto "distribución de stats en el mensaje diario"
+(adjudicado en D-EXP-3: rolling directo es el modelo; aquí no hay
+hipótesis de predicción, hay calibración de intervalos a publicar).
+Universo idéntico a D-EXP-3 (148 484, paridad por conteo). Intervalos
+candidatos de los últimos 10 jugados (shift 1): [min,max], [p10,p90],
+[p25,p75]; centro mediana. Métricas: cobertura empírica, ancho, por
+subgrupos titulares/banca y por temporada. Potencia: proporciones a
+n~150k, IC < ±0.3pp, sin gate formal (se reporta IC).
+
+Expectativas: [p10,p90] BAJO el 80% nominal (70-80%; cuantiles de
+muestra 10 subestiman colas); [min,max] 82-92%; [p25,p75] 45-60%;
+banca peor que titulares; estabilidad entre temporadas < 3pp. La
+elección del intervalo publicable la adjudica Antonio con la tabla;
+las PALABRAS del mensaje se calibran a la cobertura MEDIDA, no a la
+etiqueta nominal.
+
+Contexto de calendario registrado: si el producto completo (formato
+congelado bajo tests, player_predictions_log, endpoint, deploy,
+dry-run vía ?date) no está verificado para el 2026-10-14, la sección
+se DIFIERE a post-adjudicación: jamás estrenar secciones del mensaje
+a mitad de ventana (superficie del gate operativo).
+
+RESULTADO: pendiente de ejecución.
+
+## D-EXP-4 RESULTADO (2026-09-22): cobertura medida, intervalo
+adjudicado, redaccion DESCRIPTIVA como regla
+
+TABLA (n=148 484, IC95 < ±0.26pp por celda; paridad exacta con D-EXP-3
+por assert):
+  stat  [min,max]  [p10,p90](nom.80%)  [p25,p75](nom.50%)
+  PTS   85.6%      70.2%               43.7%
+  REB   88.1%      74.4%               46.7%
+  AST   90.7%      79.7%               54.0%
+  3PM   93.3%      85.0%               64.3%
+Titulares vs banca ([p10,p90]): PTS 67.0/71.9, REB 72.6/75.3,
+AST 74.7/82.3, 3PM 80.9/87.1. Estabilidad entre temporadas < 3pp en
+las 12 celdas (max 2.07pp). Centro: MAE mediana vs media +0.051 PTS,
++0.013 REB, -0.011 AST, -0.027 3PM.
+
+ADJUDICACION CENTRAL (Antonio): el mensaje publica HECHOS DESCRIPTIVOS,
+jamas afirmaciones probabilisticas. Intervalo publicable: [min,max] de
+los ultimos 10 jugados, redactado como "ultimos 10: mediana X,
+rango A-B". Es factual y auditable linea por linea; no promete
+cobertura; su cobertura medida (85.6% en PTS global) es PROPIEDAD
+CONOCIDA del producto, reportable en metodologia, no claim del
+mensaje. REGLA DERIVADA para todo formato futuro: ninguna palabra del
+mensaje implica probabilidad de cobertura ("rango del 80%", "rango
+habitual") salvo que la cobertura MEDIDA del subgrupo relevante la
+respalde. [p10,p90] queda como metrica interna; [p25,p75] descartado.
+Centro: MEDIANA (costo despreciable, +0.051 sobre MAE 4.7 en el peor
+stat; compra robustez y legibilidad).
+
+DESVIACION 1 ADJUDICADA COMO HALLAZGO: banca cubre MAS que titulares
+en los 12 contrastes (expectativa pre-registrada invertida; cuarta
+expectativa propia consecutiva fallida, esta vez por medir volatilidad
+cuando la pregunta era cobertura). Hipotesis post-hoc registrada como
+hipotesis, no conclusion: discretizacion (soporte corto de la banca
+hace que casi cualquier intervalo lo contenga). CONSECUENCIA DE
+PRODUCTO: los destacados del mensaje son titulares, el subgrupo con
+PEOR cobertura (PTS 67.0%); la redaccion descriptiva no es preferencia
+estetica sino la unica opcion que no exagera.
+
+DESVIACION 2 ADJUDICADA COMO HALLAZGO: 3PM fuera de los tres rangos
+por ARRIBA (93.3/85.0/64.3), unico stat cuyo [p10,p90] supera su
+nominal. Mismo mecanismo sospechado. Consecuencia: en stats de soporte
+corto el rango es poco informativo; el diseño del formato (Tarea B)
+decide si 3PM muestra rango, solo mediana, u se omite.
+
+CUMPLIDO DEL PRE-REGISTRO: [p10,p90] bajo el nominal en PTS/REB/AST
+(mecanica de interpolacion de cuantiles con n=10, fijada en test);
+estabilidad entre temporadas.
+
+DESBLOQUEADO: Tarea B (diseño del formato de la seccion de jugadores
+en format_daily_message, bajo tests que congelan formato exacto,
+13e-2.1) con estas reglas como contrato: descriptivo, mediana +
+[min,max], top por minutos rolling, integracion con injury report
+(Out no aparece; Questionable con su marca editorial de D-EXP-1; NYS
+hereda 13e-2.5). Fecha de corte VIGENTE: producto completo verificado
+con dry-run al 2026-10-14 o se difiere a post-adjudicacion.
+
+Base de tests: 667 limpia / 671 mixta, 15 deselected (649 + 18 de
+D-EXP-4).

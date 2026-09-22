@@ -2075,3 +2075,103 @@ codigo.
 Los archivos de data/experiment_pjuega/ entran al repositorio como
 evidencia con git add -f (mismo criterio que los JSON del spike
 D-RES-2), a discrecion de Antonio en el proximo commit.
+
+## D-EXP-2: CANDIDATO disponibilidad-v2 OFFLINE (PRE-REGISTRO 2026-09-21)
+
+Mide si availability_diff ponderada por P(juega|estatus) (pesos
+oficiales D-EXP-1: Out 0.00, D 0.02, Q 0.48, P 0.91, Available
+descompuesto 0.45/0.77) mejora el log loss frente a la binaria v1.
+Experimento OFFLINE: nada se despliega, B-limpia intacta,
+features_v1.parquet intacto.
+
+Diseño congelado: feature v2 computada desde el PDF publish REAL de
+cada fecha (backfill GemBox 2023-24..2025-26, parser auditado; corte
+anterior a todo tip-off = cero leakage por construcción; iTextSharp
+prohibido hasta D-RES-3). Folds restringidos (A: entrena 23-24, valida
+24-25; B: entrena 23-25, valida 25-26). CONTROL = B-limpia RE-ENTRENADA
+en los mismos folds; el 0.63138 oficial no es vara comparable. Candidato
+idéntico salvo la feature. NYS a fecha objetivo = v1 sin ajuste para ese
+equipo, con contador (réplica de 13e-2.5). Sin match = 1.0 con contador.
+
+Expectativas: ganancia 0.000-0.008 LL; escenario nulo plausible y
+legítimo (el rolling ya absorbe disponibilidad); ganancia > 0.015 =
+auditar leakage antes que celebrar; coeficiente v2 con signo + como el
+de v1, inversión = hallazgo. Desviación = adjudicar, jamás aceptar en
+silencio.
+
+Puerta de decisión pre-registrada: ganancia positiva en AMBOS folds y
+fuera del ruido -> disponibilidad-v2 se promueve a candidato sombra
+(modelo nuevo vía model_version en predictions_log, D-ODDS-5), con
+tarea propia de diseño de despliegue. Ganancia nula o negativa -> el
+hallazgo se registra, v1 sigue, y los pesos quedan disponibles para la
+capa editorial (el mensaje puede DECIR "Questionable: juega ~50% de las
+veces" sin que el modelo lo use: honestidad gratis).
+
+RESULTADO: pendiente de ejecución.
+
+## D-EXP-2 RESULTADO (2026-09-21): NULO DE RESOLUCION, puerta NO cruzada,
+v1 sigue
+
+TABLA (log loss, diferencia pareada candidato vs control):
+  fold  n     control(v1)  candidato(v2)  ganancia   t      IC95
+  A     989   0.60554      0.60426        +0.00127   0.37   [-0.0054,+0.0080]
+  B     993   0.61625      0.61547        +0.00079   0.18   [-0.0077,+0.0092]
+Candidato gana 514/989 y 521/993 partidos: indistinguible de una moneda.
+Coeficiente con signo + en los tres brazos, sin inversion. Ganancia muy
+por debajo de 0.015: auditoria de leakage no activada. Instrumento sano:
+paridad de universo por assert (2980 filas, 0 NaN), 3.3% sin match de
+nombre, 0 fechas sin PDF, 421 equipo-partido NYS.
+
+ADJUDICACION DE LA PUERTA: NO se cruza (positiva en ambos folds, pero
+t=0.37 y t=0.18, dentro del ruido con holgura). Por la regla
+pre-registrada: el hallazgo se registra, v1 sigue como feature de
+produccion, disponibilidad-v2 NO se promueve a candidato sombra. La
+carga de la prueba esta en el candidato, sin importar la razon por la
+que no pudo demostrarse (misma asimetria que protege al suscriptor en
+el criterio de comercializacion).
+
+HALLAZGO DE DISEÑO, ERROR PROPIO REGISTRADO: el MDE de los folds es
+0.0096 (A) y 0.0121 (B) a 80% de potencia; el rango pre-registrado
+(0.000-0.008) cae ENTERO por debajo. El experimento no podia distinguir
+su propia expectativa de cero: el null es de RESOLUCION, no de
+existencia ("no se distingue con este diseño", jamas "no existe"). El
+error es del pre-registro (redactado sin computar potencia), no de la
+ejecucion, que lo detecto y declaro sin resolverlo por cuenta propia.
+REGLA NUEVA: todo pre-registro futuro con metrica continua incluye su
+MDE junto a la expectativa; si el MDE no cubre el rango esperado, el
+diseño se corrige o la limitacion se declara de antemano. Detectar
+0.001-0.008 aqui exigiria ~90k-145k partidos de validacion, que el
+corpus GemBox no tiene ni tendra.
+
+CONSECUENCIA SOBRE LA COLA: cerrar D-RES-3 (parser iTextSharp) adquiere
+valor CUANTIFICADO: el corpus 2018-19..2022-23 añadiria hasta cinco
+folds y bajaria el MDE a la vecindad del rango esperado. La re-medicion
+con corpus ampliado (ya prevista en D-EXP-1) es la unica via realista
+de resolver esta pregunta. Si ocurre, entra con pre-registro nuevo que
+incluya: MDE computado, la hipotesis del brazo diagnostico formalizada,
+y el contraste limpio como primario (ver abajo).
+
+BRAZO DIAGNOSTICO (no pre-registrado: GENERA hipotesis, no evidencia):
+binario Out=0 de misma construccion que v2 gana al control en A
+(+0.00154) y pierde en B (-0.00602); v2 empata con el binario en A
+(t=-0.13) y le gana en B (t=2.78, IC95 [+0.002,+0.012]). Hipotesis
+superviviente, con nombre exacto: "ponderar ESTABILIZA frente al
+binario de misma construccion", no "ponderar mejora". Un fold de dos:
+señal, no conclusion.
+
+CONFOUND DE CONSTRUCCION (declarado antes de ver numeros): control =
+numerador de activados del boxscore; candidato y brazo binario =
+numerador de rotacion pronosticada desde el PDF. La comparacion limpia
+del efecto de ponderar es v2 vs binario (misma construccion); v2 vs
+control lleva el confound dentro. Restriccion de interpretacion de todo
+el experimento.
+
+DESTINO DEL NULL (por la puerta pre-registrada): los pesos oficiales de
+D-EXP-1 pasan a la CAPA EDITORIAL como candidatos de contenido: el
+mensaje puede decir "X figura como Questionable; historicamente ~50% de
+los Questionable juegan" sin que el modelo los use. Honestidad gratis,
+cero cambios al pipeline. Diseño del mensaje v2 = tarea separada, sin
+urgencia, no bloqueante.
+
+Base de tests: 630 limpia / 634 mixta, 15 deselected (605 + 25 del
+experimento).

@@ -18,7 +18,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from dataclasses import asdict
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Query
 
@@ -26,12 +26,17 @@ from nba_predictor.api.daily_predictions import (
     DailyResult,
     build_daily_predictions,
     format_daily_message,
+    format_players_message,
 )
 from nba_predictor.api.predictions_log import (
     build_log_rows,
     resolve_model_version,
     resolve_served_by,
     write_predictions_log,
+)
+from nba_predictor.api.player_predictions_log import (
+    build_player_log_rows,
+    write_player_predictions_log,
 )
 from nba_predictor.storage import get_datastore
 
@@ -124,6 +129,38 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="NBA Predictions API", version="0.1.0", lifespan=lifespan)
 
 
+# Catálogo de nombres cacheado por FECHA. Una lectura por proceso y día: la
+# tabla players cambia como mucho una vez al día (la escribe el ingest job a
+# las 12:00 UTC), y releerla en cada request costaría una consulta a BigQuery
+# por publicación sin aportar nada. La clave es la fecha y no un TTL para que
+# la recarga caiga siempre del lado correcto de la corrida del job.
+_PLAYER_MAP_CACHE: dict[str, dict[int, str]] = {}
+
+
+def _player_map(store) -> dict[int, str]:
+    """Catálogo player_id → nombre, cacheado por día.
+
+    Un fallo de lectura devuelve {} y NO levanta: quien decide qué hacer con un
+    catálogo vacío es build_daily_predictions, que lo declara como feed caído
+    (D-PROD-1d). Aquí solo se registra el error con todo el ruido posible.
+    """
+    hoy = date.today().isoformat()
+    if hoy in _PLAYER_MAP_CACHE:
+        return _PLAYER_MAP_CACHE[hoy]
+    try:
+        nombres = store.load_player_names()
+    except Exception as exc:
+        _log.error("No se pudo cargar el catálogo de nombres (players): %s", exc)
+        nombres = {}
+    if nombres:
+        # Solo se cachea lo bueno: un {} cacheado condenaría al proceso a
+        # publicar degradado el resto del día aunque la tabla se recupere.
+        _PLAYER_MAP_CACHE.clear()
+        _PLAYER_MAP_CACHE[hoy] = nombres
+    _log.info("Catálogo de nombres: %d jugadores", len(nombres))
+    return nombres
+
+
 @app.get("/health")
 def health():
     """
@@ -162,9 +199,17 @@ def predictions_today(
         store=app.state.store,
         season=season,
         version_name=app.state.version_name,
+        player_map=_player_map(app.state.store),
     )
     message = format_daily_message(result)
-    response = {"message": message, "data": asdict(result)}
+    # players_message es el SEGUNDO mensaje de Telegram (D-PROD-1b): cadena
+    # vacia cuando ningun partido trae datos de jugador, y entonces n8n no
+    # dispara su Send. message queda INTACTO — lo validado no se toca.
+    response = {
+        "message": message,
+        "players_message": format_players_message(result),
+        "data": asdict(result),
+    }
 
     # predictions_log (13e-2.4): la evidencia se registra DESPUÉS de tener la
     # respuesta construida y ANTES de devolverla — una fila por partido servido,
@@ -172,13 +217,35 @@ def predictions_today(
     # Best-effort (Decisión CERRADA 2026-08-26): write_predictions_log jamás
     # levanta; un fallo de escritura deja WARNING y la respuesta se sirve
     # completa e intacta. Día sin partidos → cero filas, cero escritura.
+    served_by = resolve_served_by()
+    model_version = (
+        getattr(app.state, "log_model_version", None) or result.model_version
+    )
+    # Un unico sello de tiempo para los dos logs: es lo que permite cruzarlos
+    # como la MISMA servida. Dos relojes darian dos instantes distintos para un
+    # solo hecho.
+    stamp = datetime.now(timezone.utc)
+
     write_predictions_log(
         app.state.store,
         build_log_rows(
             result,
-            served_by=resolve_served_by(),
-            model_version=getattr(app.state, "log_model_version", None)
-            or result.model_version,
+            served_by=served_by,
+            model_version=model_version,
+            predicted_at_utc=stamp,
+        ),
+    )
+
+    # player_predictions_log (D-PROD-1c): misma disciplina y mismo best-effort.
+    # Solo registra los partidos cuya seccion se PUBLICO (players_data_available):
+    # el log es evidencia de lo publicado, no de lo que se pudo haber publicado.
+    write_player_predictions_log(
+        app.state.store,
+        build_player_log_rows(
+            result,
+            served_by=served_by,
+            model_version=model_version,
+            predicted_at_utc=stamp,
         ),
     )
 

@@ -125,6 +125,25 @@ class LocalDataStore(DataStore):
                     served_by        TEXT NOT NULL,
                     absences_applied TEXT
                 );
+
+                CREATE TABLE IF NOT EXISTS player_predictions_log (
+                    game_id          TEXT,
+                    game_date        DATE,
+                    player_id        INTEGER,
+                    player_name      TEXT,
+                    team_tricode     TEXT,
+                    status_flag      TEXT,
+                    pts_median       REAL,
+                    pts_min          REAL,
+                    pts_max          REAL,
+                    reb_median       REAL,
+                    ast_median       REAL,
+                    fg3m_median      REAL,
+                    games_in_window  INTEGER,
+                    model_version    TEXT,
+                    predicted_at_utc TEXT,
+                    served_by        TEXT
+                );
                 CREATE INDEX IF NOT EXISTS idx_plog_date ON predictions_log(game_date);
             """)
     
@@ -382,3 +401,55 @@ class LocalDataStore(DataStore):
                 """,
                 [_serialize_log_row(r) for r in rows],
             )
+
+    def save_player_predictions_log(self, rows: list[dict]) -> None:
+        """Anexa filas de destacados. INSERT puro — jamás INSERT OR REPLACE.
+
+        Mismo razonamiento que predictions_log: la tabla es un EXPEDIENTE, y
+        dos servidas del mismo jugador son dos hechos distintos, no una
+        colisión que resolver.
+        """
+        if not rows:
+            return
+        with sqlite3.connect(self.db_path) as conn:
+            conn.executemany(
+                """
+                INSERT INTO player_predictions_log
+                (game_id, game_date, player_id, player_name, team_tricode,
+                 status_flag, pts_median, pts_min, pts_max, reb_median,
+                 ast_median, fg3m_median, games_in_window, model_version,
+                 predicted_at_utc, served_by)
+                VALUES (:game_id, :game_date, :player_id, :player_name, :team_tricode,
+                        :status_flag, :pts_median, :pts_min, :pts_max, :reb_median,
+                        :ast_median, :fg3m_median, :games_in_window, :model_version,
+                        :predicted_at_utc, :served_by)
+                """,
+                [_serialize_log_row(r) for r in rows],
+            )
+
+    def load_player_names(self) -> dict[int, str]:
+        """Nombres desde los JSON crudos: en local, los archivos SON el catálogo.
+
+        Une los dos formatos del corpus (legacy stats.nba.com en raw/ y CDN en
+        raw/boxscores_live/), con el CDN aplicado al final para que el nombre
+        más reciente gane en caso de discrepancia.
+        """
+        from nba_predictor.ingestion.injury_report import (
+            load_player_names_from_cdn_json,
+            load_player_names_from_raw_json,
+        )
+
+        nombres = load_player_names_from_raw_json(self.raw_dir)
+        live_dir = self.raw_dir / "boxscores_live"
+        if live_dir.exists():
+            nombres.update(load_player_names_from_cdn_json(live_dir))
+        return nombres
+
+    def save_player_names(self, mapping: dict[int, str]) -> None:
+        """NO-OP deliberado: en local la fuente de verdad son los JSON crudos.
+
+        Persistir una copia en SQLite crearía un segundo catálogo que podría
+        divergir del corpus sin que nada lo delate. El adapter cloud sí
+        materializa la tabla porque allí el endpoint no tiene los archivos.
+        """
+        return None

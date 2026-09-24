@@ -60,7 +60,9 @@ if TYPE_CHECKING:
 from nba_predictor.jobs.ingest_logic import (  # noqa: E402
     _archive_injury_report,
     _check_season_guard,
+    _collect_player_names,
     _latest_model_metadata,
+    _persist_player_names,
     _season_from_raw_schedule,
     _should_rebuild_features,
     _should_retrain,
@@ -164,6 +166,7 @@ def _step1_ingest(
 
     all_team_stats: list[pd.DataFrame] = []
     all_player_stats: list[pd.DataFrame] = []
+    raw_payloads: list[dict] = []
 
     for _, row in new_games.sort_values("game_date").iterrows():
         game_id = str(row["game_id"])
@@ -172,11 +175,17 @@ def _step1_ingest(
         save_raw_boxscore_fn(game_id, raw_payload)
         all_team_stats.append(team_stats)
         all_player_stats.append(player_stats)
+        raw_payloads.append(raw_payload)
 
     # Un MERGE por tabla (no por partido) — eficiente en BQ
     ds.save_games(new_games.reset_index(drop=True))
     ds.save_team_game_stats(pd.concat(all_team_stats, ignore_index=True))
     ds.save_player_game_stats(pd.concat(all_player_stats, ignore_index=True))
+
+    # Catálogo de nombres (D-PROD-1d): los payloads que ya se descargaron
+    # traen los nombres, así que mantenerlo al día no cuesta ni una petición
+    # extra. Best-effort: un fallo aquí jamás tumba la ingesta.
+    _persist_player_names(ds, _collect_player_names(raw_payloads), log.info)
 
     log.info("  ✓ %d partidos ingestados y guardados", n_new)
     return n_new

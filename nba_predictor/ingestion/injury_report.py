@@ -783,6 +783,44 @@ class NameIndex:
 # ---------------------------------------------------------------------------
 
 
+def player_names_from_legacy_payload(data: dict) -> dict[int, str]:
+    """player_id → player_name de UN payload legacy de stats.nba.com.
+
+    Extraída del loader de directorio para que los consumidores que NO leen de
+    disco (el backfill desde GCS, el ingest job sobre el payload recién
+    descargado) reusen la MISMA lógica por import en vez de reimplementarla.
+    Una segunda implementación de esto sería una segunda fuente de verdad para
+    los nombres, que es justo lo que el bug 2 de D-PROD-1c hizo caro.
+    """
+    players: dict[int, str] = {}
+    for rs in data.get("resultSets", []):
+        headers = rs.get("headers", [])
+        pid_idx = next((i for i, h in enumerate(headers) if h == "PLAYER_ID"), None)
+        name_idx = next((i for i, h in enumerate(headers) if h == "PLAYER_NAME"), None)
+        if pid_idx is None or name_idx is None:
+            continue
+        for row in rs.get("rowSet", []):
+            pid, name = row[pid_idx], row[name_idx]
+            if pid and name:
+                players[int(pid)] = name
+    return players
+
+
+def player_names_from_cdn_payload(data: dict) -> dict[int, str]:
+    """player_id → player_name de UN payload CDN (boxscores_live/).
+
+    Estructura: {"game": {"homeTeam": {"players": [{"personId": X, "name": Y}]}}}
+    """
+    players: dict[int, str] = {}
+    game = data.get("game", {})
+    for team_key in ("homeTeam", "awayTeam"):
+        for player in game.get(team_key, {}).get("players", []):
+            pid, name = player.get("personId"), player.get("name")
+            if pid and name:
+                players[int(pid)] = name
+    return players
+
+
 def load_player_names_from_raw_json(
     raw_dir: Path,
     glob_pattern: str = "*.json",
@@ -795,21 +833,7 @@ def load_player_names_from_raw_json(
     players: dict[int, str] = {}
     for path in sorted(raw_dir.glob(glob_pattern)):
         try:
-            data = json.loads(path.read_bytes())
-            for rs in data.get("resultSets", []):
-                headers = rs.get("headers", [])
-                pid_idx = next(
-                    (i for i, h in enumerate(headers) if h == "PLAYER_ID"), None
-                )
-                name_idx = next(
-                    (i for i, h in enumerate(headers) if h == "PLAYER_NAME"), None
-                )
-                if pid_idx is not None and name_idx is not None:
-                    for row in rs.get("rowSet", []):
-                        pid = row[pid_idx]
-                        name = row[name_idx]
-                        if pid and name:
-                            players[int(pid)] = name
+            players.update(player_names_from_legacy_payload(json.loads(path.read_bytes())))
         except Exception:  # JSON malformado — continuar
             continue
     return players
@@ -827,14 +851,7 @@ def load_player_names_from_cdn_json(
     players: dict[int, str] = {}
     for path in sorted(raw_live_dir.glob(glob_pattern)):
         try:
-            data = json.loads(path.read_bytes())
-            game = data.get("game", {})
-            for team_key in ("homeTeam", "awayTeam"):
-                for player in game.get(team_key, {}).get("players", []):
-                    pid = player.get("personId")
-                    name = player.get("name")
-                    if pid and name:
-                        players[int(pid)] = name
+            players.update(player_names_from_cdn_payload(json.loads(path.read_bytes())))
         except Exception:
             continue
     return players

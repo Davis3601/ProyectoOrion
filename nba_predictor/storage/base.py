@@ -127,6 +127,34 @@ class DataStore(ABC):
     # ----- predictions_log (Fase 5b / 13e-2.4) -----
 
     @abstractmethod
+    def load_player_names(self) -> dict[int, str]:
+        """player_id → nombre display de TODOS los jugadores conocidos.
+
+        Catálogo simétrico con teams. Existe porque la capa STRUCTURED no
+        guarda nombres de jugador: viven solo en los JSON crudos, y en la nube
+        el endpoint no tiene esos archivos. Sin este método, el NameIndex del
+        injury report nace vacío y NINGUNA ausencia hace match — el bug 2 de
+        D-PROD-1c, que predijo un mes entero como si nadie estuviera lesionado
+        sin emitir un solo error.
+
+        Un mapa vacío es un estado DEGRADADO que el llamador debe declarar,
+        jamás un "no hay lesionados" de aspecto sano.
+        """
+
+    @abstractmethod
+    def save_player_names(self, mapping: dict[int, str]) -> None:
+        """Persiste/actualiza el catálogo de nombres. Idempotente por player_id."""
+
+    @abstractmethod
+    def save_player_predictions_log(self, rows: list[dict]) -> None:
+        """Anexa filas de evidencia de destacados. APPEND-ONLY (D-PROD-1c).
+
+        Espejo exacto de save_predictions_log en semántica: una fila por
+        jugador por servida, sin deduplicar, sin update jamás. El grading se
+        computa después como JOIN contra player_game_stats.
+        """
+
+    @abstractmethod
     def save_predictions_log(self, rows: list[dict]) -> None:
         """Anexa filas de evidencia al log de predicciones. APPEND-ONLY.
 

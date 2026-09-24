@@ -46,6 +46,34 @@ settings = Settings()
 # Se experimentará con 5/15/20 en la fase de iteración midiendo log loss OOS.
 ROLLING_WINDOW_GAMES: int = 10
 
+# ---------------------------------------------------------------------------
+# Destacados del mensaje 2 (D-PROD-1f)
+# ---------------------------------------------------------------------------
+
+# Ventana de RECENCIA para que un jugador sea candidato a destacado: su último
+# partido CON ESE EQUIPO debe caer dentro de estos días antes del partido.
+#
+# 250 días cubre el offseason completo (la temporada regular acaba a mediados
+# de abril y la siguiente arranca a finales de octubre: ~190 días), de modo que
+# el primer día de temporada los candidatos siguen siendo los del cierre de la
+# anterior. Es el mismo precedente de "roster change v0: aceptar lag" — se
+# acepta el desfase de traspasos del verano, NO el de una década.
+#
+# Sin esta cota el universo de candidatos era TODA la historia del equipo:
+# el dry-run del 2026-10-21 proponía a Luol Deng por Miami (último partido en
+# 2016, 3 843 días antes) porque promedió más minutos en 2015-16 que cualquier
+# jugador vigente (D-PROD-1f).
+HIGHLIGHT_RECENCY_DAYS: int = 250
+
+# Temporadas de historial que se CARGAN para calcular medianas y rangos.
+# Distinto de la recencia, y a propósito: la recencia decide QUIÉN es candidato
+# (roster vigente), y esto decide cuánto pasado hace falta para que sus
+# "últimos 10 partidos jugados" estén completos. Tres temporadas sobran incluso
+# para un suplente de rotación corta, y recortan la lectura de ~371k filas a
+# ~90k — que es lo que hizo que 1 GiB de Cloud Run no alcanzara (OOM del
+# 2026-09-24: "Memory limit of 1024 MiB exceeded with 1029 MiB used").
+HIGHLIGHT_HISTORY_SEASONS: int = 3
+
 # Cap de días de descanso. Más de una semana no añade frescura marginal
 # y los ~100 días de offseason distorsionarían rest_diff.
 REST_DAYS_CAP: int = 7

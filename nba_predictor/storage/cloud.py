@@ -121,6 +121,34 @@ _PREDICTIONS_LOG_SCHEMA: list[tuple[str, str]] = [
 ]
 
 
+_PLAYERS_TABLE: str = "players"
+
+_PLAYER_LOG_TABLE: str = "player_predictions_log"
+
+# Schema de los 16 campos de la evidencia de destacados (D-PROD-1c). Explícito
+# por la misma razón que el de predictions_log: la tabla la provisiona el
+# usuario y el log es evidencia — un tipo inferido distinto por lote (p.ej.
+# fg3m_median todo nulo un día) rompería el JOIN de grading.
+_PLAYER_LOG_SCHEMA: list[tuple[str, str]] = [
+    ("game_id", "STRING"),
+    ("game_date", "DATE"),
+    ("player_id", "INTEGER"),
+    ("player_name", "STRING"),
+    ("team_tricode", "STRING"),
+    ("status_flag", "STRING"),
+    ("pts_median", "FLOAT"),
+    ("pts_min", "FLOAT"),
+    ("pts_max", "FLOAT"),
+    ("reb_median", "FLOAT"),
+    ("ast_median", "FLOAT"),
+    ("fg3m_median", "FLOAT"),
+    ("games_in_window", "INTEGER"),
+    ("model_version", "STRING"),
+    ("predicted_at_utc", "TIMESTAMP"),
+    ("served_by", "STRING"),
+]
+
+
 # Claves de idempotencia por tabla (definición única, referenciada en _save_tabular)
 _MERGE_KEYS: dict[str, list[str]] = {
     "teams": ["team_id"],
@@ -495,7 +523,143 @@ class CloudDataStore(DataStore):
                     for name, type_ in _PREDICTIONS_LOG_SCHEMA
                 ],
                 write_disposition=_bigquery.WriteDisposition.WRITE_APPEND,
-                create_disposition=_bigquery.CreateDisposition.CREATE_IF_NEEDED,
+                # CREATE_NEVER, y no CREATE_IF_NEEDED, por DOS razones que
+                # apuntan al mismo sitio (hallazgo D-PROD-1c, 2026-09-24):
+                # (1) PERMISOS: CREATE_IF_NEEDED obliga al load job a pedir
+                #     bigquery.tables.create, que es permiso de DATASET, e
+                #     incompatible con el dataEditor A NIVEL TABLA con el que
+                #     corre predictions-api-sa. Con CREATE_IF_NEEDED la
+                #     escritura devolvía 403 SIEMPRE — invisible durante toda
+                #     la offseason porque un día sin partidos escribe cero
+                #     filas y cero filas era el resultado esperado.
+                # (2) SEMÁNTICA: la tabla la provisiona el operador (Decisión
+                #     13e-2.4). Un escritor de evidencia que pueda CREAR su
+                #     propia tabla puede también inventarse un schema distinto
+                #     en silencio; si la tabla no existe, lo correcto es
+                #     fallar ruidosamente.
+                create_disposition=_bigquery.CreateDisposition.CREATE_NEVER,
+            )
+
+        load_job = self._bq.load_table_from_dataframe(df, table_id, job_config=job_config)
+        load_job.result()
+
+    def load_player_names(self) -> dict[int, str]:
+        """player_id → nombre desde la tabla players.
+
+        Se ITERAN las filas en vez de usar to_dataframe(): esta lectura vive en
+        el arranque del endpoint, cuya SA tiene jobUser pero NO
+        bigquery.readsessions.create (capa 5 de la cebolla, reincidente en
+        D-ODDS). Son ~5k filas: el transporte por filas sobra.
+        """
+        sql = (
+            f"SELECT player_id, player_name "
+            f"FROM `{_full_table_id(self.project_id, self.dataset, _PLAYERS_TABLE)}`"
+        )
+        return {int(r.player_id): str(r.player_name) for r in self._bq.query(sql).result()}
+
+    def save_player_names(self, mapping: dict[int, str]) -> None:
+        """MERGE por player_id: el catálogo se actualiza, no se duplica.
+
+        Un jugador cambia de nombre (acentos corregidos, sufijos) sin cambiar
+        de id; la clave natural es el id y la escritura tiene que ser
+        idempotente sobre ella (Decisión 3 de Fase 5b). La fuente va como
+        ARRAY<STRUCT> parametrizado y no como tabla staging: la SA del job
+        podría crear staging, pero no hace falta para un catálogo de miles de
+        filas, y así el mismo método sirve a cualquier SA.
+        """
+        if not mapping:
+            return
+        if _bigquery is None:  # pragma: no cover - entorno sin dependencias cloud
+            raise RuntimeError("google-cloud-bigquery no disponible")
+
+        table_id = _full_table_id(self.project_id, self.dataset, _PLAYERS_TABLE)
+        filas = [
+            {"player_id": int(pid), "player_name": str(nombre)}
+            for pid, nombre in mapping.items()
+        ]
+        sql = f"""
+            MERGE `{table_id}` AS t
+            USING (
+                SELECT player_id, player_name FROM UNNEST(@filas)
+            ) AS s
+            ON t.player_id = s.player_id
+            WHEN MATCHED THEN UPDATE SET
+                player_name = s.player_name, updated_at = CURRENT_TIMESTAMP()
+            WHEN NOT MATCHED THEN INSERT (player_id, player_name, updated_at)
+                VALUES (s.player_id, s.player_name, CURRENT_TIMESTAMP())
+        """
+        # ARRAY<STRUCT> se parametriza con StructQueryParameterType +
+        # StructQueryParameter, no con la firma del tipo como cadena: esta
+        # ultima da 400 "is not a valid value". Mismo patron que el MERGE de
+        # market_odds (D-ODDS), que ya lo dejo resuelto.
+        struct_type = _bigquery.StructQueryParameterType(
+            _bigquery.ScalarQueryParameterType("INT64", name="player_id"),
+            _bigquery.ScalarQueryParameterType("STRING", name="player_name"),
+        )
+        valores = [
+            _bigquery.StructQueryParameter(
+                None,
+                _bigquery.ScalarQueryParameter("player_id", "INT64", f["player_id"]),
+                _bigquery.ScalarQueryParameter("player_name", "STRING", f["player_name"]),
+            )
+            for f in filas
+        ]
+        job_config = _bigquery.QueryJobConfig(
+            query_parameters=[_bigquery.ArrayQueryParameter("filas", struct_type, valores)]
+        )
+        self._bq.query(sql, job_config=job_config).result()
+
+    def save_player_predictions_log(self, rows: list[dict]) -> None:
+        """Anexa filas de destacados. WRITE_APPEND — nunca MERGE, nunca staging.
+
+        DECISIÓN DE IMPLEMENTACIÓN (no de diseño): el patrón MERGE+staging del
+        resto de las tablas existe para garantizar idempotencia sobre una clave
+        natural, y su rama WHEN MATCHED THEN UPDATE es exactamente lo que el
+        diseño de predictions_log PROHÍBE ("grading = query; log = intocable").
+        Además no hay clave que matchear: dos servidas del mismo partido son dos
+        hechos distintos que el log debe conservar (Decisión 13e-2.4).
+        Por eso: load_table_from_dataframe con WRITE_APPEND — la misma máquina de
+        carga que usa _save_tabular para poblar su staging, sin la capa de MERGE.
+
+        Carga por lote (no streaming insert): sin cuota de streaming, sin buffer
+        que retrase el JOIN de grading, y consistente con el resto del adapter.
+        """
+        if not rows:
+            return
+
+        df = pd.DataFrame(rows)
+        # Fronteras de tipo del adapter (el resto del sistema pasa datetime/date
+        # nativos; BigQuery quiere TIMESTAMP y DATE, no texto).
+        if "predicted_at_utc" in df.columns:
+            df["predicted_at_utc"] = pd.to_datetime(df["predicted_at_utc"], utc=True)
+        if "game_date" in df.columns:
+            df["game_date"] = pd.to_datetime(df["game_date"]).dt.date
+
+        table_id = _full_table_id(self.project_id, self.dataset, _PLAYER_LOG_TABLE)
+
+        job_config = None
+        if _bigquery is not None:
+            job_config = _bigquery.LoadJobConfig(
+                schema=[
+                    _bigquery.SchemaField(name, type_)
+                    for name, type_ in _PLAYER_LOG_SCHEMA
+                ],
+                write_disposition=_bigquery.WriteDisposition.WRITE_APPEND,
+                # CREATE_NEVER, y no CREATE_IF_NEEDED, por DOS razones que
+                # apuntan al mismo sitio (hallazgo D-PROD-1c, 2026-09-24):
+                # (1) PERMISOS: CREATE_IF_NEEDED obliga al load job a pedir
+                #     bigquery.tables.create, que es permiso de DATASET, e
+                #     incompatible con el dataEditor A NIVEL TABLA con el que
+                #     corre predictions-api-sa. Con CREATE_IF_NEEDED la
+                #     escritura devolvía 403 SIEMPRE — invisible durante toda
+                #     la offseason porque un día sin partidos escribe cero
+                #     filas y cero filas era el resultado esperado.
+                # (2) SEMÁNTICA: la tabla la provisiona el operador (Decisión
+                #     13e-2.4). Un escritor de evidencia que pueda CREAR su
+                #     propia tabla puede también inventarse un schema distinto
+                #     en silencio; si la tabla no existe, lo correcto es
+                #     fallar ruidosamente.
+                create_disposition=_bigquery.CreateDisposition.CREATE_NEVER,
             )
 
         load_job = self._bq.load_table_from_dataframe(df, table_id, job_config=job_config)

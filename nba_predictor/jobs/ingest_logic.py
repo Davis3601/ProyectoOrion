@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import date
+from collections.abc import Iterable
 from typing import Any
 
 _log = logging.getLogger(__name__)
@@ -176,3 +177,45 @@ def _check_season_guard(
         f"aviso: filtrado por {filter_season!r} pero CDN sirve {cdn_season!r} "
         f"(sin partidos jugados aún — inofensivo por ahora)."
     )
+
+
+def _collect_player_names(raw_payloads: Iterable[dict]) -> dict[int, str]:
+    """player_id → nombre a partir de los payloads CDN recién descargados.
+
+    Función PURA. Reusa el extractor del paquete (injury_report) en vez de
+    reimplementarlo: una segunda lectura de los mismos JSON sería una segunda
+    fuente de verdad para los nombres, que es exactamente lo que hizo caro el
+    bug 2 de D-PROD-1c.
+
+    Un payload ilegible se salta sin tumbar al resto: el catálogo es
+    incremental y lo que falte hoy entra mañana.
+    """
+    from nba_predictor.ingestion.injury_report import player_names_from_cdn_payload
+
+    nombres: dict[int, str] = {}
+    for payload in raw_payloads:
+        try:
+            nombres.update(player_names_from_cdn_payload(payload))
+        except Exception:  # noqa: BLE001 — payload raro, el resto sigue
+            continue
+    return nombres
+
+
+def _persist_player_names(ds: Any, nombres: dict[int, str], log_fn: Any) -> bool:
+    """Guarda el catálogo. BEST-EFFORT: jamás tumba la ingesta.
+
+    La misión crítica del job es la ingesta de boxscores (misma regla que el
+    archivo del injury report, Decisión 4 del feed). Un fallo aquí degrada el
+    catálogo de nombres, no los datos del modelo — y el endpoint DECLARA la
+    degradación si el mapa llega vacío, en vez de fingir que nadie está
+    lesionado.
+    """
+    if not nombres:
+        return True
+    try:
+        ds.save_player_names(nombres)
+        log_fn("  ✓ catálogo de nombres actualizado (%d jugadores vistos)", len(nombres))
+        return True
+    except Exception as exc:  # noqa: BLE001
+        log_fn("  ⚠ no se pudo actualizar el catálogo de nombres: %s", exc)
+        return False

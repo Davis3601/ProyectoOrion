@@ -2354,3 +2354,500 @@ con dry-run al 2026-10-14 o se difiere a post-adjudicacion.
 
 Base de tests: 667 limpia / 671 mixta, 15 deselected (649 + 18 de
 D-EXP-4).
+
+## D-PROD-1 (Tarea B) CERRADA: sección de jugadores en el mensaje,
+formato congelado (2026-09-22)
+
+Contrato implementado bajo 13e-2.1: GamePrediction gana players
+(list[PlayerHighlight], default []) y players_data_available; con
+defaults, el mensaje vigente se reproduce byte a byte (verificado
+contra golden). Formato por jugador: "• {nombre}: {pts} pts
+({min}-{max}) · {reb} reb · {ast} ast"; Q con sufijo y UNA línea
+editorial por partido con el peso de D-EXP-1 (~50%); especialistas
+con 3P solo mediana (Desviación 2 de D-EXP-4); ventana < 10
+declarada con "(últimos {n})". Selección contratada: top 2 por
+equipo por minutos rolling; Out y Doubtful excluidos (D-EXP-1:
+Doubtful juega ~2%), Probable sin marca. Degradación declarada
+heredada de 13e-2.5: sin datos => sección ausente + flag, jamás
+vacía silenciosa. Presupuesto de longitud bajo test: 15 partidos x 4
+destacados < 4096 UTF-8 con margen >= 15%. Cableado de datos, log de
+evidencia (player_predictions_log) y despliegue: Tarea C, bajo la
+fecha de corte vigente (2026-10-14 o se difiere).
+
+RESULTADO (2026-09-22): implementado y congelado. Suite 690 passed,
+15 deselected, 1 xfailed (667 de base + 23 nuevos en verde; el xfail
+ES el presupuesto, ver abajo). Los 42 tests de formato preexistentes
+pasan SIN una sola edición — la regla de detenerse no se activó.
+Verificado byte a byte contra golden en las tres variantes que deben
+reproducir el mensaje vigente: players=[], players_data_available
+False con lista cargada, y flag True con lista vacía.
+
+HALLAZGO QUE CONTRADICE EL PRESUPUESTO DEL PÁRRAFO ANTERIOR — EL
+FORMATO ADJUDICADO NO CABE: medido, no estimado. 15 partidos x 4
+destacados = 6 225 caracteres, contra un límite DURO de Telegram de
+4 096 y un presupuesto con margen 15% de 3 481. Exceso: 2 129 sobre
+el límite duro, 2 744 sobre el presupuesto. La sección cuesta 316
+caracteres por partido (mensaje vigente de día lleno: 1 485). Con
+este formato caben 9 partidos bajo el límite duro y 8 con margen,
+y un día típico de temporada regular trae 10-13. NO se resolvió
+recortando (prohibición explícita del encargo): queda registrado en
+test_presupuesto_de_longitud_dia_lleno con xfail(strict=True) —
+si alguien adelgaza el formato y el test empieza a pasar, se pone
+ROJO y obliga a actualizar este registro, así que el fallo no puede
+pudrirse. Los números 9 y 8 quedan fijados en
+test_cuantos_partidos_caben_con_la_seccion para que la cifra de este
+documento no envejezca en silencio. ADJUDICACIÓN PENDIENTE de
+Antonio; opciones sin recomendar: menos destacados por partido,
+línea más corta, sección solo en partidos seleccionados, o varios
+mensajes de Telegram. Tarea C queda BLOQUEADA por esta decisión: no
+tiene sentido cablear datos a un formato que no se puede publicar.
+
+DECISIONES DE FORMATO DECLARADAS (el encargo no las fijaba):
+(a) REDONDEO MEDIO-ARRIBA, no round() de Python. La mediana de 10
+partidos es el promedio de los dos centrales, así que los .5 exactos
+son el caso COMÚN, no el raro; round() redondea al par y produciría
+10.5 -> 10 junto a 11.5 -> 12 en el mismo mensaje, sin explicación
+posible para el lector. Helper _round_half_up con test parametrizado.
+(b) ORDEN locales primero, visitantes después, estable dentro de cada
+equipo — el mismo orden que ya siguen las líneas de bajas.
+(c) AMBIGÜEDAD NO RESUELTA, reportada sin inventar: la línea del
+jugador no lleva tricode, así que con 4 destacados el lector no sabe
+de qué equipo es cada uno. El campo team existe en PlayerHighlight;
+hacerlo visible es cambio de formato y por tanto adjudicación de
+Antonio, no sustitución silenciosa.
+
+## D-PROD-1b: ADJUDICACIÓN DEL PRESUPUESTO Y FORMATO REVISADO
+(2026-09-22)
+
+ERROR PROPIO REGISTRADO (quinto de la serie, el más evitable): el
+diseño de D-PROD-1 afirmó "el peor caso cabe con margen" sin
+computarlo; 316 chars/partido x 15 ya rebasaba el límite duro antes
+de escribir código. El test numérico obligatorio del propio encargo
+cazó la afirmación. REGLA NUEVA: todo presupuesto afirmado en un
+diseño se COMPUTA en el diseño (servilleta basta), jamás se descubre
+en el test.
+
+ADJUDICACIÓN (Antonio): la sección de destacados se muda a un
+SEGUNDO mensaje de Telegram. Aritmética que fuerza la decisión: a
+~72-80 chars por línea de jugador, 4096 admite ~50 líneas; 4
+destacados/partido no caben en NINGÚN mensaje único (dedicado
+incluido: 15x316 ~ 4700); 2/partido en el mensaje actual dejaría 61
+chars de margen (1.5%, inaceptable). Diseño adjudicado: mensaje 2
+dedicado, top 1 POR EQUIPO (2/partido), tricode visible en cada
+línea (resuelve la ambigüedad declarada en D-PROD-1), leyenda Q una
+vez al pie, partido sin datos omitido del mensaje 2 (el flag viaja
+en data), cero datos => players_message vacío y el segundo Send no
+dispara. Peor caso computado ~2700 chars, margen ~37%. El mensaje 1
+(predicciones) queda INTACTO byte a byte: lo validado no se toca.
+Redondeo medio-arriba y orden local-visitante: aprobados.
+
+FRONTERA n8n (Decisión 10 intacta): players_message es contrato del
+endpoint; n8n gana IF-vacío + segundo nodo Send Text Message
+(enrutamiento de transporte, no lógica). Toda republicación del
+workflow lleva disparo de prueba (regla operativa vigente). Cableado
+de datos, player_predictions_log, n8n y deploy: Tarea C, fecha de
+corte 2026-10-14 vigente.
+
+Los tests del presupuesto viejo (xfail estricto) se actualizaron al
+diseño nuevo como estaba previsto por su propio mecanismo: el rojo
+del strict al adelgazar el formato ES la señal diseñada.
+
+RESULTADO: suite 696 passed, 15 deselected, CERO xfail (667 de base
++ 29 del mensaje 2; el xfail estricto del presupuesto viejo
+desaparecio al sustituirse, como exigia la verificacion de cierre);
+presupuesto peor caso medido 2518 chars (38.5% de margen sobre el
+limite duro de 4096, 27.7% sobre el presupuesto del 85%), con 15
+partidos, nombres largos reales, Q en TODOS y especialista en TODOS
+— todo lo que alarga la linea a la vez; goldens del mensaje 1
+intactos sin edición (42 tests de formato preexistentes en verde sin
+tocarlos, y un test nuevo que fija el invariante del diseño: el
+mensaje 1 no cambia NI SIQUIERA con destacados cargados).
+
+DETALLE DE IMPLEMENTACION: format_players_message() es funcion pura
+hermana de format_daily_message() en api/daily_predictions.py;
+format_daily_message dejo de llamar a la seccion de jugadores, de
+modo que el mensaje 1 es independiente de los datos de jugador por
+construccion y no por configuracion. _tip_sort_key se promovio a
+nivel de modulo: los dos mensajes ordenan los partidos igual y el
+lector los ve en el mismo orden en ambos. server.py devuelve
+{message, players_message, data}; message y data sin cambios.
+
+## D-PROD-1c (2026-09-24): destacados CABLEADOS y DESPLEGADOS, NO cerrada
+— dos bugs latentes destapados por el dry-run
+
+DESVIACION DEL ENCARGO, DECLARADA: el bloque previsto decia "CERRADA" y
+daba por verificado el paso de n8n. Ninguna de las dos cosas es cierta,
+asi que no se escribieron: n8n es trabajo de UI que Code no puede
+ejecutar, y ademas el cableado esta BLOQUEADO por el bug 2 de abajo.
+Rellenar el placeholder de "uno o dos mensajes verificados" habria sido
+inventar una verificacion que no ocurrio.
+
+CABLEADO (hecho y verificado): seleccion top 1 por equipo por minutos
+rolling (ventana 10 sobre partidos JUGADOS, historico cargado UNA vez
+por dia con los mismos metodos del DataStore que usa live_lookup — cero
+lectores nuevos); elegibilidad desde el MISMO snapshot publish que
+sustenta el mensaje 1 (_fetch_absences devuelve ahora tambien los
+estatus: un segundo descubrimiento podria discrepar y el canal
+publicaria dos verdades del mismo PDF); Out y Doubtful excluidos
+(D-EXP-1: P(juega|Doubtful) ~ 0.02), Q marcado, Probable sin marca;
+minimo 3 jugados, el puesto pasa al siguiente por minutos; sufijo
+"(ultimos n)" para 3..9. Best-effort en DOS niveles: fallo global deja
+el dia sin destacados, fallo de un partido no contamina a los demas; el
+mensaje 1 se sirve completo en ambos casos.
+
+DECISIONES DECLARADAS que el encargo no fijaba: (a) umbral de
+especialista de triples = mediana >= 2.0 (D-PROD-1b congelo que el
+especialista muestra 3P y solo la mediana, no el umbral); (b) el log
+guarda el FLOAT observado, no el entero publicado — el entero se
+recupera aplicando el redondeo documentado, al reves se pierde
+informacion para siempre.
+
+EVIDENCIA: tabla player_predictions_log creada (PARTITION BY game_date,
+16 campos verificados con bq show) + predictions-api-sa dataEditor A
+NIVEL TABLA (unica binding de la politica). Escritor: el endpoint,
+best-effort con WARNING, espejo exacto de predictions_log. Los dos logs
+comparten UN SOLO sello de tiempo por servida — es lo que permite
+cruzarlos como el mismo hecho. Sin resultado del partido: grading por
+JOIN, jamas update.
+
+DEPLOY: v8 (revision 00008-2bw) y, tras el fix del bug 1, v9 (revision
+00009-4k2, imagen sha256:bc8ee515... para v8; v9 construida sobre el
+mismo cloudbuild.api.yaml con _VERSION=v9). Suite: 742 passed, 15
+deselected (696 de base + 26 de seleccion + 19 del log + 1 guarda de
+CREATE_NEVER). Goldens del mensaje 1 intactos sin edicion.
+
+DRY-RUN ?date=2026-10-21 (v9): 200, 11 partidos, 11 con destacados, 22
+destacados en total, players_message de 1 319 caracteres bien formado
+(bloques por partido, tricode por jugador, especialistas con 3P,
+"(ultimos 6)" en un jugador con ventana corta, leyenda Q ausente porque
+feed_down=True ese dia y no hay estatus). Filas escritas: 22 en
+player_predictions_log y 11 en predictions_log, ambas con
+served_by=predictions-api-00009-4k2 y model_version con su SHA.
+
+BUG 1 — predictions_log NUNCA HABIA ESCRITO NADA EN PRODUCCION
+(encontrado por el dry-run, ya corregido). Sintoma: 403 "Permission
+bigquery.tables.create denied on dataset". Causa:
+create_disposition=CREATE_IF_NEEDED obliga al load job a pedir
+bigquery.tables.create, que es permiso de DATASET e incompatible con el
+dataEditor A NIVEL TABLA con el que corre predictions-api-sa por
+decision deliberada de minimo privilegio (2026-08-26). OCTAVA instancia
+del patron de silencio, y la mas cara de todas por lo que tocaba: desde
+el 2026-08-28 todas las ejecuciones cayeron en dia de descanso, donde
+CERO FILAS ES EL RESULTADO CORRECTO — el 403 no podia ocurrir porque
+nunca habia filas que escribir, y la verificacion del 2026-08-27
+("cero filas en predictions_log por diseño") lo confirmo como sano. El
+21 de octubre habria sido el primer dia con filas y LA EVIDENCIA DEL
+CRITERIO DE COMERCIALIZACION se habria perdido en silencio ese dia; el
+gate operativo lo habria cazado al dia siguiente, pero el dia uno ya no
+se recupera. FIX: CREATE_NEVER en los dos escritores de evidencia — no
+solo por permisos, tambien por semantica: la tabla la provisiona el
+operador, y un escritor que puede crear su propia tabla puede inventarse
+un schema distinto en silencio. Guarda de regresion ACOTADA a los dos
+metodos por inspect.getsource (_save_tabular conserva CREATE_IF_NEEDED
+legitimamente: el ingest job si tiene permiso de dataset y crea sus
+tablas staging). Verificado tras el fix: 11 filas reales en
+predictions_log, las primeras de su historia.
+
+BUG 2 — player_map NUNCA SE PASA: NINGUNA AUSENCIA HACE MATCH JAMAS
+(encontrado por el dry-run, NO corregido — requiere adjudicacion).
+server.py llama a build_daily_predictions sin player_map, asi que queda
+{}. Verificado: NameIndex.from_player_map({}) no resuelve ningun nombre,
+luego absences_by_tid sale SIEMPRE vacio. Consecuencias en el primer dia
+real: el modelo predice sin ausencias (availability_diff como si todos
+estuvieran sanos), el mensaje dice "Bajas X: –" todos los dias, y
+absences_applied va vacio en la evidencia. Lo hizo visible el mensaje 2,
+donde los destacados salen como "#203506" en vez del nombre. POR QUE NO
+SE ARREGLO AQUI: el unico origen de nombres del sistema son los JSON de
+raw/ — player_game_stats no tiene columna de nombre y el DataStore no
+expone ninguno; en Cloud Run data/raw/ no existe (.dockerignore). Las
+salidas (leer miles de JSON de GCS por request, cachear un artefacto que
+escriba el ingest job, o añadir una tabla players) tocan ingesta o
+arquitectura, prohibidas en este encargo. ADJUDICACION PENDIENTE.
+
+ESTADO Y BLOQUEO: n8n NO cableado, y conviene que siga asi hasta
+resolver el bug 2 — con los nombres sin resolver el mensaje 2
+publicaria "#203506", que es exactamente una PUBLICACION CORRUPTA de las
+que el gate operativo castiga (13e-2.4, condicion b). El mensaje 1 sigue
+publicandose solo, intacto, como desde agosto: players_message viaja en
+la respuesta pero nadie lo transporta todavia.
+
+PENDIENTES para cerrar D-PROD-1c: (1) adjudicar el origen de nombres de
+jugador (bug 2); (2) cablear n8n (IF sobre players_message != "" +
+segundo Send Text Message, mismas convenciones: toggle Expression
+verificado con preview resuelto, parse texto plano, attribution OFF,
+Response Format JSON — la herencia del spike ya mordio una vez); (3)
+republicar con disparo de prueba ANTES de dejarlo al cron y verificar
+DOS mensajes en el canal. Fecha de corte 2026-10-14 VIGENTE.
+
+PRE-REGISTRO pretemporada: los dias 001 NO generan destacados (el
+mensaje 1 ya los excluye por prefijo; players_message vacio, un solo
+mensaje en el canal) — el primer dia con partidos 001 lo verifica
+gratis. Primer dia real (2026-10-21): DOS mensajes esperados, filas en
+ambos logs, model_version poblado, y nombres de jugador REALES — si
+siguen saliendo "#id", el bug 2 no se resolvio.
+
+MORALEJA REFORZADA: el dry-run de un dia futuro, hecho 27 dias antes,
+encontro dos bugs que ninguna de las 742 pruebas podia ver porque
+ninguno vive en el codigo — uno vive en los PERMISOS y el otro en un
+argumento que nadie pasa. El despliegue temprano vuelve a pagar, y esta
+vez salvo la evidencia del criterio.
+
+## D-PROD-1d (2026-09-24): tabla players, bug 2 CERRADO, v10 desplegada
+
+Adjudicación del bug 2 (Antonio): tabla players en BigQuery, simétrica
+con teams, MERGE por player_id, mantenida por el ingest job (paso 1,
+best-effort) y consumida por el endpoint vía método nuevo del DataStore
+(load_player_names, ambos adapters). Backfill único desde los JSON
+crudos de GCS: 1 660 jugadores distintos, 0 blobs ilegibles; muestra
+cotejada (708 Kevin Garnett, 977 Kobe Bryant, 1495 Tim Duncan, 1713
+Vince Carter, 1717 Dirk Nowitzki). ACLs a nivel tabla verificadas
+(predictions-api-sa dataViewer sobre players; ingest-job-sa ya tenía
+dataEditor de dataset). REGLA ADJUDICADA de degradación: player_map
+vacío = feed caído declarado (13e-2.5 caso 2), con test; el estado
+"nadie lesionado" de aspecto sano que el bug demostró posible queda
+PROHIBIDO por guarda. Deploy v10 (revisión 00010-pwp). Dry-run
+2026-10-21: nombres reales, cero "#", 22 filas jugador + 11 partido.
+Suite: 761 passed, 15 deselected (742 + 19 del catálogo). PENDIENTE
+ÚNICO para cerrar D-PROD-1c: n8n (UI de Antonio, checklist entregado)
++ disparo de prueba con DOS mensajes.
+PRE-REGISTRO primer PDF de pretemporada: ausencias con match real,
+líneas de Bajas pobladas cuando haya Outs; "Bajas: -" perpetuo con
+PDFs vivos sería el bug 2 renacido.
+
+DETALLE DE IMPLEMENTACION Y HALLAZGOS:
+
+FUENTE UNICA DE NOMBRES: se extrajeron player_names_from_legacy_payload
+y player_names_from_cdn_payload de los loaders de directorio de
+injury_report, y ahora los loaders las usan por dentro. Backfill, ingest
+job y adapter local consumen LAS MISMAS funciones por import. Una
+segunda implementacion habria sido una segunda verdad del nombre, que
+es justo lo que hizo caro el bug 2.
+
+MANTENIMIENTO SIN COSTE: el job engancha el catalogo al bucle de
+boxscores que YA descarga los payloads — cero peticiones extra.
+Best-effort con WARNING: la mision critica del job es la ingesta
+(misma regla que el archivo del injury report, Decision 4 del feed).
+
+CACHE DEL ENDPOINT: player_map se lee una vez por proceso y por FECHA
+(no por TTL: la clave es el dia para que la recarga caiga siempre del
+lado correcto de la corrida del job de las 12:00 UTC). Solo se cachea
+el mapa POBLADO — cachear un {} condenaria al proceso a publicar
+degradado el resto del dia aunque la tabla se recuperase.
+
+CON CATALOGO VACIO NI SIQUIERA SE DESCARGA EL PDF: gastar 20 peticiones
+HEAD para no poder resolver un solo nombre no tiene sentido. La rama
+comparte el camino EXACTO del feed caido via una excepcion centinela
+interna, en vez de duplicar su logica y arriesgarse a que diverjan.
+
+GUARDA DEL BUG, EN EL CALL SITE: el bug no vivia en ninguna funcion —
+vivia en un argumento que server.py nunca pasaba, invisible para los
+tests y para el type checker. La guarda inspecciona
+server.predictions_today y falla si "player_map=" desaparece.
+
+HALLAZGO DE IMPLEMENTACION (MERGE con ARRAY<STRUCT>): el primer intento
+del backfill leyo los 14 400 blobs correctamente y murio en el MERGE
+final con 400 "STRUCT<player_id INT64, player_name STRING> is not a
+valid value". El tipo de un ARRAY<STRUCT> parametrizado NO se pasa como
+cadena: exige StructQueryParameterType + StructQueryParameter. D-ODDS ya
+lo habia resuelto en el MERGE de market_odds; se copio su patron en vez
+de improvisar otro. Leccion repetida del proyecto: el precedente
+resuelto se busca ANTES de inventar.
+
+EVIDENCIA DEL BUG Y SU FIX, LADO A LADO EN LA PROPIA TABLA:
+player_predictions_log guarda 22 filas de la revision 00009-4k2 con
+22/22 nombres sin resolver y 22 filas de 00010-pwp con 0/22 — el
+expediente del arreglo quedo en el mismo sitio donde vivia el sintoma.
+
+MATIZ DE LECTURA DEL DRY-RUN (no es bug): los destacados del 2026-10-21
+muestran jugadores en equipos donde hoy no estan (Oladipo en ORL,
+Westbrook en WAS). Es el lag de roster ya documentado ("roster change
+v0: aceptar lag"): el rolling sale de los ultimos partidos JUGADOS, que
+son de 2025-26. Se corrige solo con partidos reales de 2026-27.
+
+## D-PROD-1e + 1f (2026-09-24): OOM y seleccion historica, un solo v11
+
+Dos sintomas del mismo dry-run del dia mas pesado (2026-10-21, 11
+partidos), cerrados juntos porque el fix de uno es el fix del otro.
+
+NOTA DE REGISTRO: D-PROD-1e no llego a existir como tarea con bloque
+propio. Lo que hubo fue la subida MANUAL de memoria a 2Gi (revision
+00011-25f, 04:47) para desbloquear, sin fix de codigo. Este bloque la
+recoge y la cierra.
+
+SINTOMA 1 — OOM A 1 GiB. Evidencia literal de Cloud Run: "Memory limit
+of 1024 MiB exceeded with 1029 MiB used" (2026-09-24 04:41, revision
+00010-pwp), precedido de dos "container instance was found to be using
+too much memory and was terminated". Solo 5 MiB de exceso. CAUSA:
+_attach_highlights cargaba player_game_stats ENTERA (371 253 filas) para
+usar el 17% — el historial reciente — encima del modelo y del camino de
+features.
+
+SINTOMA 2 — LA SELECCION ELEGIA JUGADORES DE HACE UNA DECADA. El
+universo de candidatos por equipo era TODA su historia, sin cota de
+recencia, y ganaba quien mas minutos promedio en CUALQUIER tramo de 10
+partidos desde 2014. Evidencia del diagnostico de solo lectura, antes
+de tocar nada:
+  MIA  universo 103 candidatos (2014-10-29 -> 2026-04-12)
+       elegido Luol Deng, 34.9 min, ultimo partido 2016-04-13 (3 843 dias)
+       vigente mas alto: Bam Adebayo, 34.2 min, 192 dias
+  ORL  universo 108 candidatos
+       elegido Victor Oladipo, 36.6 min, ultimo 2016-04-08 (3 848 dias)
+       vigente mas alto: Paolo Banchero, 33.2 min, 192 dias
+  WAS  universo 150 candidatos
+       elegido Russell Westbrook, 39.8 min, ultimo 2021-05-16 (1 984 dias)
+       vigente mas alto: Will Riley, 32.6 min, 192 dias
+
+RETRACTACION EXPLICITA: al reportar el dry-run de v10 se escribio que
+esos nombres eran "el lag de roster ya documentado (roster change v0:
+aceptar lag), no un bug". ERA FALSO. El lag documentado es de un verano;
+esto era un universo sin cota que llegaba a 2014. El diagnostico de
+Antonio fue el correcto y la evidencia de arriba lo confirma punto por
+punto. Se registra el error de lectura, no solo el bug.
+
+FIX UNICO, DOS CONSTANTES CON PREGUNTAS DISTINTAS (config.py):
+  HIGHLIGHT_RECENCY_DAYS = 250 decide QUIEN es candidato: su ultimo
+  partido CON ESE EQUIPO debe caer dentro de la ventana. 250 dias cubren
+  el offseason (~190), asi que el primer dia de temporada los candidatos
+  siguen siendo los del cierre anterior — ese si es el lag aceptado.
+  HIGHLIGHT_HISTORY_SEASONS = 3 decide CUANTO PASADO SE CARGA para que
+  los "ultimos 10 jugados" de un candidato vigente esten completos. Se
+  lee POR TEMPORADA con load_player_game_stats(season=...): el filtro
+  viaja a BigQuery en vez de traerse 371k filas para descartar el 83%.
+La recencia es POR EQUIPO, no por liga: un traspasado sigue jugando pero
+ya no representa a su equipo anterior (test propio). Equipo sin
+candidatos vigentes: se OMITE con WARNING, jamas un jugador rancio con
+aspecto sano.
+
+PERFIL ANTES / DESPUES (medido local, mismo dry-run):
+  filas leidas       371 253  ->  64 421   (-83%)
+  DataFrame final      70.1 MB ->  12.2 MB (-83%)
+  pico tracemalloc     79.4 MB ->  37.3 MB (-53%)
+
+VEREDICTO SOBRE 1 GiB: EL FIX BASTA. v11 se desplego DELIBERADAMENTE con
+--memory=1Gi (revision 00012-znr) y el dry-run del dia mas pesado
+devolvio 200 sin un solo error de memoria en los logs de esa revision.
+Los 2Gi de la 00011 quedan como parche superado; leer lo necesario era
+el fix, subir el limite era el parche.
+
+DRY-RUN v11 (2026-10-21, a 1 GiB): 200, cero "#", 22 destacados,
+CERO RANCIOS — todos con ultimo partido entre 2026-03-10 y 2026-04-12
+(192-225 dias). Filas nuevas: 44 en player_predictions_log y 22 en
+predictions_log para 00012-znr (dos servidas, consistentes entre ambos
+logs). Listado completo de los 22 emitido para ADJUDICACION HUMANA de
+Antonio contra su conocimiento del roster (protocolo 13e-1) —
+PENDIENTE.
+
+OBSERVACION QUE NO ES BUG Y NECESITA ADJUDICACION: con la recencia
+arreglada aparecen junto a estrellas claras (Doncic, Booker, Kawhi,
+Banchero, Adebayo) varios nombres de rotacion corta o novatos (Toby
+Okani MEM, Cody Williams UTA, Will Riley WAS, Nique Clifford SAC, AJ
+Green MIL). Causa probable: los ultimos partidos de abril son de equipos
+ya eliminados, donde los titulares descansan y los suplentes juegan 35
+minutos, y el criterio "top 1 por minutos de los ultimos 10 jugados" lo
+premia. El dato es correcto y reciente; la pregunta es si es el jugador
+que el lector espera. Cambiar el criterio (minutos de temporada
+completa, puntos, excluir el tramo final) seria cambio de CONTRATO y por
+tanto decision de Antonio, no sustitucion silenciosa.
+
+GUARDA CON CONOCIMIENTO EXTERNO: test_luol_deng_no_juega_en_2026 replica
+el universo real de MIA (Deng 34.9 min con datos de 2016 contra Adebayo
+34.2 de 2026) y exige que gane el reciente. Ningun invariante automatico
+podia cazar esto: los numeros de Deng son validos, solo que de hace una
+decada. Lo que lo caza es SABER que Deng no juega en Miami — y ese saber
+queda codificado. Acompaña test_sin_target_date_el_filtro_no_se_aplica,
+que demuestra que el bug era exactamente la ausencia del filtro.
+
+Suite: 768 passed, 15 deselected (761 + 7 de recencia). Goldens del
+mensaje 1 intactos. B-limpia y su test de equivalencia sin cambios.
+
+LECCION DOBLE (instancias 11 y 12 del patron de silencio del proyecto):
+(1) LOS IDS ESCONDEN LO QUE LOS NOMBRES DELATAN. v9 publico exactamente
+la misma seleccion equivocada como "#2736" y nadie la vio; bastaron los
+nombres de v10 para que saltara a la vista. Corolario operativo: toda
+evidencia destinada a lectura humana se emite en forma legible por
+humanos, no en ids, aunque el id sea la clave canonica del JOIN.
+(2) EL DRY-RUN DEL DIA MAS PESADO ES OBLIGATORIO PARA TODO CAMINO NUEVO.
+El OOM no aparecia en 768 pruebas ni en un dia de descanso: hacia falta
+el dia de 11 partidos con el camino completo cargado. Se suma a la
+moraleja ya escrita ("el despliegue temprano ES una herramienta de
+testing") una precision: el despliegue temprano del PEOR CASO.
+
+## D-PROD-1c CERRADA (2026-09-24): destacados EN PRODUCCION, cadena
+completa verificada, criterio de seleccion congelado
+
+ADJUDICACIONES DE ANTONIO QUE CIERRAN EL CAPITULO:
+(1) Listado de 22 destacados de v11: ADJUDICADO SANO contra
+conocimiento de rosters (protocolo 13e-1, version producto). Cero
+rancios, cero misatribuciones.
+(2) Criterio de seleccion: OPCION A — se mantiene "top 1 por equipo
+por minutos de los ultimos 10 jugados" sin cambios. Razones: es el
+unico criterio internamente coherente con las medianas publicadas
+(misma ventana elige y describe); la anomalia de suplentes de abril
+(Riley, Okani, et al.) es transitoria y se disuelve a las 2-3 semanas
+de temporada cuando la ventana rueda; y es la MISMA debilidad de
+inicio de temporada que el criterio de comercializacion ya reconoce
+(analisis secundario excluye oct-21 a nov-3). El producto y el modelo
+comparten la limitacion, declarada en ambos. Umbral de candidato
+(>= 3 jugados) sin cambios.
+
+TRANSPORTE n8n VERIFICADO END-TO-END (2026-09-24):
+- Workflow publicado con IF sobre players_message ("is not empty",
+  Expression verificada con output real) + segundo Send Text Message.
+  Rama false DESNUDA por decision: el heartbeat del mensaje 1 ya
+  resuelve la ambiguedad del silencio (13e-2.5) y cualquier nodo ahi
+  seria contenido en n8n (Decision 10).
+- Disparo de prueba post-publicacion via Scheduler: verde, heartbeat
+  entregado (rama false), status {}, Executions limpio.
+- Rama true verificada en editor con ?date=2026-10-21: DOS mensajes
+  en el canal, el segundo con rosters vigentes. Parametro revertido
+  antes de publicar.
+
+HALLAZGO DE TRANSPORTE (dos correcciones documentales, la evidencia
+mando sobre el registro):
+(1) El nodo Telegram de n8n aplica parse_mode Markdown POR DEFECTO
+cuando Additional Fields no trae Parse Mode: el error "can't parse
+entities... byte offset 712" ocurrio DOS veces con el campo ausente,
+y el offset 712 es el primer guion bajo de
+"v1_logistic_bclean_2026-09-19". La configuracion registrada en
+agosto ("parse mode texto plano, deliberado") describia una opcion
+QUE ESTE NODO NO TIENE (el dropdown solo ofrece Markdown Legacy /
+MarkdownV2 / HTML). Los heartbeats de un mes entero pasaron porque no
+contienen caracteres Markdown; LA PRIMERA PUBLICACION REAL DE LA
+TEMPORADA HABRIA FALLADO EL 21 DE OCTUBRE. Lo cazo el disparo de
+prueba con contenido realista — la regla operativa de republicacion
+pago su deuda mas cara.
+(2) FIX ADOPTADO: Parse Mode = HTML explicito en AMBOS nodos Send.
+En HTML solo '<', '>' y '&' son especiales y ningun contenido actual
+los emite; los guiones bajos del model_version viajan literales
+(verificado: mensaje integro en canal, message_id 36). GUARDA
+codificada: test_mensajes_seguros_bajo_parse_mode_html afirma que las
+funciones de formato jamas emiten esos tres caracteres; si un nombre
+futuro los trae, el fix sera escaparlos en formato, decision de ese
+momento.
+
+INSTANCIA 13 DEL PATRON DE SILENCIO: fallo latente de transporte,
+invisible en 768 tests (viven del lado Python; el default del nodo
+vive en n8n) e invisible en 27 dias de heartbeats sanos. La familia
+crece: el peor caso realista debe ejercitar TODAS las capas,
+transporte incluido, no solo el codigo propio.
+
+ESTADO FINAL DEL SISTEMA (rumbo al 2026-10-01 y a la ventana):
+- Ciclo diario autonomo: warmup 12:58 -> publish 13:00 -> OIDC ->
+  predictions-api v11 (1 GiB, revision 00012-znr) -> mensaje 1
+  (predicciones) + mensaje 2 (destacados, si hay) -> predictions_log
+  + player_predictions_log -> canal.
+- market_odds: 3 snapshots diarios autonomos desde 2026-09-21.
+- Fecha de corte 2026-10-14: CUMPLIDA con 20 dias de holgura.
+- Suite: 769 passed, 15 deselected.
+
+PRE-REGISTROS VIGENTES PARA OCTUBRE (consolidados):
+- Primer dia de pretemporada (~10-01): mensaje 1 heartbeat (los 001
+  quedan fuera por prefijo), players_message vacio, UN mensaje;
+  market_odds con filas matched=false de pretemporada; primer PDF de
+  la temporada en el archivo diario.
+- Primer dia real (10-21): DOS mensajes, nombres reales y vigentes,
+  filas en ambos logs con model_version poblado, ausencias con match
+  real cuando haya Outs, market_odds matched=true. "Bajas: -"
+  perpetuo con PDFs vivos = bug 2 renacido; suplentes de abril en
+  destacados las primeras 2 semanas = transitorio ADJUDICADO, no
+  hallazgo.

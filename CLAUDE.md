@@ -2851,3 +2851,42 @@ PRE-REGISTROS VIGENTES PARA OCTUBRE (consolidados):
   perpetuo con PDFs vivos = bug 2 renacido; suplentes de abril en
   destacados las primeras 2 semanas = transitorio ADJUDICADO, no
   hallazgo.
+
+## D-RES-3 CERRADO (2026-09-24): parser legacy ADJUDICADO VERDE por
+auditoria humana plena
+
+Antonio cotejo LINEA POR LINEA los dos listados legacy contra sus PDF
+fuente, con los documentos abiertos lado a lado — jugadores, equipos,
+estatus, razones y bloques NYS incluidos (protocolo 13e-1, la forma
+plena):
+  2019-01-15_01PM (layout ITEXT_V1, 61 filas + NYS): VERDE, sin
+  misatribuciones, sin fantasmas, sin perdidos.
+  2021-02-10_01PM (layout ITEXT_V2, 81 filas + NYS): VERDE, idem.
+Los defectos de la ronda 1 (bloques NYS absorbidos; corrimiento en
+frontera de bloque, caso Robinson->Milwaukee) quedan confirmados como
+CORREGIDOS por la ronda 2: la auditoria paso por esas fronteras
+especificamente y no encontro reincidencia.
+
+CONSECUENCIAS:
+- Los conteos 61/81 pasan de provisionales a OFICIALES.
+- injury_report_legacy.py queda AUDITADO para los layouts ITEXT_V1 y
+  ITEXT_V2 de su lista blanca. Los PDFs de esos layouts son utilizables
+  como fuente de datos.
+- SIGUE FUERA: el tramo de variantes intermedias 2019-11-15 ->
+  2019-12-31 (~40 fechas), que cae deliberadamente en
+  UnknownLayoutError hasta D-RES-3d (encuesta propia + ampliacion de
+  lista blanca + su propia auditoria). Ningun PDF de ese tramo entra a
+  ningun corpus hasta entonces.
+- DESBLOQUEADO: la re-medicion de D-EXP-2 con corpus ampliado
+  (2018-19..2022-23 menos el tramo excluido), la unica via
+  cuantificada de resolver la pregunta de disponibilidad ponderada
+  (MDE al rango necesario). Cuando se emprenda, entra con pre-registro
+  nuevo que incluya: MDE computado en fase 0 (regla D-EXP-2), la
+  hipotesis del brazo diagnostico formalizada ("ponderar estabiliza
+  frente al binario de misma construccion") como contraste primario de
+  misma construccion, y el confound de construccion declarado desde el
+  diseño.
+
+ORDEN SUGERIDO REGISTRADO (no vinculante): D-RES-3d primero solo si el
+tramo excluido importa al corpus (son ~40 fechas de ~740; la
+re-medicion puede correr sin ellas y D-RES-3d añadirlas despues).

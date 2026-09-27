@@ -42,6 +42,7 @@ from typing import Any
 
 import pandas as pd
 
+from nba_predictor.ingestion.injury_classify import GLEAGUE_RE
 from nba_predictor.config import ROLLING_WINDOW_GAMES, LOGREG_C, settings
 from nba_predictor.features.availability import _add_player_minutes_rolling
 from nba_predictor.ingestion.injury_report import (
@@ -84,7 +85,10 @@ W_AVAILABLE_GLEAGUE = 0.45   # descomposicion de la adjudicacion 2
 W_AVAILABLE_OTRO = 0.77
 W_NO_LISTADO = 1.0
 
-_GLEAGUE_RE = re.compile(r"g\s*league|two\s*-?\s*way", re.IGNORECASE)
+# Una sola verdad de la particion G-League/Two-Way: la del paquete
+# (nba_predictor/ingestion/injury_classify.py). El alias se conserva para no
+# romper a quien la importe por su nombre viejo; la regex duplicada se fue.
+_GLEAGUE_RE = GLEAGUE_RE
 
 
 # ---------------------------------------------------------------------------

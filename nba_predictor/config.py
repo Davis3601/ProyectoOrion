@@ -130,3 +130,13 @@ XGB_EARLY_STOP_ROUNDS: int = 50   # si no mejora 50 rondas consecutivas, para
 # Cadencia documental hasta Cloud Scheduler en Fase 5b.
 # ---------------------------------------------------------------------------
 RETRAIN_CADENCE_DAYS: int = 7     # reentrenamiento semanal
+
+
+# Tasa de filas con equipo fuera de su matchup por encima de la cual el parser
+# del corpus legacy emite un WARNING agregado (invariante interno, D-RES-3e).
+# 1% y no 0%: el invariante es una GUARDA y el corpus tiene fronteras raras
+# (nombres de equipo de dos lineas, bloques que cruzan pagina); un umbral en
+# cero convertiria el log en ruido y enseñaria a ignorarlo. La medicion previa
+# al fix fue 0.49% en ITEXT_V1 y 0.00% en ITEXT_V2, asi que 1% distingue
+# "residuo conocido" de "algo se rompio".
+INJURY_INCOHERENT_WARN_RATE = 0.01

@@ -35,6 +35,7 @@ from dataclasses import dataclass
 
 import pdfplumber
 
+from nba_predictor.config import INJURY_INCOHERENT_WARN_RATE
 from nba_predictor.ingestion.injury_report import (
     InjuryRow,
     InjuryStatus,
@@ -77,6 +78,46 @@ _MIN_COVERAGE = 0.8
 _CANDIDATE_LINE = re.compile(r"^[A-Z][^,]+, [A-Z]")
 
 _STATUS_BY_TEXT = {s.value: s for s in InjuryStatus}
+
+# Tricodes por nombre de equipo. SOLO alimentan el invariante interno (el equipo
+# de una fila debe ser uno de los dos de su matchup); no participan en el
+# parseo. Un nombre que no este aqui deja la fila como NO EVALUABLE, jamas la
+# marca incoherente: el invariante avisa, nunca inventa. Los dos alias de Los
+# Angeles existen porque el corpus escribe "LA Clippers" y "Los Angeles Lakers".
+_TRICODE_BY_TEAM: dict[str, str] = {
+    "atlantahawks": "ATL", "bostonceltics": "BOS", "brooklynnets": "BKN",
+    "charlottehornets": "CHA", "chicagobulls": "CHI", "clevelandcavaliers": "CLE",
+    "dallasmavericks": "DAL", "denvernuggets": "DEN", "detroitpistons": "DET",
+    "goldenstatewarriors": "GSW", "houstonrockets": "HOU", "indianapacers": "IND",
+    "laclippers": "LAC", "losangelesclippers": "LAC",
+    "lalakers": "LAL", "losangeleslakers": "LAL",
+    "memphisgrizzlies": "MEM", "miamiheat": "MIA", "milwaukeebucks": "MIL",
+    "minnesotatimberwolves": "MIN", "neworleanspelicans": "NOP",
+    "newyorkknicks": "NYK", "oklahomacitythunder": "OKC", "orlandomagic": "ORL",
+    "philadelphia76ers": "PHI", "phoenixsuns": "PHX", "portlandtrailblazers": "POR",
+    "sacramentokings": "SAC", "sanantoniospurs": "SAS", "torontoraptors": "TOR",
+    "utahjazz": "UTA", "washingtonwizards": "WAS",
+}
+
+_MATCHUP_RE = re.compile(r"^([A-Z]{3})@([A-Z]{3})$")
+
+
+@dataclass
+class LegacyInjuryRow(InjuryRow):
+    """InjuryRow del corpus legacy con el veredicto del invariante interno.
+
+    Es una SUBCLASE y no un campo nuevo en InjuryRow para no tocar
+    injury_report.py, la ruta auditada que sirve produccion. `coherent` solo
+    significa algo donde el invariante corrio: las filas GemBox no lo llevan, y
+    su ausencia no debe leerse como "coherente verificado".
+    """
+
+    coherent: bool = True
+
+
+def _tricode(team: str) -> str | None:
+    """Tricode de un nombre de equipo, o None si no esta en la referencia."""
+    return _TRICODE_BY_TEAM.get(re.sub(r"[^a-z0-9]", "", team.lower()))
 
 
 class UnknownLayoutError(RuntimeError):
@@ -249,20 +290,55 @@ def _cell_text(words: list[dict], x_ini: float, x_fin: float) -> str:
     return " ".join(w["text"] for w in sel).strip()
 
 
-def _nys_tops(words: list[dict], tol: float = _ROW_Y_TOL) -> list[float]:
-    """Tops de las lineas que son un bloque NOT YET SUBMITTED, no una fila.
+@dataclass(frozen=True)
+class _Event:
+    """Una BANDA Y del cuerpo del documento, con lo que contiene.
 
-    Se identifican ANTES de anclar filas de jugador y su banda Y se excluye del
-    cuerpo. Filtrarlas despues por texto no sirve: una fila NYS vive ENTRE dos
-    filas de jugador y su equipo ya se habria fundido con el de un jugador real
-    (medido: "Detroit Pistons Orlando Magic Brooklyn Nets" como equipo de
-    Williams, Johnathan).
+    kind "player" -> fila de jugador (ancla: "Apellido, Nombre").
+    kind "nys"    -> bloque NOT YET SUBMITTED (ancla: el token "SUBMITTED").
     """
-    return [w["top"] for w in words if w["text"] == "SUBMITTED"]
+
+    kind: str
+    top: float
+    cells: dict[str, str]
 
 
-def _rows_from_page(page, layout: Layout) -> list[dict]:
-    """Celdas por fila de jugador de una pagina.
+def _anchors(words: list[dict], bands: dict[str, tuple[float, float]],
+             cuerpo: list[dict]) -> list[tuple[float, str]]:
+    """Anclas del cuerpo, de los DOS tipos, ordenadas por Y.
+
+    REGLA UNICA DEL PARSER: una banda va de punto medio a punto medio entre
+    anclas consecutivas, y un bloque NOT YET SUBMITTED es un ancla como
+    cualquier otra. Antes las filas NYS se recortaban del cuerpo por una banda
+    de +-2 pt alrededor de "SUBMITTED", y eso producia los dos defectos que
+    D-EXP-5 destapo:
+      (a) el valor NUEVO de una columna de bloque (fecha, hora, matchup, equipo)
+          que aterriza SOLO en una fila NYS se perdia, y las filas siguientes
+          heredaban el valor viejo. Medido en 2018-12-18: "12/19/2018" aparece
+          UNA vez en todo el PDF, en la fila NYS de CLE@CHA (pagina 2, top=409),
+          asi que las 52 filas salieron fechadas 12/18 aunque 12 de los 16
+          partidos del documento eran del 19.
+      (b) un nombre de equipo de DOS lineas dentro de un bloque NYS escapaba al
+          recorte, porque "SUBMITTED" se centra entre sus dos lineas y queda a
+          4 pt de cada una. Medido en la misma pagina 3: "Minnesota" (top=275) y
+          "Timberwolves" (top=283) con SUBMITTED en 279 — los dos fragmentos
+          caian en la banda de VanVleet, la ultima ancla de la pagina, que
+          llegaba hasta el pie. De ahi que un jugador de Toronto saliera
+          atribuido a Minnesota (clase Trae Young -> Portland).
+    Con las anclas unificadas la fila NYS tiene banda propia: se lleva sus
+    fragmentos y entrega su valor de columna al estado de propagacion.
+    """
+    px0, px1 = bands["player_name"]
+    jugadores = [
+        (w["top"], "player") for w in cuerpo
+        if px0 - _BAND_EPSILON <= w["x0"] < px1 - _BAND_EPSILON and "," in w["text"]
+    ]
+    nys = [(w["top"], "nys") for w in words if w["text"] == "SUBMITTED"]
+    return sorted(jugadores + nys, key=lambda a: a[0])
+
+
+def _events_from_page(page, layout: Layout) -> list[_Event]:
+    """Eventos (filas de jugador y bloques NYS) de una pagina, en orden de lectura.
 
     BANDAS POR PUNTO MEDIO, no por top del ancla. Cuando la razon ocupa dos
     lineas, el generador CENTRA verticalmente las celdas de una linea respecto
@@ -281,80 +357,125 @@ def _rows_from_page(page, layout: Layout) -> list[dict]:
     header_top = cab[0]["top"]
     limite_pie = page.height - _FOOTER_MARGIN
 
-    nys = _nys_tops(words)
-    cuerpo = [
-        w for w in words
-        if header_top + _HEADER_Y_TOL < w["top"] < limite_pie
-        and not any(abs(w["top"] - t) <= _ROW_Y_TOL for t in nys)
-    ]
-
-    px0, px1 = bands["player_name"]
-    anclas = sorted(
-        (w for w in cuerpo
-         if px0 - _BAND_EPSILON <= w["x0"] < px1 - _BAND_EPSILON and "," in w["text"]),
-        key=lambda w: w["top"],
-    )
+    cuerpo = [w for w in words if header_top + _HEADER_Y_TOL < w["top"] < limite_pie]
+    anclas = _anchors(words, bands, cuerpo)
     if not anclas:
         return []
 
-    tops = [a["top"] for a in anclas]
+    tops = [t for t, _ in anclas]
     bordes = [header_top + _HEADER_Y_TOL]
     bordes += [(t1 + t2) / 2 for t1, t2 in zip(tops, tops[1:])]
     bordes.append(limite_pie)
 
-    salida: list[dict] = []
-    for i, ancla in enumerate(anclas):
+    salida: list[_Event] = []
+    for i, (top, kind) in enumerate(anclas):
         franja = [w for w in cuerpo if bordes[i] <= w["top"] < bordes[i + 1]]
         celdas = {n: _cell_text(franja, a, b) for n, (a, b) in bands.items()}
-        celdas["_top"] = ancla["top"]
-        salida.append(celdas)
+        salida.append(_Event(kind=kind, top=top, cells=celdas))
     return salida
 
 
-def parse_pdf_legacy(pdf_bytes: bytes, layout: Layout) -> tuple[list[InjuryRow], list[NysEntry]]:
+def _rows_from_page(page, layout: Layout) -> list[dict]:
+    """Celdas de las filas de JUGADOR de una pagina, sin los bloques NYS.
+
+    Vista estrecha de _events_from_page, que es donde vive la geometria. Existe
+    porque la propagacion necesita TODOS los eventos (fix D-RES-3e) pero el
+    cuerpo del reporte son solo las filas de jugador, y separar las dos vistas
+    evita que un consumidor de filas tenga que saber que un NYS tambien es un
+    evento.
+    """
+    return [{**ev.cells, "_top": ev.top}
+            for ev in _events_from_page(page, layout) if ev.kind == "player"]
+
+
+def _apply_matchup_invariant(rows: list[LegacyInjuryRow], layout_name: str) -> None:
+    """Marca y AVISA las filas cuyo equipo no es uno de los dos de su matchup.
+
+    Es GUARDA, no prueba: un error que respete el matchup pasa sin ruido, y la
+    correccion sigue estableciendola la auditoria humana del listado contra el
+    PDF (protocolo 13e-1). Lo que si hace es cerrar la puerta al modo de fallo
+    caro de este proyecto — la misatribucion silenciosa. La fila NUNCA se
+    corrige ni se descarta: se marca coherent=False y se avisa, porque un parser
+    que arregla en silencio miente igual que uno que calla.
+    """
+    evaluables = malas = 0
+    for row in rows:
+        m = _MATCHUP_RE.match((row.matchup or "").strip())
+        tri = _tricode(row.team or "")
+        if not m or tri is None:
+            continue
+        evaluables += 1
+        if tri not in m.groups():
+            malas += 1
+            row.coherent = False
+            _log.warning(
+                "Invariante de matchup violado (%s): %r atribuido a %r (%s) "
+                "con matchup %r, fecha %r",
+                layout_name, row.player_name, row.team, tri, row.matchup, row.game_date,
+            )
+    if evaluables and malas / evaluables > INJURY_INCOHERENT_WARN_RATE:
+        _log.warning(
+            "Invariante de matchup (%s): %d de %d filas incoherentes (%.2f%%), "
+            "por encima del umbral de %.2f%%",
+            layout_name, malas, evaluables, 100 * malas / evaluables,
+            100 * INJURY_INCOHERENT_WARN_RATE,
+        )
+
+
+def parse_pdf_legacy(
+    pdf_bytes: bytes, layout: Layout
+) -> tuple[list[LegacyInjuryRow], list[NysEntry]]:
     """Filas + NYS de un PDF iTextSharp con el layout ya detectado.
 
     Los encabezados de partido (fecha, hora, matchup) y el equipo se PROPAGAN
     hacia abajo: el generador los escribe una vez por bloque y los deja en
     blanco en las filas siguientes, igual que en la ruta GemBox.
+
+    LA EXCLUSION DEL CUERPO NO ES EXCLUSION DEL ESTADO (fix D-RES-3e): el estado
+    se actualiza con TODO evento del documento, incluidos los bloques NOT YET
+    SUBMITTED, que son los que a veces traen el valor nuevo de una columna de
+    bloque. Solo los eventos de jugador emiten fila. El estado cruza de pagina
+    sin reiniciarse — un bloque de equipo puede partirse entre paginas — y lo
+    sobreescribe el primer evento de la pagina nueva que traiga valor propio.
     """
-    rows: list[InjuryRow] = []
+    rows: list[LegacyInjuryRow] = []
     # NYS: la maquinaria existente ya funciona sobre iTextSharp (verificado en
     # D-RES-3: 13/14/10/15 entradas con fecha en los cuatro PDFs auditados).
     _, nys = parse_pdf(pdf_bytes)
 
-    ultimo_date = ultimo_time = ultimo_matchup = ultimo_team = ""
+    estado = {"game_date": "", "game_time": "", "matchup": "", "team": ""}
 
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         for page in pdf.pages:
-            for celdas in _rows_from_page(page, layout):
-                ultimo_date = celdas.get("game_date") or ultimo_date
-                ultimo_time = celdas.get("game_time") or ultimo_time
-                ultimo_matchup = celdas.get("matchup") or ultimo_matchup
-                ultimo_team = celdas.get("team") or ultimo_team
+            for ev in _events_from_page(page, layout):
+                for col in estado:
+                    estado[col] = ev.cells.get(col) or estado[col]
+                if ev.kind != "player":
+                    continue
 
-                estatus_txt = (celdas.get("current_status") or "").strip()
+                estatus_txt = (ev.cells.get("current_status") or "").strip()
                 estatus = _STATUS_BY_TEXT.get(estatus_txt)
                 if estatus is None:
                     # Sin estatus reconocible no hay fila de jugador que valga:
                     # se ignora y la guarda de cobertura lo delatara si pasa a
                     # menudo. No se inventa un estatus por defecto.
-                    _log.debug("Fila sin estatus reconocible: %r", celdas)
+                    _log.debug("Fila sin estatus reconocible: %r", ev.cells)
                     continue
 
                 rows.append(
-                    InjuryRow(
-                        game_date=ultimo_date,
-                        game_time=ultimo_time,
-                        matchup=ultimo_matchup,
-                        team=ultimo_team,
-                        player_name=celdas.get("player_name", ""),
+                    LegacyInjuryRow(
+                        game_date=estado["game_date"],
+                        game_time=estado["game_time"],
+                        matchup=estado["matchup"],
+                        team=estado["team"],
+                        player_name=ev.cells.get("player_name", ""),
                         status=estatus,
-                        reason=celdas.get("reason", ""),
-                        category=celdas.get("category") or None,
-                        previous_status=celdas.get("previous_status") or None,
+                        reason=ev.cells.get("reason", ""),
+                        category=ev.cells.get("category") or None,
+                        previous_status=ev.cells.get("previous_status") or None,
                     )
                 )
+    _apply_matchup_invariant(rows, layout.name)
     return rows, nys
 
 

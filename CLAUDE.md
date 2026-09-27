@@ -2890,3 +2890,390 @@ CONSECUENCIAS:
 ORDEN SUGERIDO REGISTRADO (no vinculante): D-RES-3d primero solo si el
 tramo excluido importa al corpus (son ~40 fechas de ~740; la
 re-medicion puede correr sin ellas y D-RES-3d añadirlas despues).
+
+## D-EXP-5: P(juega | estatus) SOBRE CORPUS iTextSharp (PRE-REGISTRO +
+RESULTADO 2026-09-25)
+
+Extension de D-EXP-1 a las cinco temporadas legacy (2018-19..2022-23),
+habilitada por el cierre de D-RES-3. Paso PREVIO de la re-medicion de D-EXP-2
+con corpus ampliado: antes de re-medir hay que saber si los pesos oficiales de
+D-EXP-1 son los MISMOS en la era legacy — usar pesos de un corpus sobre otro
+sin comprobarlo seria el vocabulario equivocado que este proyecto ya pago
+cinco veces. MEDICION pura: cero cambios a modelos, features, pipeline o
+produccion; solo lectura de GCS y BigQuery con CloudDataStore explicito.
+
+DEFINICIONES: IMPORTADAS de D-EXP-1, no copiadas — el script carga
+experiment_pjuega.py y reutiliza filter_rows_for_date, classify_instance,
+normalize_team, summarize y load_truth tal cual (una reimplementacion seria
+una segunda verdad y la comparabilidad de las dos tablas ES el producto).
+Diferencias declaradas: parser parse_pdf_any; corte SOLO publish (el late
+quedo invalidado como pronostico en D-EXP-1, adjudicacion 3); nombres desde
+la tabla players (catalogo canonico de D-PROD-1d) en un indice unico;
+medicion NUEVA de P(juega | Available, categoria) con la columna Category,
+que solo trae el layout ITEXT_V1.
+
+EXPECTATIVAS PRE-REGISTRADAS: P(juega|Out) < 2% en las cinco temporadas
+(sanity del instrumento); ordenamiento estricto Out < D < Q < P por temporada;
+estabilidad dentro de +-5pp respecto a GemBox (Out ~0.3%, D ~2%, Q ~48%,
+P ~91%) CON DIAGNOSTICO DE INSTRUMENTO OBLIGATORIO antes de atribuir cualquier
+divergencia a la NBA; tasa de sin-match de nombre <= 5%. La muestra de
+auditoria (2 fechas, una por layout, seed 42) se congelo ANTES de computar:
+audit_dates.json sellado 2026-09-25T22:30:55Z (16:30:55 local) contra
+results.json 16:45:17 — orden verificado por timestamps.
+
+COBERTURA: 693 de 725 fechas publish parseadas (2018-19: 106, 2019-20: 118,
+2020-21: 140, 2021-22: 165, 2022-23: 164), 43 016 instancias, 40 986 incluidas
+(95.3%, en linea con el 95.7-96.4% de D-EXP-1). 32 fechas excluidas por
+UnknownLayoutError — jamas se forzo un layout sobre ellas. Layouts leidos:
+ITEXT_V1 130, ITEXT_V2 563, cero discrepancias entre la era esperada por fecha
+y la leida del documento.
+
+TABLA publish, P(juega) primaria (minutes > 0), n entre parentesis:
+  estatus       2018-19      2019-20      2020-21      2021-22      2022-23
+  Out          0.008(4435)  0.009(5085)  0.004(5315)  0.008(8592)  0.007(7442)
+  Doubtful     0.076(144)   0.047(150)   0.049(163)   0.058(173)   0.046(216)
+  Questionable 0.483(619)   0.495(731)   0.484(1080)  0.516(1609)  0.479(1723)
+  Probable     0.854(316)   0.874(467)   0.865(497)   0.911(427)   0.893(620)
+  Available    0.601(173)   0.751(213)   0.838(173)   0.692(260)   0.639(363)
+
+COMPARATIVA legacy (pooleada) vs GemBox, con IC95 de la diferencia:
+  estatus       n_leg  P_leg   IC95 legacy     n_gem  P_gem  dif(pp)  IC95 dif
+  Out           30869  0.007  [0.006,0.008]    24995  0.003   +0.42  [+0.30,+0.53]
+  Doubtful        846  0.054  [0.041,0.072]      917  0.022   +3.26  [+1.46,+5.05]
+  Questionable   5762  0.493  [0.480,0.506]     5914  0.479   +1.44  [-0.38,+3.25]
+  Probable       2327  0.881  [0.868,0.894]     1993  0.908   -2.68  [-4.50,-0.85]
+  Available      1182  0.695  [0.668,0.720]     1788  0.786   -9.18  [-12.42,-5.94]
+IC de Wilson para cada proporcion (Wald daria anchura cero en Out, que es
+mentira aritmetica) y Wald para la diferencia. Se poolea, no se promedia.
+
+VEREDICTO CONTRA EL PRE-REGISTRO:
+(1) Out < 2% en las cinco: SE CUMPLE (0.4%-0.9%).
+(2) Ordenamiento estricto Out < D < Q < P: SE CUMPLE en las cinco temporadas
+    por separado, sin una sola inversion.
+(3) Estabilidad +-5pp en los cuatro estatus pre-registrados: SE CUMPLE
+    (Out +0.42, Doubtful +3.26, Questionable +1.44, Probable -2.68). Las
+    diferencias de Doubtful y Probable son estadisticamente reales (IC excluye
+    cero) pero pequenas y dentro de la tolerancia. Available quedo fuera con
+    -9.18pp: ver diagnostico abajo. Available NO tenia valor pre-registrado —
+    D-EXP-1 ya lo habia adjudicado como mezcla de poblaciones sin peso unico.
+(4) sin-match de nombre <= 5%: SE CUMPLE con holgura (2018-19 0.24%, 2019-20
+    2.22%, 2020-21 0.58%, 2021-22 0.31%, 2022-23 0.21%).
+CONCLUSION SUSTANTIVA: los pesos oficiales de D-EXP-1 son PORTABLES a la era
+legacy. Doubtful sigue operando como eufemismo de Out (5.4% legacy contra 2.2%
+GemBox — un poco menos extremo, y justo en el borde inferior del rango 5-20%
+que GemBox habia violado); Questionable sigue cerca del 50%, que es el dato
+central de todo este hilo; Probable ~0.88-0.91.
+
+DIAGNOSTICO DE LA DIVERGENCIA DE Available (la regla pre-registrada se aplico
+antes de contar cualquier historia sobre la liga): NO es cambio de la NBA, es
+un CLASIFICADOR QUE NO ES PORTABLE ENTRE LAYOUTS. El _GLEAGUE_RE de
+D-EXP-1/D-EXP-2 busca "G League"/"Two-Way" en el texto de la RAZON; en
+ITEXT_V1 ese texto vive en la columna CATEGORY y la razon suele ser "-", asi
+que la inferencia los pierde. Medido: de las 199 filas Available con Category
+explicita, 106 coinciden con la inferencia por razon y 93 DISCREPAN (47%). Con
+el mejor clasificador disponible (category si existe, razon si no), la
+poblacion G-League de legacy pasa de 16.8% a 24.7% y las tasas quedan
+gleague 0.349 (n=292) / resto 0.808 (n=890) contra GemBox gleague 0.448
+(n=270) / resto 0.847 (n=1518). Estandarizando legacy a la MEZCLA de GemBox
+con ese clasificador, la brecha cae de -9.18pp a -4.7pp: DENTRO de la
+tolerancia pre-registrada. La composicion sola explicaba apenas 0.8pp; el
+clasificador explica el resto.
+CORROBORACION INDEPENDIENTE de los pesos de D-EXP-1: las etiquetas EXPLICITAS
+del documento legacy dan G League Team 0.4125 (n=80), G League - On Assignment
+0.4286 (n=7), G League - Two-Way 0.50 (n=6) — pooleado 0.419 — e
+Injury/Illness 0.80 (n=100), contra los 0.45 / 0.77 que D-EXP-1 habia
+inferido por texto en GemBox. La inferencia era buena; lo que no es portable
+es DONDE buscar el texto.
+HALLAZGO LATERAL (solo visible en ITEXT_V1, que trae Previous Status):
+Available con previous_status=Out juega 0.391 (n=110), contra 0.872 si venia
+de Probable y 0.925 si venia de Questionable. "Available" no es un estado, es
+un ANUNCIO DE CAMBIO, y su valor depende de desde donde se cambio.
+
+HALLAZGO PRINCIPAL, NO BUSCADO — DEFECTO DE PROPAGACION EN EL PARSER LEGACY.
+Lo destapo el diagnostico de instrumento, no un test. Las columnas que
+aparecen UNA VEZ por bloque (Game Date, Game Time, Matchup, Team) se propagan
+hacia abajo, y esa propagacion se queda RANCIA cuando el valor nuevo aterriza
+en una fila que el parser excluye (banda NYS) o al cruzar de pagina.
+Evidencia literal, PDF 2018-12-18_01PM: contiene 16 matchups — los 4 partidos
+del 12/18 (CLE@IND, WAS@ATL, LAL@BKN, DAL@DEN) y los 12 del 12/19 — y el
+parser estampa 12/18/2018 en sus 52 filas, porque la transicion de fecha cae
+sobre una fila NOT YET SUBMITTED cuya banda se excluye y se lleva la fecha
+nueva con ella. No es universal: el PDF de 2019-01-16 SI lee las dos fechas
+(68 filas del 16, 10 del 17), porque alli la transicion cae sobre filas con
+jugadores. Segunda cara del mismo defecto, con conocimiento externo:
+VanVleet, Fred — ultima fila de jugador de la pagina 3, dentro del bloque de
+Toronto que cruza desde la pagina 2 — sale atribuido a "Minnesota
+Timberwolves". Es la clase Trae Young -> Portland, viva en el corpus legacy.
+CUANTIFICACION (invariante INTERNO del documento: el equipo de una fila debe
+ser uno de los dos del Matchup):
+  ITEXT_V1  7 416 filas evaluables, 324 incoherentes (4.37%)
+  ITEXT_V2 36 380 filas evaluables, 1 835 incoherentes (5.04%)
+  356 fechas afectadas, mediana 5 filas por fecha afectada.
+En las filas inspeccionadas la incoherencia esta en el MATCHUP (rancio), no en
+el equipo: en 2019-01-15, las 11 filas incoherentes son jugadores de Houston y
+Toronto correctamente atribuidos a su equipo con matchup "CHI@LAL" heredado.
+El caso VanVleet demuestra que la variante con el EQUIPO equivocado tambien
+existe; su tasa NO quedo cuantificada. Manifestacion ruidosa adicional: 114
+instancias (todas ITEXT_V1, 28 fechas) con la celda de equipo conteniendo DOS
+nombres concatenados ("Sacramento Kings Portland Trail Blazers", "Timberwolves
+Dallas Mavericks") o un fragmento ("Minnesota") — excluidas por sin_match_equipo,
+es decir el defecto fallo RUIDOSAMENTE ahi.
+
+ESTO NO CONTRADICE EL VERDE DE D-RES-3, y la distincion importa: el listado
+que Antonio auditó (audit_listados_legacy.py) muestra equipo, jugador,
+estatus, razon, game_date y NYS — NUNCA la columna Matchup. La adjudicacion
+verde cubre lo que el listado mostraba, y en las dos fechas auditadas el
+equipo esta bien (2019-01-15 tiene 11 incoherencias, todas de matchup;
+2021-02-10 tiene cero). El invariante 3 del pre-registro de D-RES-3 ("todo
+game_date igual a la fecha del PDF o al dia siguiente") paso VACUAMENTE en los
+PDFs donde todas las filas heredan la fecha del propio PDF — tercer invariante
+de esa familia que pasa sin medir nada.
+
+IMPACTO SOBRE ESTA MEDICION, ACOTADO Y MEDIDO: la definicion de instancia
+("filas con game_date == fecha objetivo") NO hace lo que dice en el corpus
+legacy — con la fecha rancia conserva tambien filas de los partidos de
+MANANA. El mecanismo de exclusion las absorbio en vez de contaminar: de las
+1 639 instancias sin_partido, 1 517 (92.6%) son de equipos que juegan al DIA
+SIGUIENTE, y quedaron fuera de los denominadores. La contaminacion residual
+son los equipos que juegan AMBOS dias, cuyas filas de manana si caen sobre el
+partido de hoy: 30 instancias incluidas (0.07% de 40 986) con el mismo jugador
+contado dos veces el mismo dia, 22 de ellas con estatus distinto entre copias
+(caso legible: Denver el 2018-12-28, cuatro jugadores como Out y como Available
+a la vez). Cota superior de la contaminacion silenciosa por fecha: 0.07%.
+D-EXP-1 NO esta afectado: el parser GemBox lee la fecha fila por fila (su
+sin_partido era 0/47/70). PRODUCCION NO esta afectada: el feed en vivo usa la
+ruta GemBox.
+
+CONSECUENCIA PARA LA RE-MEDICION DE D-EXP-2 (por la que existe D-EXP-5): sigue
+siendo viable y sigue siendo la unica via cuantificada de resolver la pregunta
+de disponibilidad ponderada, pero entra con dos deudas nombradas: (a) el
+defecto de propagacion debe acotarse en su variante de EQUIPO, porque mover la
+ausencia de un jugador al equipo vecino corrompe exactamente la feature que se
+mide — no basta con la cota del 0.07% de fecha; (b) el clasificador de
+Available debe leer category cuando exista, o los pesos se aplicarian sobre una
+particion mal hecha. Ambas son de ingenieria, no de diseno experimental, y
+ninguna se resolvio aqui (prohibido en el encargo).
+
+REFINAMIENTO GRATUITO DEL ALCANCE DE D-RES-3d: el tramo sin lista blanca es
+EXACTAMENTE 2019-11-15 -> 2019-12-17, 32 fechas publish contiguas, no las ~40
+estimadas. Desde 2019-12-18 los PDFs ya parsean como ITEXT_V2 (19 fechas
+verificadas hasta 2020-01-06), asi que el "primer dia V2" de D-RES-3c
+(2020-01-07) era el primer dia MUESTREADO, no el primero real. D-RES-3d
+encoge a 32 fechas.
+
+EVIDENCIA EN DISCO (data/experiment_pjuega_legacy/): results.json,
+instancias.json, tabla.txt, audit_dates.json (muestra congelada),
+auditoria_2019-01-16.txt (ITEXT_V1, 68 instancias) y auditoria_2020-02-01.txt
+(ITEXT_V2, 89 instancias) para el cotejo humano, diagnostico_Available.txt
+(20 instancias, seed 42, disparado automaticamente por la divergencia > 5pp).
+Script: scripts/experiment_pjuega_legacy.py. Tests: 39 unit nuevos
+(tests/test_experiment_pjuega_legacy.py). Suite: 808 passed, 15 deselected
+(769 de base + 39).
+
+LOS AGREGADOS NO SON OFICIALES: dependen de la auditoria humana de los dos
+listados congelados (protocolo 13e-1) Y, ademas, de la adjudicacion del
+defecto de propagacion — es la primera vez en este proyecto que una medicion
+llega a la mesa con un defecto de instrumento conocido y acotado en vez de
+solo "pendiente de cotejo". El veredicto de portabilidad de los pesos (que es
+lo que la re-medicion necesita) descansa en los cuatro estatus cuya tolerancia
+se cumplio, y ninguno de ellos depende de la columna Matchup ni de la fecha
+fila-por-fila.
+
+RESULTADO: pendiente de auditoria humana.
+
+## D-RES-3e (2026-09-25): defecto de propagación del parser legacy
+CORREGIDO; D-RES-3 ACOTADO; instrumento listo para la re-medición
+
+ACOTACIÓN DE D-RES-3 (append, no revocación): el verde del 2026-09-24
+cubre lo que el listado auditado mostraba; la columna Matchup no
+estaba en él y el defecto de propagación vivía ahí y en fronteras que
+las dos fechas auditadas no ejercitaban. Lección: un listado de
+auditoría debe mostrar TODA columna de la que dependa la atribución,
+y la muestra debe incluir fronteras a propósito, no al azar.
+
+DIAGNÓSTICO GEOMÉTRICO: dos manifestaciones, UNA causa raíz — una fila
+excluida del CUERPO quedaba también excluida del ESTADO de propagación.
+(a) FECHA SOBRE FILA NYS. En 2018-12-18_01PM la cadena "12/19/2018"
+    aparece UNA sola vez en todo el documento, en la fila NOT YET
+    SUBMITTED de CLE@CHA (página 2, top=409). El recorte de las bandas
+    NYS se la llevaba consigo, así que las 52 filas salían fechadas
+    12/18 aunque 12 de los 16 matchups del documento eran del 19. NO era
+    universal: 2019-01-16 sí leía las dos fechas (68 del 16, 10 del 17)
+    porque allí la transición cae sobre filas con jugadores — de ahí que
+    ningún invariante la delatara.
+(b) NOMBRE DE EQUIPO NYS EN DOS LÍNEAS. Página 3 del mismo PDF:
+    "Minnesota" en top=275 y "Timberwolves" en top=283, con SUBMITTED
+    centrado en 279. _nys_tops solo excluía 279 ± 2 pt, así que los dos
+    fragmentos sobrevivían y caían en la banda de VanVleet — última
+    ancla de la página, cuya banda llegaba hasta el pie. Un jugador de
+    Toronto salía atribuido a "Minnesota Timberwolves": clase Trae Young
+    -> Portland.
+Tasa de EQUIPO equivocado medida antes del fix, con el matchup
+reconstruido POR POSICIÓN (no el propagado, que es lo que estaba bajo
+sospecha): 36/7421 = 0.49% en ITEXT_V1 (36 fechas) / 0/36408 = 0.00%
+en ITEXT_V2. CORRECCIÓN DE LECTURA DE D-EXP-5: el 4.37%/5.04% que aquel
+bloque reportó medía equipo-vs-matchup-PROPAGADO y estaba dominado por
+matchup RANCIO, no por equipo mal atribuido. El defecto de equipo era
+diez veces menor de lo que sugería ese número, y concentrado casi
+enteramente en el único nombre de equipo del corpus que ocupa dos
+líneas.
+
+FIX: UNA REGLA, sin heurísticas apiladas — las bandas se delimitan por
+punto medio entre anclas consecutivas, y un bloque NOT YET SUBMITTED es
+un ancla como cualquier otra (antes solo lo eran los nombres de
+jugador). Con eso la fila NYS deja de ser un hueco: tiene banda propia,
+se lleva sus propios fragmentos (incluido un nombre de equipo partido en
+dos líneas) y ENTREGA su valor de columna al estado de propagación. El
+estado se actualiza con TODO evento del documento y solo los eventos de
+jugador emiten fila; cruza de página sin reiniciarse y lo sobreescribe
+el primer evento de la página nueva que traiga valor propio (los dos
+casos con test). _rows_from_page se conserva como vista estrecha de
+_events_from_page, así que los 11 tests de D-RES-3c siguen ejerciendo la
+geometría por el mismo camino.
+
+INVARIANTE INTERNO en el parser: el equipo de cada fila debe ser uno de
+los dos tricodes de su Matchup; violación -> coherent=False + WARNING con
+jugador, equipo, matchup y fecha, y la fila SIGUE en la lista — jamás se
+corrige ni se descarta en silencio (un parser que arregla calladamente
+miente igual que uno que calla). Nombre de equipo fuera de la referencia
+= NO EVALUABLE, nunca marcado: el invariante avisa, no inventa. Umbral de
+guarda agregada INJURY_INCOHERENT_WARN_RATE = 1% en config, con el
+porqué escrito: cero convertiría el log en ruido y enseñaría a
+ignorarlo. SIGUE SIENDO GUARDA, NO PRUEBA: un error que respete el
+matchup pasa sin hacer ruido. Los tricodes viven en un mapa estático
+del módulo (30 equipos + el alias "LA Clippers"); es dato de referencia
+que solo alimenta un WARNING, y un renombre de franquicia produciría
+log ruidoso, nunca parseo roto.
+
+CLASIFICADOR de Available portable: nba_predictor/ingestion/injury_classify.py
+(is_gleague_or_twoway / available_bucket) lee Category cuando el layout
+la trae y cae a la razón cuando no. Función ÚNICA importada por los
+scripts de D-EXP-2 y D-EXP-5; la regex duplicada de
+experiment_disponibilidad_v2.py se fue y quedó como alias. Los pesos
+oficiales de D-EXP-1 NO cambian: cambia la PARTICIÓN sobre la que se
+aplican. La métrica de concordancia se conservó midiendo category vs
+RAZÓN-SOLA (100 coinciden / 94 discrepan), porque esa discrepancia ES la
+evidencia del hallazgo — portarla habría borrado la prueba de que el
+instrumento estaba sesgado. Lo cazó un test propio de D-EXP-5 al ponerse
+rojo.
+
+RE-CORRIDA D-EXP-5 sobre el instrumento reparado (mismas definiciones,
+mismos seeds, 693 fechas, 42 051 instancias):
+  incoherencias equipo-matchup   0.49% -> 0.00% (0 de 7 054)  ITEXT_V1
+                                 0.00% -> 0.00% (0 de 34 997) ITEXT_V2
+  sin_partido                    1 639 -> 134  (-91.8%)
+  sin_match_equipo                 114 -> 47
+  pesos pooleados (P_antes -> P_después, delta):
+    Out          0.0070 -> 0.0071  (+0.01pp)   n=31 360
+    Doubtful     0.0540 -> 0.0548  (+0.08pp)   n=857
+    Questionable 0.4930 -> 0.4950  (+0.20pp)   n=5 855
+    Probable     0.8810 -> 0.8819  (+0.09pp)   n=2 370
+    Available    0.6950 -> 0.7024  (+0.74pp)   n=1 166
+  Available con clasificador portable, estandarizado a la mezcla de
+  GemBox: -3.77pp (crudo -8.40pp). Mezcla G-League del corpus legacy
+  25.0% con category contra 15.1% de GemBox; tasas gleague 0.3505 (n=291)
+  / resto 0.8194 (n=875).
+VEREDICTO CONTRA LAS EXPECTATIVAS PRE-REGISTRADAS: las CUATRO se
+cumplen. (a) incoherencias < 0.5% por layout: cero exacto en ambos, sin
+residuales que listar. (b) sin_partido cae drásticamente: -91.8%, y las
+filas del día siguiente ahora llevan su fecha real y se capturan en su
+propio día. (c) los cuatro pesos se mueven < 1pp: el mayor es
+Questionable con +0.20pp — el fix corrigió la atribución sin mover la
+medición, que es exactamente lo que debía pasar. (d) Available dentro de
+±5pp: -3.77pp, algo mejor que el ~-4.7pp estimado.
+DESVIACIÓN DECLARADA de la expectativa (a): estaba redactada contra el
+4.37%/5.04% de D-EXP-5, y la medición independiente mostró que la tasa
+de EQUIPO ya era 0.49%/0.00% ANTES de tocar nada. La expectativa se
+cumplía casi sola porque la métrica del bloque anterior conflaba dos
+defectos. Se adjudica como error de redacción del pre-registro, no como
+resultado: la regla de computar la magnitud antes de prometer un umbral
+(D-PROD-1b) aplica también a los umbrales de mejora, no solo a los de
+presupuesto.
+
+RESIDUOS CARACTERIZADOS, ambos RUIDOSOS (fallan excluyendo, nunca
+misatribuyendo) y ninguno silencioso — 0 filas marcadas incoherentes en
+42 051:
+- sin_match_equipo 47, todas ITEXT_V1, 11 fechas, con la celda de equipo
+  conteniendo dos nombres ("Sacramento Kings Atlanta Hawks", "Portland
+  Trail Blazers Los Angeles Lakers"). Es una FRONTERA DISTINTA: un
+  encabezado de bloque al pie de página cuya primera fila de jugador
+  está en la página siguiente, así que no tiene ancla de ningún tipo.
+  Candidato a defecto propio, nombrado y no corregido aquí.
+- sin_partido 134: 2019-20 17, 2020-21 86, 2021-22 31, cero en 2018-19 y
+  2022-23. Concentrado en 2020-03-11 (17 — la noche de la suspensión de
+  la temporada) y en las posposiciones COVID de ene-2021 y dic-2021. Es
+  mundo real (equipo en el reporte de un partido que no se jugó), no
+  instrumento.
+
+LISTADOS DIRIGIDOS emitidos para Antonio (protocolo 13e-1), con la
+columna MATCHUP, el veredicto COH del invariante y las fronteras
+marcadas (PAG-INI / PAG-FIN / POST-NYS / FIN-BLOQUE) — porque el defecto
+vive en las fronteras y una muestra al azar puede no ejercitar ninguna:
+2021-02-10 tenía cero incoherencias y pasó la auditoría de D-RES-3 en
+verde mientras el defecto seguía vivo:
+  auditoria_dirigida_2019-01-17.txt  ITEXT_V1, 44 filas
+  auditoria_dirigida_2020-02-02.txt  ITEXT_V2, 42 filas
+  regresion_2018-12-18.txt           52 filas, TODAS las del documento
+    sin filtrar por fecha: las 7 de Toronto con fecha 12/19/2018 bajo
+    IND@TOR y VanVleet atribuido a Toronto Raptors con COH=True, marcado
+    PAG-FIN,FIN-BLOQUE — la frontera exacta que lo rompía.
+Muestra congelada ANTES de computar (seed 42, fechas NUEVAS, excluidas
+las dos de la corrida anterior): audit_dates_d3e.json sellado
+2026-09-25T23:47:08Z contra results.json 18:11:12 local — orden
+verificado por timestamps.
+
+TESTS: 28 nuevos en tests/test_injury_report_legacy_d3e.py, archivo
+APARTE para que se vea que el de D-RES-3c sigue intacto. Uno por
+manifestación sobre geometría sintética con las coordenadas medidas
+(fecha-sobre-NYS, nombre NYS en dos líneas), dos de cruce de página,
+siete del invariante (marcada y avisada, jamás descartada; no evaluable
+sin referencia; umbral agregado) y trece del clasificador. Los 91 tests
+de 13e-1 y los 11 de D-RES-3c pasan SIN UNA SOLA EDICIÓN: la regla de
+detenerse no se activó, aunque estuvo a punto — cinco rojos aparecieron
+al renombrar un privado y al añadir un parámetro, y se resolvieron
+quitando el parámetro y conservando la función como vista, no tocando
+los tests. Los PDFs reales NO entran como fixtures.
+Suite: 836 passed, 15 deselected (808 de base + 28).
+
+RESULTADO: pendiente de auditoría humana dirigida. La re-medición de
+D-EXP-2 queda gateada por ella.
+
+## D-RES-3e CERRADO + D-EXP-5 OFICIAL (2026-09-26): parser legacy
+auditado EN FRONTERAS, pesos portables confirmados
+
+ADJUDICACION DE ANTONIO: los tres listados dirigidos
+(auditoria_dirigida_2019-01-17 V1 44 filas, auditoria_dirigida_2020-02-02
+V2 42 filas, regresion_2018-12-18 documento completo) cotejados contra
+sus PDF con foco en las filas de frontera marcadas (PAG-INI/PAG-FIN/
+POST-NYS/FIN-BLOQUE): VERDE. Equipo, fecha y matchup
+coinciden en las fronteras; las 7 filas de Toronto del 2018-12-18
+llevan 12/19 y VanVleet esta en Toronto.
+
+CONSECUENCIAS:
+- injury_report_legacy.py queda AUDITADO en fronteras para ITEXT_V1 e
+  ITEXT_V2, con el invariante interno equipo-en-matchup como guarda
+  permanente (0/42 051 incoherencias tras el fix). El verde de D-RES-3
+  del 09-24 y esta auditoria dirigida se suman: la primera cubrio el
+  cuerpo, la segunda las fronteras.
+- Los agregados de la RE-CORRIDA de D-EXP-5 pasan a OFICIALES. Veredicto
+  sustantivo: los pesos de D-EXP-1 (Out 0.00, D 0.02, Q 0.48, P 0.91,
+  Available por clasificador portable) son PORTABLES a la era legacy;
+  se usan como pesos unicos en la re-medicion. Ambas mediciones quedan
+  registradas (GemBox y legacy) como exige la nota de vigencia de
+  D-EXP-1.
+- CORRECCION REGISTRADA: la tasa de equipo equivocado pre-fix era
+  0.49% V1 / 0.00% V2 (matchup reconstruido por posicion), no el
+  4.37/5.04% que D-EXP-5 reporto.
+
+[NOTA DE TRANSCRIPCION 2026-09-26, de Code: el encargo de este bloque
+llego SIN su delimitador de cierre y el texto termina en la linea de
+arriba. Se transcribio VERBATIM lo recibido y se añadio unicamente el
+punto final; NO se invento continuacion (ni "Suite:" ni "RESULTADO:",
+que otros bloques de cierre suelen llevar). Si faltaba texto, se añade
+como continuacion de este bloque.
+Se resolvio tambien el condicional del encargo: la frase de
+adjudicacion quedo como VERDE, la opcion por defecto que venia escrita,
+porque nada en el encargo indico que el cotejo hubiera sido por
+plausibilidad. Si lo fue, la sustitucion es de una frase y se registra
+como enmienda: "revisados por plausibilidad, adjudicacion PARCIAL
+revocable si aparece contradiccion".]

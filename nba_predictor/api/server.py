@@ -38,6 +38,7 @@ from nba_predictor.api.player_predictions_log import (
     build_player_log_rows,
     write_player_predictions_log,
 )
+from nba_predictor.ingestion.injury_report import INJURY_REPORT_TZ
 from nba_predictor.storage import get_datastore
 
 _log = logging.getLogger(__name__)
@@ -200,6 +201,9 @@ def predictions_today(
         season=season,
         version_name=app.state.version_name,
         player_map=_player_map(app.state.store),
+        # El reloj entra AQUÍ, en el borde (D-PRE-1): decide desde qué corte
+        # del injury report se sondea. La lógica de abajo jamás lo consulta.
+        now_et=datetime.now(INJURY_REPORT_TZ),
     )
     message = format_daily_message(result)
     # players_message es el SEGUNDO mensaje de Telegram (D-PROD-1b): cadena

@@ -3277,3 +3277,502 @@ porque nada en el encargo indico que el cotejo hubiera sido por
 plausibilidad. Si lo fue, la sustitucion es de una frase y se registra
 como enmienda: "revisados por plausibilidad, adjudicacion PARCIAL
 revocable si aparece contradiccion".]
+
+[CONTINUACION del bloque D-RES-3e CERRADO + D-EXP-5 OFICIAL, cuyo
+encargo llego truncado tras "no el 4.37/5.04% que D-EXP-5 reporto";
+Code transcribio lo recibido sin inventar la cola, y esta es la cola.]
+
+  ...que D-EXP-5 reporto (dominado por matchup rancio). La gravedad
+  real era un caso geometrico (nombre de equipo en dos lineas), hoy
+  resuelto.
+- REGLAS NUEVAS: (a) muestras de auditoria de parsers incluyen
+  fronteras A PROPOSITO y muestran toda columna de la que dependa la
+  atribucion (2021-02-10 paso una auditoria plena con el defecto vivo
+  porque no ejercitaba fronteras ni mostraba Matchup); (b) los
+  umbrales de mejora de un pre-registro se computan contra la
+  magnitud MEDIDA, no contra la narrativa (la expectativa (a) de
+  D-RES-3e nacio contra un 4.37% que no era la tasa relevante).
+- DEUDAS NOMBRADAS, ruidosas, no bloqueantes: 47 celdas V1 con dos
+  nombres (encabezado al pie de pagina con primera fila en la
+  siguiente; fallan como sin_match_equipo), D-RES-3f si algun dia
+  vale la tarde; D-RES-3d = 32 fechas (2019-11-15 -> 2019-12-17).
+
+DESBLOQUEADO SIN CONDICIONES: re-medicion de D-EXP-2 con corpus
+ampliado (2018-12-18 -> 2025-26 menos las 32 fechas de D-RES-3d),
+instrumento limpio, pesos portables. Pre-registro con sus tres
+requisitos (MDE en fase 0; v2 vs binario de misma construccion como
+contraste primario; confound de construccion declarado) mas uno
+añadido por D-EXP-5: pesos por fold desde el TRAIN de cada fold
+(walk-forward puro), no globales.
+
+## D-EXP-2b: RE-MEDICIÓN disponibilidad-v2 CON CORPUS AMPLIADO
+(PRE-REGISTRO 2026-09-26)
+
+Resuelve el null de resolución de D-EXP-2 con ~7 folds walk-forward
+(corpus 2018-12-18 -> 2025-26, parser legacy auditado en D-RES-3/3e,
+32 fechas de D-RES-3d excluidas). Tres brazos sobre filas idénticas:
+BIN (binaria desde PDF), V2 (ponderada), CTL (B-limpia re-entrenada,
+referencia con confound de construcción declarado). CONTRASTE
+PRIMARIO: V2 vs BIN, la hipótesis "ponderar estabiliza" del brazo
+diagnóstico de D-EXP-2, ahora formal. Pesos POR FOLD desde el train
+(walk-forward puro), Available con clasificador portable.
+
+FASE 0 (gate ejecutable): MDE extrapolado al n total desde el primer
+fold; expectativa 0.004-0.006; MDE > 0.008 = SIN RESOLUCIÓN, se
+detiene y reporta.
+
+Expectativas: ganancia 0.000-0.008 LL; nulo plausible y legítimo;
+> 0.015 = auditar leakage; coeficiente + en todos; pesos por fold
+±5pp de los oficiales.
+
+PUERTA con dos salidas DEFINITIVAS: gana fuera del ruido (agregado y
+mayoría de folds) -> candidato sombra vía model_version durante la
+ventana; nulo o negativo CON resolución -> la pregunta se CIERRA
+permanentemente, pesos solo editoriales, sin reapertura salvo
+información distinta (no más corpus).
+
+RESULTADO: pendiente de fase 0 y ejecución.
+
+## D-EXP-2b RESULTADO (2026-09-26): la puerta se cumple POR UN PELO y la
+significancia la carga UN fold — adjudicación de Antonio pendiente
+
+CORPUS: 1 177 fechas publish parseadas (2018-12-18 -> 2025-26), 78 561 filas
+resueltas, sin-match de nombre 538 (0.68%), sin_match_equipo 47 (el residuo
+conocido de D-RES-3e). EXCLUIDAS y contadas: las 32 fechas de D-RES-3d
+(UnknownLayoutError, 2019-11-15 -> 2019-12-17; jamás se forzó un layout) y 63
+fechas sin corte publish. Universo 7 256 partidos; 6 476 filas de validación
+repartidas en SIETE folds walk-forward (2018-19 entra solo como train: su
+archivo empieza el 18-dic y validar sobre una temporada truncada mediría el
+hueco del archivo, no el modelo).
+
+FASE 0 (gate ejecutable): sd de la diferencia pareada V2 vs BIN = 0.054626 en
+el fold base (2019-20, n=653); MDE del fold base 0.005989; MDE extrapolado al
+n total de 6 476 = **0.001902**. Techo pre-registrado 0.008 -> **CUBRE**. El
+experimento SÍ puede distinguir su propia expectativa de cero, que es
+exactamente lo que D-EXP-2 no podía.
+DESVIACIÓN DECLARADA, al alza: se pre-registró un MDE de 0.004-0.006 y salió
+0.0019, dos o tres veces MÁS potente. Mecanismo identificado, no casualidad:
+V2 y BIN comparten construcción y difieren solo en la tabla de pesos, así que
+sus predicciones por partido están muy correlacionadas y la sd de la
+diferencia pareada es 0.0546 frente a los ~0.108 de V2-vs-CTL en D-EXP-2. El
+requisito 2 de D-RES-3e (contraste de misma construcción como primario) no
+solo limpió el confound: es lo que compró la resolución. Lección
+transferible: en un contraste pareado, emparejar por construcción vale más
+potencia que multiplicar el corpus.
+
+TABLA POR FOLD — contraste PRIMARIO V2 vs BIN:
+  fold valid      n_val   LL CTL   LL BIN    LL V2   V2-BIN      t   IC95 excl.0
+  F0   2019-20      653  0.67547  0.67943  0.67848  +0.00095   0.44   no
+  F1   2020-21      845  0.62954  0.63104  0.63158  -0.00053  -0.32   no
+  F2   2021-22      999  0.65307  0.65342  0.65167  +0.00176   1.18   no
+  F3   2022-23      999  0.65619  0.65750  0.65609  +0.00141   0.82   no
+  F4   2023-24      998  0.62448  0.62438  0.62508  -0.00070  -0.46   no
+  F5   2024-25      989  0.60715  0.60693  0.60603  +0.00090   0.57   no
+  F6   2025-26      993  0.61557  0.62029  0.61528  +0.00501   2.75   SI
+  AGREGADO n=6 476  media +0.001313  t=2.047  IC95 [+0.000056, +0.002571]
+  V2 gana en 3 326 de 6 476 partidos (51.4%) y en 5 de 7 folds.
+
+LA PUERTA PRE-REGISTRADA SE CUMPLE EN SU LETRA: el IC95 del agregado excluye
+cero (+0.000056 de cota inferior) y V2 gana en la mayoría de los folds (5/7).
+Por la regla congelada, eso es PROMOVER a candidato sombra. No se renegocia el
+criterio después de ver el número — es justo lo que un pre-registro existe
+para impedir.
+
+Y AL MISMO TIEMPO, LA EVIDENCIA ES FRÁGIL DE FORMA MEDIDA (robustez que el
+pre-registro no pidió y que el resultado obliga a reportar):
+- SIN F6, los otros seis folds dan media +0.000643, t=0.943, IC95
+  [-0.000693, +0.001979]: el cero VUELVE a entrar. La significancia del
+  agregado la carga entero un solo fold.
+- F6 (2025-26) es el ÚNICO fold cuyo IC excluye cero por separado (t=2.75,
+  +0.00501, cuatro veces el agregado). Los otros seis son individualmente
+  indistinguibles de cero, dos de ellos negativos.
+- Prueba de signos 5 de 7: p = 0.453. La "mayoría de los folds" de la puerta
+  se cumple por conteo, no por evidencia.
+Esto NO es una aplicación de criterio nuevo ni una anulación de la puerta: es
+el contenido que la adjudicación necesita. Adjudica Antonio.
+
+EL HALLAZGO SUSTANTIVO, en los tres contrastes agregados (n=6 476):
+  V2 vs BIN  (primario, misma construcción)  +0.001313  t=+2.05
+  BIN vs CTL (magnitud del confound)         -0.001528  t=-1.27
+  V2 vs CTL  (V2 contra la referencia)       -0.000214  t=-0.17
+Leídos juntos dicen una sola cosa, y es coherente: construir el numerador
+desde el PDF CUESTA ~0.0015 de log loss frente al numerador de activados del
+boxscore, y ponderar RECUPERA ~0.0013 de eso. V2 termina EMPATANDO con el
+control (t=-0.17). La hipótesis que sobrevivió al brazo diagnóstico de D-EXP-2
+—"ponderar ESTABILIZA frente al binario de misma construcción"— queda
+CORROBORADA con 7 folds en vez de 1, con su magnitud medida. Pero la
+consecuencia práctica hay que decirla entera: ponderar no le gana a la feature
+de producción, le devuelve a la construcción-desde-PDF lo que esa
+construcción pierde. v1 ya consigue ese nivel SIN necesitar el PDF.
+
+EXPECTATIVAS, UNA POR UNA:
+(1) Ganancia 0.000-0.008: SE CUMPLE (+0.00131).
+(2) > 0.015 = auditar leakage: NO se activó (dos órdenes de magnitud por
+    debajo).
+(3) Coeficiente de availability con signo + en todos los brazos y todos los
+    folds: SE CUMPLE, 21 de 21 (rango +0.173 a +0.248).
+(4) Pesos por fold dentro de ±5pp de los oficiales: SE CUMPLE en los cuatro
+    estatus centrales, con una excepción marginal — Out y Questionable dentro
+    de ±2.1pp en los siete folds; Doubtful +2.5 a +5.6pp y Probable -2.0 a
+    -5.0pp, y las dos únicas violaciones (F0 Doubtful +5.59, F0 Probable
+    -5.02) están en el fold cuyo train es 2018-19 PARCIAL, el más delgado
+    (n=145 y n=321). NO se cumple en los buckets de Available (hasta -9.95pp),
+    y eso es ERROR DE MI PRE-REGISTRO, declarado: los pesos oficiales de
+    Available (0.45/0.77) los midió D-EXP-1 con el clasificador de RAZÓN SOLA,
+    mientras que aquí la partición es la PORTABLE de D-RES-3e. No son las
+    mismas poblaciones, así que compararlos contra ±5pp no era manzanas con
+    manzanas. D-RES-3e ya había medido esa brecha (legacy gleague 0.3505 vs
+    GemBox 0.448); extender la tolerancia de los cuatro estatus a los buckets
+    fue un descuido al redactar, no un hallazgo del corpus.
+(5) BIN vs CTL sin expectativa direccional: -0.0015 (t=-1.27), el confound
+    medido y declarado.
+
+MECANISMO VISIBLE (sin esto, una diferencia de log loss no tendría qué
+explicarla): entre 96% y 98% de las filas de cada fold cambian de valor entre
+V2 y BIN, con |Δ| media 0.041-0.052, p95 0.124-0.155 y máximo hasta 0.60. La
+feature se mueve de verdad; la ganancia pequeña no viene de un cambio
+pequeño.
+
+EVIDENCIA EN DISCO (data/experiment_v2b/): mde_fase0.json (23:35:41) ANTES de
+results.json (23:35:42), orden verificado por timestamps; audit_games.json
+(muestra congelada seed 42, 30 partidos de un universo de 7 256, sellada
+05:35:41Z antes de medir); results.json con los 7 folds, los tres contrastes,
+pesos y n por fold, estabilidad y distribución; tabla.txt;
+auditoria_muestra.txt (371 líneas) con las ausencias aplicadas por cada brazo
+y el PDF de origen, para el spot-check.
+NOTA DEL LISTADO: la muestra congelada se sorteó sobre TODO el corpus, así que
+~1/7 cayó en 2018-19, que es train en los siete folds y no valida en ninguno.
+Para esos partidos el listado etiqueta el rol y muestra los pesos de F0; la
+primera versión los mostraba con V2=1.0 (un Out con peso 1.0, que no existe en
+ninguna corrida) y se corrigió el LISTADO, no la muestra — re-sortearla tras
+ver los números sería elegir la evidencia.
+
+Script: scripts/experiment_disponibilidad_v2b.py, en dos etapas (resolve
+parsea una vez; measure pondera siete veces) porque los pesos cambian por fold
+y parsear siete veces no era opción. Aritmética de disponibilidad, métricas por
+fold y diferencia pareada IMPORTADAS de D-EXP-2; pooleo y partición portable
+de D-EXP-5 y del paquete. Cero ediciones al paquete, cero despliegue, B-limpia
+y features_v1 intactos. Tests: 41 nuevos (tests/test_experiment_v2b.py), con
+el invariante del walk-forward puro fijado por test (ninguna temporada de
+validación aparece en su propio train) porque un leakage ahí produciría una
+tabla de aspecto idéntico. Suite: 877 passed, 15 deselected (836 + 41).
+
+RESULTADO: pendiente de adjudicación de Antonio. Las dos salidas siguen siendo
+las pre-registradas y son definitivas; lo que esta corrida añade es que la
+letra de la puerta apunta a PROMOVER mientras la robustez apunta a que la
+señal vive en un fold. El spot-check de auditoria_muestra.txt es insumo de esa
+adjudicación, no de la aritmética.
+
+## D-EXP-2b RESULTADO (2026-09-27): CON RESOLUCION. Ponderar estabiliza
+frente al binario (+0.0013, fragil) y NO supera a produccion (-0.0002).
+Pregunta CERRADA PERMANENTEMENTE. Sin candidato sombra.
+
+FASE 0: MDE agregado 0.0019 contra techo 0.008: CUBRE, y por debajo del
+0.004-0.006 esperado. Desviacion al alza adjudicada como LECCION DE
+DISEÑO: V2 y BIN comparten construccion, sus predicciones estan muy
+correlacionadas y la sd de la diferencia pareada es 0.055 (contra ~0.108
+de V2-vs-CTL en D-EXP-2). Emparejar por construccion compro mas
+resolucion que triplicar el corpus. REGLA: la potencia de un contraste
+pareado la gobierna la correlacion entre brazos, no solo el n; diseñar
+el contraste primario entre brazos de misma construccion siempre que la
+pregunta lo permita.
+
+TABLA (7 folds, log loss, diferencias pareadas):
+  V2 vs BIN (primario)         +0.001313  t=+2.05  IC95 [+0.000056,+0.002571]
+  BIN vs CTL (confound medido) -0.001528  t=-1.27
+  V2 vs CTL (vs referencia)    -0.000214  t=-0.17
+  Sin F6 (2025-26):            +0.000643  t=+0.94  IC95 [-0.000693,+0.001979]
+F6 es el unico fold con IC individual fuera de cero (+0.00501, t=2.75,
+cuatro veces el agregado); los otros seis son indistinguibles de cero,
+dos negativos; prueba de signos 5/7 p=0.453. Coeficientes positivos
+21/21. 96-98% de filas cambian entre brazos (|delta| medio ~0.05): el
+mecanismo existe, la ganancia pequeña no viene de un cambio pequeño.
+
+ERROR PROPIO DE DISEÑO (sexto de la serie): la puerta "gana fuera del
+ruido en el agregado Y en la mayoria de los folds" admite dos lecturas
+((a) IC agregado excluye cero y mayoria con signo positivo: CUMPLIDA
+5/7; (b) fuera del ruido en ambos: NO cumplida, 1/7). Elegir lectura
+con los numeros delante seria renegociar en cualquier direccion. REGLA
+NUEVA: toda puerta se escribe con criterios numericos sin lectura
+alternativa (p.ej. IC agregado excluye cero Y >= k folds con IC
+individual fuera de cero Y prueba de signos p < x).
+
+SALIDA DE LA AMBIGUEDAD SIN RENEGOCIAR: bajo la lectura mas favorable
+(a), promover = experimento sombra V2 vs B-limpia en vivo (~470
+partidos). La regla de D-EXP-2 exige su MDE antes de construirlo: sobre
+470 pareados es ~0.01, entre 10 y 50 veces el efecto esperado (+0.0013
+vs BIN, -0.0002 vs CTL). El sombra nace SIN RESOLUCION por construccion
+y no se corre. Bajo (b) no se promueve. Ambas lecturas convergen: NO SE
+CONSTRUYE el candidato sombra. Adjudicado por Antonio.
+
+LECTURA SUSTANTIVA, definitiva:
+- Pregunta cientifica ("ponderar estabiliza frente al binario de misma
+  construccion", hipotesis del brazo diagnostico de D-EXP-2): SI,
+  +0.0013, real pero fragil (vive en F6; hipotesis post-hoc no
+  investigada: reportes mas limpios en la era GemBox reciente).
+- Pregunta de producto ("V2 supera a la feature de produccion"): NO.
+  El triptico lo explica: construir el numerador desde el PDF cuesta
+  ~0.0015 y ponderar recupera ~0.0013; v1 llega al mismo sitio sin
+  necesitar el PDF.
+- La pregunta "ponderar disponibilidad mejora el modelo" queda CERRADA
+  PERMANENTEMENTE con respuesta con resolucion: NO. Sin reapertura
+  salvo informacion DISTINTA (no mas corpus). Los pesos de D-EXP-1
+  viven en la capa editorial, donde ya sirven en el mensaje 2.
+
+ERRORES DECLARADOS DE LA EJECUCION, aceptados: (1) tolerancia ±5pp mal
+aplicada a buckets de Available de poblaciones distintas (oficiales
+0.45/0.77 por clasificador de razon; aqui clasificador portable); sin
+efecto en el veredicto, los cuatro estatus centrales cumplen (Out y Q
+dentro de ±2.1pp; unicas violaciones en F0, el train mas delgado). (2)
+La muestra de auditoria se sorteo sobre todo el corpus: 6/30 en
+2018-19 (nunca valida); corregido el listado, NO re-sorteada la
+muestra (re-sortear tras ver numeros seria elegir evidencia).
+
+NOTA DE LECTURA para quien compare con D-EXP-2: aqui los pesos son
+MEDIDOS por fold desde el train (Out 0.0064-0.0086, Q 0.48-0.50, P
+0.86-0.89, D 0.05-0.08, Available 0.80-0.86 / gleague 0.41), no los
+oficiales redondeados; ordenamiento intacto en todos los folds; efecto
+sobre el veredicto despreciable.
+
+AUDITORIA HUMANA PLENA (Antonio, 2026-09-27): 30 partidos de la muestra
+congelada cotejados contra su PDF publish; estatus, pesos y BIN
+correctos fila por fila. LIMITACION registrada: la muestra no contiene
+partidos de F6 (ni F2) por azar del seed; el fold que carga el
+resultado no tiene spot-check de instrumento. No cambia decisiones (no
+se construye nada); suplemento post-hoc de F6 solo si algun dia se
+reabre con informacion distinta.
+
+Suite: 877 passed, 15 deselected.
+
+ESTADO DEL LABORATORIO: cero preguntas de modelo abiertas. Camino 5
+queda con: ponderacion temporal, ventanas 5/15/20, SRS, calibracion
+explicita y comparacion vs Vegas (ya instrumentada via market_odds,
+adjudicacion en enero). Ninguna tiene urgencia antes de la ventana.
+
+## CANDIDATO DIFERIDO: INGESTA NO ESTRUCTURADA (anotado 2026-10-08)
+
+Existe un documento de diseño (Antonio, pre-septiembre) para una capa
+de ingesta de fuentes no estructuradas (RSS de noticias, conferencias
+de prensa en YouTube, notas de reporteros, reporte de lesiones) con
+extraccion por LLM hacia features del modelo. Patrones de ingenieria
+RESCATADOS de Agent-Reach (repo descartado por shell remoto,
+typosquatting y cookies contra ToS): registro de canales con backends
+en orden y probe(), doctor con canario, circuit breaker, ruteo por
+URL, niveles de riesgo por fuente, herramientas tipadas sin shell,
+exposicion como MCP y tools de LangGraph. Principios: published_at y
+fetched_at reales con corte temporal estricto, esquema comun de
+documento, dedup por hash, contenido externo no confiable, deps con
+hash, secretos en Secret Manager. Costos estimados (oct 2026):
+~$20/mes con Haiku extrayendo y Sonnet redactando.
+
+ADJUDICACION (chat de diseño 2026-10-08): NO SE CONSTRUYE para el
+pipeline predictivo. Razones: (1) su premisa ("informacion no
+estructurada que mueve resultados antes de las estadisticas") ya tuvo
+su prueba mas limpia con la fuente que el propio documento señala
+como mas valiosa, el reporte oficial de lesiones: construido, auditado
+y medido en D-EXP-2b, C2 de D-EXP-3 y D-EXP-5, con resolucion y
+resultado nulo sobre el modelo de equipo; noticias y transcripts son
+versiones mas ruidosas y tardias de la misma informacion. (2) Conflicto
+frontal con la frontera cerrada de Fase 6: el LLM es redactor, jamas
+fuente de datos del pipeline (auditabilidad de features = producto).
+(3) Los pendientes del documento ("que predice el modelo") estan
+respondidos desde Fase 3.
+
+DESTINO: Fase 7 candidata, "infraestructura de canales para la CAPA
+EDITORIAL" (el agente redactor de Fase 6 leyendo contexto no
+estructurado con la frontera intacta). Gateada por la decision de
+comercializar (enero 2027). Reapertura del lado predictivo SOLO si el
+analisis de CLV de enero muestra CLV positivo en el subconjunto de
+injury report ambiguo: entonces la pregunta seria de VELOCIDAD
+(publicar antes de que la linea se mueva), no de informacion, y
+exigiria arquitectura en tiempo real, no la de las 13:00.
+
+LO QUE SI SOBREVIVE COMO EXPERIMENTO: continuidad de roster desde
+datos ESTRUCTURADOS (quintetas del boxscore), sin LLM ni canal nuevo.
+Ver D-EXP-6.
+
+## D-EXP-6: CONTINUIDAD DE ROSTER DESDE DATOS ESTRUCTURADOS
+(PRE-REGISTRO 2026-10-08)
+Última feature pendiente del Camino 5, medida sin LLM ni canal nuevo:
+dos definiciones (C_a quintetas, C_b rotación por minutos), diferencia
+local−visitante, walk-forward oficial, contraste pareado CAND vs CTL
+de misma construcción, anti-leakage por grupo. Fase 0 con MDE
+esperado 0.0015-0.0025 (techo 0.005). Expectativa 0.000-0.005 LL,
+nulo legítimo, > 0.015 auditar leakage. PUERTA NUMÉRICA: IC agregado
+excluye cero Y >= 4/6 folds positivos Y >= 2 folds con IC fuera de
+cero; cruza con >= 0.005 -> candidato a v2 post-enero (no sombra);
+cruza con < 0.005 -> real pero no accionable sola; no cruza -> cierre
+con resolución. RESULTADO: pendiente.
+
+## D-PRE-1: REVISIÓN DE PREPARACIÓN PRE-TEMPORADA (2026-10-11)
+
+Revisión de solo lectura (logs, config, código) diez días antes de la
+ventana. Cinco hallazgos, tres que habrían mordido el 21-22 de
+octubre. Ninguno ejercitado jamás en condiciones de temporada.
+INSTANCIAS 14, 15 y 16 DEL PATRÓN DE SILENCIO. REGLA NUEVA: antes de
+toda fecha gate, revisión de preparación de solo lectura obligatoria:
+intentos del Scheduler (status Y duración), errores de Cloud Run,
+límites de recursos, y lista explícita de caminos de código que nunca
+corrieron en la condición real.
+
+BUG 1 (CRÍTICO): descubrimiento del injury report arrancaba en
+11_45PM con budget 20 (hasta 07_00PM); a las 15:00 ET el último corte
+es 03_00PM (índice 35). En temporada: feed caído declarado los 72
+días, job sin archivar nunca (el WARNING diario "benigno de offseason"
+era estructural). Cuatro verificaciones verdes sin la condición real
+(spike sobre fecha pasada completa, offseason sin PDFs, dry-run de
+fecha futura, pretemporada sin partidos 002). FIX: candidatos desde la
+hora ET actual cuando la fecha es hoy, reloj inyectado por el borde;
+fecha futura = 0 sondas; job archiva el último corte de ayer + el de
+hoy si existe. Deploy predictions-api v12 (predictions-api-00013-cvk), ingest-job v7.
+Verificación en vivo pretemporada: ingest-job, ejecucion manual nba-ingest-job-45ctc a las 16:10 UTC (12:10 ET): HOY (10-11) sondeado desde 12_00PM (antes: 11_45PM), AYER (10-10) desde 11_45PM; sin PDF en ninguno, exit 0. Control manual: 6/6 cortes de mediodia de pretemporada (10-08 y 10-10) dan 403 contra 200 del corte 2026-03-13_01_15PM: la NBA NO publica reporte en pretemporada -> 'pretemporada sin reporte' (verde, segundo caso). Endpoint sin ?date: 200 heartbeat en 2.25 s, pero la busqueda NO corre (retorno temprano sin partidos 002, antes del paso del injury report), asi que la ruta del ENDPOINT solo es verificable en vivo desde el 21-oct; ?date de una fecha pasada tampoco la ejercita (schedule CDN de 2026-27, 0 partidos). Suite 926 passed, 15 deselected (905 + 21 nuevos).
+
+BUG 2 (ALTO): el webhook de n8n responde 500 desde 2026-09-24 (17
+días): rama false del IF vacía + Respond "When Last Node Finishes" +
+"First Entry JSON" = sin item = 500. El mensaje SÍ se publica; la
+señal del Scheduler queda en rojo permanente y un fallo real sería
+indistinguible. ERROR PROPIO (octavo): la rama desnuda se recomendó
+en el chat de diseño afirmando que el 200 sobrevivía. CORRECCIÓN
+DOCUMENTAL: el bloque D-PROD-1c CERRADA dice "disparo de prueba
+post-publicación: verde, status {}"; los logs muestran un 200 de
+0.109 s (incompatible con la cadena; limbo o warmup) seguido de 500.
+La afirmación se RETIRA. REGLA: el 200 del Scheduler certifica la
+cadena solo si su duración es compatible con ella; "verde" entra al
+registro solo con log literal (status + duración). FIX (UI, Antonio):
+Webhook Response Data = "No Response Body"; republicar; disparo de
+prueba con lectura del log; verificar que fallo de nodo sigue dando
+no-2xx. PROHIBIDO añadir reintentos (duplicarían publicaciones).
+Estado: PENDIENTE.
+
+BUG 3 (ALTO): ingest-job con 512Mi; paso 2 (rebuild de features) jamás
+corrió en la nube; pico local 586.6 MiB. El 22-oct moriría y con él el
+reentrenamiento del paso 3. FIX: 2Gi + flag --force-features +
+ejecución única en la nube antes del 21 con verificación nivel 2
+(parquet reconstruido idéntico en contenido al vigente). Estado:
+PENDIENTE.
+
+BUG 4 (MEDIO): odds-capture no filtra eventos iniciados ni persiste
+commence_time; evening/late en octubre caen post-tipoff y el MERGE
+sobrescribiría odds previas con odds en vivo (verificación
+pre-registrada en D-EXP-1 convertida en invariante). FIX: filtro
+commence_time > ahora en captura + columna commence_time. Estado:
+PENDIENTE.
+
+PRETEMPORADA, desviaciones de pre-registro: (a) market_odds sin filas
+matched=false: The Odds API no lista pretemporada; expectativa
+fallida por razón benigna, registrada. (b) sin PDFs de pretemporada
+en el archivo: confundido con el bug 1; se re-evalúa tras v12. (c) 5
+eventos del 4-oct que no reaparecieron: sin explicar, baja prioridad.
+
+CALENDARIO: v12 el 13 como tarde; bug 3 el 13-14; UI del bug 2 el 13;
+bug 4 el 14-15; del 16 al 20 CONGELADO (solo verificación pasiva). Lo
+no verificado el 17 se difiere a post-ventana, salvo el bug 1.
+
+[NOTA DE EJECUCION D-PRE-1 (2026-10-11), de Code — desviaciones y hallazgos
+de la tarea, añadida tras el bloque transcrito verbatim:
+(1) TAG: el bloque dice "ingest-job v7" porque asi venia el encargo, pero el
+tag v7 YA EXISTIA: D-ODDS construyo ingest-job:v7..v10 el 2026-09-20/21 y
+nba-odds-capture corre sobre ingest-job:v10. Por la convencion (vN
+incremental, jamas reescribir un tag) la imagen desplegada es
+ingest-job:v11 (build a71df5d0, 2026-10-11). nba-odds-capture NO se toco
+(sigue en v10, bug 4 es tarea aparte); memoria del job sin tocar (512Mi,
+bug 3).
+(2) HALLAZGO LATERAL — EL CATALOGO DE NOMBRES NUNCA SE MANTUVO: hasta hoy
+nba-ingest-job corria ingest-job:v6 (2026-08-28). El mantenimiento de la
+tabla players por el job (D-PROD-1d, 2026-09-24: "mantenida por el ingest
+job, paso 1, best-effort") se escribio y testeo pero JAMAS se desplego: la
+tabla seguia congelada en el backfill (1 660 jugadores). Un novato de
+2026-27 con minutos de titular habria entrado a los destacados sin nombre
+en el catalogo. v11 se construyo desde el arbol actual y lo despliega como
+efecto colateral (diff v6..v11 del codigo del job: _collect_player_names +
+_persist_player_names, aditivo; storage con metodos nuevos). Primer
+ejercicio real: 22-oct, cuando haya partidos nuevos. REGLA DERIVADA: un
+bloque que dice "mantenido por el job" no esta cerrado hasta que el job
+desplegado lo contiene — verificar la imagen que corre, no el codigo del
+repo.
+(3) PRE-REGISTRO (b) de pretemporada ADJUDICADO: no hay PDFs porque la NBA
+no publica reporte en pretemporada (6/6 403 en cortes de mediodia contra
+200 del control); no era el bug 1.
+(4) TESTS: la simulacion del servidor usa el retraso de creacion medido
+(corte 12_00AM creado a las 00:00:04). Con el, a las 15:00:00 exactas el
+03_00PM aun no existe y se cae al 02_45PM en 2 sondas; a las 08:00:00 al
+07_45AM. Los tests exigen "ultimo corte existente en <= 2 sondas", que es
+lo que el encargo pedia con sus dos ejemplos. 21 tests nuevos en
+tests/test_injury_discovery_clock.py, rojos antes del fix (21/21) y verdes
+despues; ningun test existente editado. Ruff: 3 avisos preexistentes en
+HEAD, ninguno nuevo.
+(5) OBSERVACION SIN CORREGIR (fuera de alcance): server.py toma la fecha
+por defecto de date.today() en UTC. Una invocacion manual sin ?date
+despues de las 20:00 ET (00:00 UTC) pediria la fecha de MAÑANA. El cron de
+las 13:00 CDMX no se ve afectado.]
+
+## D-PRE-1 / BUG 2 CERRADO (2026-10-11): webhook 500 resuelto con
+nodo Respond; diagnóstico corregido
+
+CAUSA REAL (corrige el diagnóstico de la revisión): el Webhook YA
+tenía "No Response Body"; el 500 lo produce n8n con Respond "When Last
+Node Finishes" cuando el último nodo ejecutado (IF por rama false
+vacía) no emite ningún item ("No item to return was found"),
+independientemente del modo de cuerpo. La rama desnuda recomendada en
+el chat de diseño era incompatible con ese modo de respuesta.
+
+FIX (UI, Antonio): Webhook con Respond "Using Respond to Webhook
+node"; nodo Respond to Webhook (texto fijo, 200) con DOS entradas: la
+salida del Send del mensaje 2 (rama true) y la rama false del IF. El
+200 vuelve a certificar cadena completa en ambas ramas; lo que la rama
+false lleva es plomería de respuesta, no contenido (Decisión 10
+intacta).
+
+EVIDENCIA LITERAL (request log de n8n, status y latencia):
+  2026-10-11T16:20:31Z  500  2.40 s   antes del fix (rama false)
+  2026-10-11T16:30:56Z  200  2.09 s   fix, URL limpia, rama false,
+                                      heartbeat en canal
+  2026-10-11T16:32:41Z  200  74.24 s  fix, ?date=2026-10-21 temporal,
+                                      rama true, DOS mensajes en canal
+                                      (cold start incluido, consistente
+                                      con el dry-run de septiembre)
+Parámetro de fecha revertido y republicado con URL limpia (verificado
+en la versión publicada por Antonio).
+
+REGLA CONSOLIDADA: "verde" del Scheduler entra al registro solo con
+status Y latencia literales; latencia de décimas de segundo es
+incompatible con la cadena y se trata como fallo aunque el status sea
+200. El bloque D-PROD-1c CERRADA queda corregido en este punto (ver
+D-PRE-1). Señal del Scheduler restaurada para la auditoría operativa
+de la ventana: 17 días de 500 pre-ventana registrados, fuera del gate.
+
+## D-PRE-1 ADDENDUM (2026-10-11): regla "de record" CONGELADA antes
+del primer dato; latencia del endpoint medida; fecha futura verificada
+
+REGLA "DE RECORD" (precisión de la definición de predictions_log,
+escrita ANTES de que exista un partido de la ventana; no renegocia el
+criterio, cierra una ambigüedad de implementación del query):
+servida de record del partido G con fecha D = entre las filas con
+game_id = G cuya predicted_at_utc convertida a America/Mexico_City cae
+en la fecha calendario D, la de predicted_at más cercana a las 13:00
+CDMX dentro de [12:50, 13:30]; si ninguna cae en esa ventana, la más
+temprana de ese día (rescate manual: fallo de autonomía en el gate
+operativo, regla ya escrita); si ninguna cae en D, el partido no tiene
+predicción de record (fallo de publicación, gate operativo). Misma
+regla para player_predictions_log por (game_id, player_id).
+CONSECUENCIAS: las 99 filas de dry-run con game_date=2026-10-21
+(88 del 09-24, 11 del 10-11) y sus 198 de destacados quedan EXCLUIDAS
+por fecha de predicción sin borrar nada (append-only; son evidencia de
+los dry-runs); las llamadas manuales nocturnas que por date.today en
+UTC devuelven el día siguiente quedan excluidas; servidas extra del
+mismo día (warmup, rescate) no crean ambigüedad. MOTIVO: la lectura
+"primera por game_date" habría elegido una fila del 24 de septiembre
+como predicción de record del día uno.
+
+LATENCIA DEL ENDPOINT (corrige la atribución del bloque del bug 2):
+el 200 de 74.24 s del 2026-10-11 16:32Z correspondió a 72.61 s de
+predictions-api, no a cold start de n8n (log: 16:32:42Z 200
+72.614 s). El warmup de las 12:58 despierta n8n, NO predictions-api;
+el frío del endpoint vive dentro del cron. Dentro del deadline de 300 s
+con margen. PRE-REGISTRO: medir el 21-oct en el log de predictions-api;
+si supera ~150 s, evaluar segundo warmup; nada antes de medir. El
+dry-run de septiembre no dejó latencia registrada (deuda documental
+menor).
+
+FECHA FUTURA EN PRODUCCIÓN: verificada en v12 con log literal
+("fecha FUTURA respecto a la hora ET actual ... 0 sondas").

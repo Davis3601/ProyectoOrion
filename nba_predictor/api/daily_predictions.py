@@ -154,6 +154,7 @@ def build_daily_predictions(
     player_map: dict[int, str] | None = None,
     max_injury_requests: int = 20,
     save_injury_raw: bool = True,
+    now_et: datetime | None = None,
 ) -> DailyResult:
     """
     Orquesta el pipeline completo para un día: schedule → ausencias → predicciones.
@@ -174,6 +175,10 @@ def build_daily_predictions(
                         día sin bajas. Nunca es un default inocuo.
     max_injury_requests: Presupuesto HEAD de descubrimiento del PDF.
     save_injury_raw   : Persistir el PDF crudo via store.save_raw_injury_report().
+    now_et            : Hora actual (aware) inyectada por el borde (server.py).
+                        Decide desde qué corte del PDF se sondea (D-PRE-1).
+                        None = lista histórica desde 11_45PM, correcta solo
+                        para días ya terminados.
 
     Returns
     -------
@@ -238,6 +243,7 @@ def build_daily_predictions(
             player_map=player_map,
             max_requests=max_injury_requests,
             save_raw=save_injury_raw,
+            now_et=now_et,
         )
     except _CatalogoVacio:
         pass  # feed_down y su razón ya quedaron fijados arriba
@@ -576,8 +582,13 @@ def _fetch_absences(
     player_map: dict[int, str],
     max_requests: int,
     save_raw: bool,
+    now_et: datetime | None = None,
 ) -> tuple[dict[int, list[int]], set[int], dict[int, dict[int, str]]]:
     """Descarga el PDF, parsea y devuelve ausencias, NYS y estatus para target_date.
+
+    now_et (D-PRE-1): hora actual inyectada por el borde; decide desde qué corte
+    se empieza a sondear. Sin ella, un request de las 15:00 ET buscaría desde
+    11_45PM y jamás llegaría a los cortes de la tarde.
 
     A diferencia de get_absences() (que devuelve un AbsenceResult compacto),
     esta función filtra explícitamente por target_date en ambos player_rows y
@@ -612,7 +623,9 @@ def _fetch_absences(
     target_date_str = target_date.strftime("%Y-%m-%d")
     target_date_mdy = target_date.strftime("%m/%d/%Y")
 
-    url, suffix = discover_latest_snapshot(target_date_str, max_requests=max_requests)
+    url, suffix = discover_latest_snapshot(
+        target_date_str, max_requests=max_requests, now_et=now_et
+    )
     pdf_bytes = download_snapshot(url)
 
     if save_raw:

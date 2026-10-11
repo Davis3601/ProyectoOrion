@@ -35,7 +35,7 @@ import io
 import json
 import logging
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -62,6 +62,7 @@ from nba_predictor.jobs.ingest_logic import (  # noqa: E402
     _check_season_guard,
     _collect_player_names,
     _latest_model_metadata,
+    injury_archive_dates,
     _persist_player_names,
     _season_from_raw_schedule,
     _should_rebuild_features,
@@ -404,9 +405,14 @@ def _run_check_endpoints() -> None:
 # ---------------------------------------------------------------------------
 
 
-def main(force_retrain: bool = False, today: date | None = None) -> None:
+def main(
+    force_retrain: bool = False,
+    today: date | None = None,
+    now_et: datetime | None = None,
+) -> None:
     from nba_predictor.config import TRAINING_SEASONS, settings
     from nba_predictor.ingestion.cdn_client import CDNClient
+    from nba_predictor.ingestion.injury_report import INJURY_REPORT_TZ
     from nba_predictor.storage import get_datastore
 
     if settings.mode != "cloud":
@@ -467,7 +473,12 @@ def main(force_retrain: bool = False, today: date | None = None) -> None:
     # ── Paso 1b: archivo best-effort del PDF de injury report ───────────────
     # Decisión 4 del feed: discover → GET → save_raw. Sin parsear, sin ausencias.
     # Fallo → WARNING; los pasos 2-3 continúan sin interrupción.
-    _archive_injury_report(ds, today.isoformat())
+    # D-PRE-1: el reloj ET entra AQUÍ, en el borde. A las 08:00 ET el día de hoy
+    # apenas empieza, así que se archiva el último corte de AYER (completo) y el
+    # último de HOY hasta esta hora; cada uno con su propio best-effort.
+    now_et = now_et or datetime.now(INJURY_REPORT_TZ)
+    for date_str in injury_archive_dates(now_et):
+        _archive_injury_report(ds, date_str, now_et=now_et)
 
     # ── Paso 2: rebuild de features ─────────────────────────────────────────
     do_rebuild, rebuild_reason = _should_rebuild_features(n_new)

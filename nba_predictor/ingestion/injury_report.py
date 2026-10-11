@@ -45,10 +45,11 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -69,6 +70,15 @@ INJURY_REPORT_URL_TEMPLATE: str = (
 )
 
 INJURY_REPORT_MAX_REQUESTS_DEFAULT: int = 20
+
+# Zona de los sufijos del PDF: la NBA nombra cada corte con la hora ET de su
+# creación (/CreationDate verificado contra el sufijo en D-RES-2).
+INJURY_REPORT_TZ = ZoneInfo("America/New_York")
+
+# Primer día con sufijos de formato nuevo {HH}_{MM}{AM|PM}. Bisección de D-RES-2
+# (2026-09-13): último día viejo 2025-12-21, primer día nuevo 2025-12-22,
+# contiguos. La era se deriva POR FECHA, jamás por temporada.
+INJURY_NEW_FORMAT_FROM: date = date(2025, 12, 22)
 
 # ---------------------------------------------------------------------------
 # Tipos de datos
@@ -182,6 +192,70 @@ def _all_suffix_candidates(last_suffix_hint: str | None = None) -> list[str]:
     return all_cands
 
 
+def _suffix_for(hour24: int, minute: int | None) -> str:
+    """Sufijo del PDF para una hora ET: nuevo {HH}_{MM}{AM|PM} o viejo {HH}{AM|PM}."""
+    h12 = hour24 % 12 or 12
+    ampm = "AM" if hour24 < 12 else "PM"
+    if minute is None:
+        return f"{h12:02d}{ampm}"
+    return f"{h12:02d}_{minute:02d}{ampm}"
+
+
+def plan_snapshot_candidates(
+    target_date: str,
+    now_et: datetime | None,
+    last_suffix_hint: str | None = None,
+) -> list[str]:
+    """Sufijos a sondear para target_date, del más tardío al más temprano.
+
+    POR QUÉ EXISTE (D-PRE-1, bug 1): la lista fija arrancaba en 11_45PM y con
+    budget 20 solo llegaba a 07_00PM. En temporada se publica un corte cada 15
+    minutos, pero los de la noche NO existen todavía cuando se pregunta a las
+    15:00 ET (endpoint) o a las 08:00 ET (job): el feed se habría declarado
+    caído todos los días. La lista correcta depende de QUÉ HORA ES — y la hora
+    entra como argumento, jamás se consulta aquí (regla de la capa 3: el reloj
+    se inyecta desde el borde).
+
+    Casos, comparando target_date con now_et.date():
+      - now_et None : lista histórica completa (callers sin reloj, sin cambios).
+      - pasada      : lista histórica, desde 11_45PM (el día ya está completo).
+      - hoy         : desde floor(now_et, 15 min) hacia atrás hasta 12:00AM,
+                      en el formato de la era de la fecha. Nunca sondea cortes
+                      que aún no pueden existir.
+      - futura      : lista vacía. Un reporte de mañana no existe; sondearlo
+                      gastaba 20 HEAD para nada.
+
+    Raises:
+        ValueError si now_et es naive: un datetime sin zona no dice qué hora
+        es en ET, y adivinarlo es exactamente el bug que esto corrige.
+    """
+    if now_et is None:
+        return _all_suffix_candidates(last_suffix_hint)
+    if now_et.tzinfo is None:
+        raise ValueError(
+            "now_et debe llevar zona horaria (aware); un datetime naive no dice "
+            "qué hora es en ET."
+        )
+    now = now_et.astimezone(INJURY_REPORT_TZ)
+    target = date.fromisoformat(target_date)
+    today = now.date()
+
+    if target < today:
+        return _all_suffix_candidates(last_suffix_hint)
+    if target > today:
+        return []
+
+    if target >= INJURY_NEW_FORMAT_FROM:
+        slot = now.hour * 4 + now.minute // 15
+        cands = [_suffix_for(s // 4, (s % 4) * 15) for s in range(slot, -1, -1)]
+    else:
+        cands = [_suffix_for(h, None) for h in range(now.hour, -1, -1)]
+    # El hint solo adelanta un sufijo que YA puede existir; jamás añade uno futuro.
+    if last_suffix_hint and last_suffix_hint in cands:
+        cands = [last_suffix_hint] + [c for c in cands if c != last_suffix_hint]
+    return cands
+
+
 # ---------------------------------------------------------------------------
 # Descubrimiento del snapshot más reciente
 # ---------------------------------------------------------------------------
@@ -194,6 +268,7 @@ def discover_latest_snapshot(
     max_requests: int = INJURY_REPORT_MAX_REQUESTS_DEFAULT,
     last_suffix_hint: str | None = None,
     timeout: int = 10,
+    now_et: datetime | None = None,
 ) -> tuple[str, str]:
     """Encuentra la URL del PDF más reciente para target_date via HEAD probing.
 
@@ -206,15 +281,27 @@ def discover_latest_snapshot(
         max_requests: presupuesto máximo de HEAD requests (default 20).
         last_suffix_hint: sufijo del último éxito para intentar primero.
         timeout: timeout en segundos por request HEAD.
+        now_et: hora actual (aware) inyectada por el caller. Con ella, para
+            target_date == hoy se sondea desde la hora actual hacia atrás y
+            para una fecha futura no se sondea nada. Sin ella, lista histórica
+            desde 11_45PM (solo correcta para días ya terminados). Ver
+            plan_snapshot_candidates.
 
     Returns:
         (url, suffix) del snapshot más tardío encontrado en target_date.
 
     Raises:
-        RuntimeError: si no se encuentra ningún PDF en el presupuesto.
+        RuntimeError: si no se encuentra ningún PDF en el presupuesto, o si
+            target_date es futura respecto a now_et (0 sondas).
     """
     sess = session or requests.Session()
-    candidates = _all_suffix_candidates(last_suffix_hint)
+    candidates = plan_snapshot_candidates(target_date, now_et, last_suffix_hint)
+    if not candidates:
+        raise RuntimeError(
+            f"Injury report de {target_date}: fecha FUTURA respecto a la hora ET "
+            f"actual ({now_et.astimezone(INJURY_REPORT_TZ):%Y-%m-%d %H:%M} ET); "
+            f"todavía no puede existir — 0 sondas."
+        )
 
     tried: list[str] = []
     for suffix in candidates[:max_requests]:

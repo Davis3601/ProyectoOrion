@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date
+from datetime import date, datetime, timedelta
 from collections.abc import Iterable
 from typing import Any
 
@@ -104,10 +104,28 @@ def _season_from_raw_schedule(raw: dict) -> str | None:
     return raw.get("leagueSchedule", {}).get("seasonYear") or None
 
 
+def injury_archive_dates(now: datetime) -> list[str]:
+    """Fechas cuyo injury report archiva el job: [ayer, hoy], en ET.
+
+    POLÍTICA (D-PRE-1): el job corre a las 12:00 UTC = 08:00 ET (07:00 en EST).
+    A esa hora el día de HOY apenas lleva sus primeros cortes, así que se
+    archiva el ÚLTIMO corte de AYER — el día ya terminado, desde 11_45PM — y,
+    si existe, el último de hoy hasta esa hora. Con el snapshot que el endpoint
+    persiste al servir (15:00 ET), el archivo gana dos o tres cortes por día,
+    como el backfill. Las fechas salen de la hora ET, no de la fecha UTC: a las
+    00:30 UTC sigue siendo "ayer" en Nueva York.
+    """
+    from nba_predictor.ingestion.injury_report import INJURY_REPORT_TZ
+
+    hoy = now.astimezone(INJURY_REPORT_TZ).date()
+    return [(hoy - timedelta(days=1)).isoformat(), hoy.isoformat()]
+
+
 def _archive_injury_report(
     store: Any,
     date_str: str,
     max_requests: int = 20,
+    now_et: datetime | None = None,
 ) -> bool:
     """Archiva el snapshot del PDF de injury report para date_str.
 
@@ -115,6 +133,10 @@ def _archive_injury_report(
     Sin parsear, sin extraer ausencias, sin tocar features.
     Cualquier excepción se loggea como WARNING y retorna False —
     el fallo NUNCA bloquea la ingesta de boxscores (misión crítica del job).
+
+    now_et (D-PRE-1): hora actual inyectada por main(). Para la fecha de hoy
+    decide desde qué corte se sondea; sin ella la búsqueda arrancaba en
+    11_45PM y a las 08:00 ET jamás encontraba nada.
 
     Returns True si se archivó con éxito, False si hubo cualquier error.
     """
@@ -124,7 +146,9 @@ def _archive_injury_report(
             download_snapshot,
         )
 
-        url, suffix = discover_latest_snapshot(date_str, max_requests=max_requests)
+        url, suffix = discover_latest_snapshot(
+            date_str, max_requests=max_requests, now_et=now_et
+        )
         pdf_bytes = download_snapshot(url)
         store.save_raw_injury_report(date_str, suffix, pdf_bytes)
         _log.info(

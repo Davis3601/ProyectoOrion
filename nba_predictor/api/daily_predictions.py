@@ -137,6 +137,18 @@ class DailyResult:
     tipoff_tbd_count: int = 0
     # D-PRE-2: partidos del día con hora TBD (NBA Cup sin definir). No llevan
     # marcador de "iniciado" porque su hora no se conoce; el contador lo declara.
+    unresolved_team_count: int = 0
+    unresolved_team_tokens: list[str] = field(default_factory=list)
+    # D-PRE-4: equipos del PDF que no resolvieron contra el catálogo. Su
+    # partido se publica DECLARADO ("disponibilidad sin confirmar" en ambos
+    # equipos, el mismo marcador del caso NYS de 13e-2.5): se sabe que faltan
+    # filas de ese partido pero no de cuál de los dos lados.
+
+
+# Interruptor manual del feed (D-PRE-4). La env var se lee en el BORDE
+# (server.py); aquí solo viven el nombre y la razón literal que se publica.
+FORCE_FEED_DOWN_ENV = "NBA_PREDICTOR_FORCE_FEED_DOWN"
+FORCE_FEED_DOWN_REASON = f"feed desactivado manualmente ({FORCE_FEED_DOWN_ENV})"
 
 
 class _CatalogoVacio(RuntimeError):
@@ -165,6 +177,7 @@ def build_daily_predictions(
     save_injury_raw: bool = True,
     now_et: datetime | None = None,
     now_cdmx: datetime | None = None,
+    force_feed_down: bool = False,
 ) -> DailyResult:
     """
     Orquesta el pipeline completo para un día: schedule → ausencias → predicciones.
@@ -192,6 +205,12 @@ def build_daily_predictions(
     now_cdmx          : Hora actual (aware) inyectada por el borde (D-PRE-2).
                         Decide started_at_publish de cada partido contra su
                         tip-off REAL. None = no se determina (sin marcador).
+    force_feed_down   : Interruptor manual (D-PRE-4), leído por el borde de la
+                        env var NBA_PREDICTOR_FORCE_FEED_DOWN. True = no se
+                        descubre ni se parsea el PDF y el feed se declara caído
+                        con razón literal. Para el caso en que el cotejo humano
+                        encuentre filas mal atribuidas: publicar declarando es
+                        mejor que publicar mal.
 
     Returns
     -------
@@ -227,6 +246,13 @@ def build_daily_predictions(
     statuses_by_tid: dict[int, dict[int, str]] = {}
     feed_down = False
     feed_down_reason: str | None = None
+    unresolved: list[tuple[str, str]] = []
+
+    # ── 3.-1 Interruptor manual (D-PRE-4): manda sobre todo lo demás ──
+    if force_feed_down:
+        feed_down = True
+        feed_down_reason = FORCE_FEED_DOWN_REASON
+        _log.warning("Feed de injury report DESACTIVADO MANUALMENTE (%s).", FORCE_FEED_DOWN_ENV)
 
     # ── 3.0 Catálogo de nombres: sin él, el injury report es papel mojado ──
     # REGLA ADJUDICADA (D-PROD-1d): un player_map vacío se trata como FEED
@@ -235,7 +261,7 @@ def build_daily_predictions(
     # aspecto perfectamente sano de un día sin bajas — que es exactamente la
     # mentira silenciosa que el bug 2 de D-PROD-1c mantuvo viva sin un solo
     # error en los logs. Se predice, se declara, y se grita en los logs.
-    if not player_map:
+    if not player_map and not feed_down:
         feed_down = True
         feed_down_reason = (
             "Catálogo de nombres de jugador vacío: ninguna ausencia podría "
@@ -249,7 +275,7 @@ def build_daily_predictions(
     try:
         if feed_down:
             raise _CatalogoVacio(feed_down_reason)
-        absences_by_tid, nys_team_ids, statuses_by_tid = _fetch_absences(
+        absences_by_tid, nys_team_ids, statuses_by_tid, unresolved = _fetch_absences(
             target_date=target_date,
             store=store,
             norm_team_map=norm_team_map,
@@ -264,6 +290,17 @@ def build_daily_predictions(
         feed_down = True
         feed_down_reason = str(exc)
         _log.warning("Feed de injury report no disponible: %s", exc)
+
+    # ── 3.1 Equipos sin resolver (D-PRE-4): degradación DECLARADA del partido ──
+    # Antes era un WARNING y las filas se perdían: el partido salía con
+    # "Bajas: –" de aspecto sano. Ahora los dos equipos de ese matchup llevan
+    # "disponibilidad sin confirmar" (marcador del caso NYS): se sabe que faltan
+    # filas del partido, no de qué lado, y declarar de más es mejor que callar.
+    matchups_sin_resolver = {mu for _, mu in unresolved if mu}
+    for sg in games:
+        if f"{sg.away_tricode}@{sg.home_tricode}" in matchups_sin_resolver:
+            nys_team_ids = nys_team_ids | {sg.home_team_id, sg.away_team_id}
+    unresolved_tokens = sorted({tok for tok, _ in unresolved})
 
     # ── 4. Modelo (fallo duro si no carga) ──
     resolved_version = version_name or _discover_latest_version()
@@ -305,6 +342,8 @@ def build_daily_predictions(
         feed_down_reason=feed_down_reason,
         model_version=resolved_version,
         tipoff_tbd_count=count_tipoff_tbd(games),
+        unresolved_team_count=len(unresolved_tokens),
+        unresolved_team_tokens=unresolved_tokens,
     )
 
 
@@ -611,16 +650,31 @@ def _resolve_schedule(
     return [g for g in all_future if g.game_date == target_date]
 
 
+def resolve_team_id(token: str, norm_team_map: dict[str, int]) -> int | None:
+    """team_id de un nombre de equipo tal como lo escribe el PDF, o None.
+
+    D-PRE-4: la normalización es odds_logic.normalize_team, la ÚNICA del repo
+    para equipos (alfanumérica + alias). Antes se usaba _normalize_name, que es
+    para PERSONAS: convertía 'Philadelphia76ers' en 'philadelphiaers' y
+    'LAClippers' en 'laclippers', ninguno coincidía con la tabla teams, y las
+    bajas de PHI y LAC se descartaban con un WARNING.
+    """
+    from nba_predictor.jobs.odds_logic import normalize_team
+
+    return norm_team_map.get(normalize_team(token))
+
+
 def _build_norm_team_map(teams_df: Any) -> dict[str, int]:
     """Devuelve normalized_team_name → team_id para todas las franquicias.
 
-    Usa la misma normalización simétrica de injury_report para que los tokens
-    PDF ("BostonCeltics") matcheen contra los nombres del catálogo ("Boston Celtics").
+    Normalización SIMÉTRICA con odds_logic.normalize_team (D-PRE-4): la misma
+    función en las claves del catálogo ("Philadelphia 76ers") y en los tokens
+    del PDF ("Philadelphia76ers"). Consultar SIEMPRE con resolve_team_id.
     """
-    from nba_predictor.ingestion.injury_report import _normalize_name
+    from nba_predictor.jobs.odds_logic import normalize_team
 
     return {
-        _normalize_name(str(row["name"])): int(row["team_id"])
+        normalize_team(str(row["name"])): int(row["team_id"])
         for _, row in teams_df.iterrows()
     }
 
@@ -633,8 +687,11 @@ def _fetch_absences(
     max_requests: int,
     save_raw: bool,
     now_et: datetime | None = None,
-) -> tuple[dict[int, list[int]], set[int], dict[int, dict[int, str]]]:
-    """Descarga el PDF, parsea y devuelve ausencias, NYS y estatus para target_date.
+) -> tuple[
+    dict[int, list[int]], set[int], dict[int, dict[int, str]], list[tuple[str, str]]
+]:
+    """Descarga el PDF, parsea y devuelve ausencias, NYS, estatus y equipos sin
+    resolver (token, matchup) para target_date.
 
     now_et (D-PRE-1): hora actual inyectada por el borde; decide desde qué corte
     se empieza a sondear. Sin ella, un request de las 15:00 ET buscaría desde
@@ -664,7 +721,8 @@ def _fetch_absences(
     from nba_predictor.ingestion.injury_report import (
         InjuryStatus,
         NameIndex,
-        _normalize_name,
+        check_parse_coverage,
+        count_name_lines,
         discover_latest_snapshot,
         download_snapshot,
         parse_pdf,
@@ -690,20 +748,30 @@ def _fetch_absences(
             )
 
     player_rows, nys_entries = parse_pdf(pdf_bytes)
+    # D-PRE-3: si el parser leyó mucho menos de lo que el documento contiene
+    # (cambio de formato del PDF), ParseCoverageError sube como cualquier fallo
+    # del feed y build_daily_predictions lo DECLARA como feed caído. Va DESPUÉS
+    # de persistir el snapshot: el PDF que no se pudo leer queda archivado
+    # para diagnosticarlo.
+    check_parse_coverage(len(player_rows), count_name_lines(pdf_bytes))
     name_idx = NameIndex.from_player_map(player_map)
 
     absences_by_tid: dict[int, list[int]] = {}
     nys_team_ids: set[int] = set()
     statuses_by_tid: dict[int, dict[int, str]] = {}
+    # D-PRE-4: (token del PDF, matchup) de cada equipo que no resolvió. Ya no
+    # es un WARNING que se pierde: build_daily_predictions declara el partido.
+    unresolved: list[tuple[str, str]] = []
 
     # Una sola pasada: Out alimenta las ausencias del modelo y TODOS los
     # estatus alimentan la elegibilidad de los destacados.
     for row in player_rows:
         if row.game_date != target_date_mdy:
             continue
-        tid = norm_team_map.get(_normalize_name(row.team))
+        tid = resolve_team_id(row.team, norm_team_map)
         if tid is None:
-            _log.warning("Equipo sin match en catálogo: %r", row.team)
+            _log.error("Equipo del PDF sin match en catálogo: %r (%s)", row.team, row.matchup)
+            unresolved.append((row.team, row.matchup or ""))
             continue
         pid = name_idx.match(row.player_name)
         if pid is None:
@@ -716,11 +784,16 @@ def _fetch_absences(
     for entry in nys_entries:
         if entry.game_date != target_date_mdy:
             continue
-        tid = norm_team_map.get(_normalize_name(entry.team))
+        tid = resolve_team_id(entry.team, norm_team_map)
         if tid is not None:
             nys_team_ids.add(tid)
+        else:
+            # Un NYS no trae matchup: no se puede atribuir a un partido. Se
+            # cuenta y se grita; con la normalización vigente (30/30) no ocurre.
+            _log.error("Equipo NYS sin match en catálogo: %r", entry.team)
+            unresolved.append((entry.team, ""))
 
-    return absences_by_tid, nys_team_ids, statuses_by_tid
+    return absences_by_tid, nys_team_ids, statuses_by_tid, unresolved
 
 
 def _attach_highlights(

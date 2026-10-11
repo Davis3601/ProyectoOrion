@@ -480,6 +480,80 @@ def _detect_column_anchors(
     return None
 
 
+# ---------------------------------------------------------------------------
+# Guarda de cobertura del parser (D-PRE-3)
+# ---------------------------------------------------------------------------
+
+# Línea de texto con al menos un nombre de jugador "Apellido,Nombre". El
+# espacio tras la coma es OPCIONAL a propósito: la capa de texto de GemBox no
+# emite espacios ("Allen,Jarrett", 13e-1) y la de iTextSharp sí ("Robinson,
+# Duncan"). La regex del parser legacy exige el espacio y por eso cuenta CERO
+# candidatas en GemBox (medido 2026-10-11 sobre las dos fixtures): reutilizada
+# tal cual, la guarda habría estado muerta justo en el formato vigente. No va
+# anclada al inicio: la primera fila de cada bloque empieza por fecha, hora,
+# matchup y equipo antes del nombre.
+_NAME_LINE_RE = re.compile(r"[A-Za-z][A-Za-z'.\-]*, ?[A-Z]")
+
+# Cobertura mínima: filas devueltas / líneas con nombre. Misma cifra que la
+# guarda del parser legacy (_MIN_COVERAGE de injury_report_legacy): una sola
+# vara para "el parser leyó el documento".
+PARSE_MIN_COVERAGE = 0.8
+
+
+class ParseCoverageError(RuntimeError):
+    """El parser devolvió muchas menos filas de las que el documento contiene."""
+
+
+def count_name_lines(pdf_bytes: bytes) -> int | None:
+    """Líneas de la capa de texto con un nombre "Apellido,Nombre".
+
+    Conteo INDEPENDIENTE del parser (extract_text + regex, nada de bandas ni
+    anclas): un conteo que dependiera de la maquinaria de parse_pdf sería
+    circular (lección del 2026-08-22). None si el documento no se puede leer:
+    en producción eso ya habría hecho fallar a parse_pdf antes.
+    """
+    try:
+        import pdfplumber
+
+        n = 0
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                for linea in (page.extract_text() or "").split("\n"):
+                    if _NAME_LINE_RE.search(linea):
+                        n += 1
+        return n
+    except Exception as exc:  # noqa: BLE001 — no medible, no es veredicto
+        _log.warning("Guarda de cobertura: el PDF no se pudo leer para contar (%s)", exc)
+        return None
+
+
+def check_parse_coverage(
+    n_rows: int,
+    n_name_lines: int | None,
+    min_coverage: float = PARSE_MIN_COVERAGE,
+) -> None:
+    """Falla RUIDOSAMENTE si el parser leyó mucho menos de lo que hay (D-PRE-3).
+
+    POR QUÉ: el modo de fallo REAL de parse_pdf ante un generador distinto,
+    medido en D-RES-3, es devolver CERO filas sin lanzar. En el endpoint eso
+    publicaría "Bajas: –" en todos los partidos con feed_down=False: la
+    mentira silenciosa que 13e-2.5 prohíbe. La NBA ya cambió de generador una
+    vez entre temporadas (iTextSharp -> GemBox, offseason 2023). Con esta
+    guarda, ese día se publica DECLARANDO el reporte no disponible.
+
+    Un documento sin nombres (todos los equipos NOT YET SUBMITTED) no dispara:
+    cero de cero no es un fallo de lectura.
+    """
+    if not n_name_lines:
+        return
+    if n_rows < min_coverage * n_name_lines:
+        raise ParseCoverageError(
+            f"Injury report: el parser leyó {n_rows} filas de {n_name_lines} líneas "
+            f"con nombre de jugador (mínimo {min_coverage:.0%}). Posible cambio de "
+            f"formato del PDF: se declara no disponible en vez de publicar sin bajas."
+        )
+
+
 def parse_pdf(pdf_bytes: bytes) -> tuple[list[InjuryRow], list[NysEntry]]:
     """Parsea el PDF de injury report con pdfplumber.extract_words() + coordenadas.
 

@@ -4021,3 +4021,202 @@ días antes; el contador tipoff_tbd_count lo delataría en data.
 (8) TESTS: 19 nuevos en tests/test_started_at_publish.py; ningún test
 existente editado (diff vacío en test_daily_predictions.py,
 test_daily_players_section.py y test_server.py). Ruff limpio.]
+
+## D-PRE-3 (2026-10-11): guarda de cobertura del parser en el endpoint
+(opción b, adjudicada por Antonio). El congelamiento de D-PRE-2 empieza
+DESPUÉS de este bloque.
+
+RIESGO QUE CIERRA: el endpoint llamaba a parse_pdf() directo, sin
+detección de layout ni guarda de cobertura. Su modo de fallo REAL ante un
+generador distinto (D-RES-3, corpus iTextSharp) es devolver CERO filas SIN
+lanzar. En producción eso publicaría "Bajas: –" en todos los partidos con
+feed_down=False: la mentira silenciosa que 13e-2.5 prohíbe, invisible
+porque los pre-registros del día cero esperan precisamente feed_down=False.
+La NBA ya cambió de generador una vez entre temporadas (iTextSharp ->
+GemBox, offseason 2023); el primer PDF 2026-27 no existe todavía y su
+formato es desconocido.
+
+DISEÑO: tras parsear (y tras archivar el snapshot, para que el PDF ilegible
+quede como evidencia), el endpoint compara las filas del parser contra un
+conteo INDEPENDIENTE de líneas con nombre "Apellido,Nombre" en la capa de
+texto (extract_text + regex; nada de la maquinaria del parser — un conteo
+circular no vigila nada, lección del 2026-08-22). Si filas < 80% de líneas,
+ParseCoverageError -> el endpoint lo DECLARA como feed caído (13e-2.5 caso
+2): se predice igual, con la línea de reporte no disponible y la razón en
+data. Documento sin nombres (todos NYS) no dispara. PDF ilegible para el
+contador = None, sin veredicto (parse_pdf ya habría fallado antes). Umbral
+0.8 = el mismo de la guarda legacy (_MIN_COVERAGE): una sola vara. parse_pdf
+NO se tocó; funciones nuevas en injury_report.py (count_name_lines,
+check_parse_coverage, ParseCoverageError, PARSE_MIN_COVERAGE).
+
+HALLAZGO DE DISEÑO: la regex de candidatas del parser legacy
+(^[A-Z][^,]+, [A-Z]) exige espacio tras la coma; la capa de texto GemBox no
+lo emite ("Allen,Jarrett"). Medido sobre las dos fixtures: CERO candidatas.
+Reutilizada tal cual, la guarda habría estado MUERTA justo en el formato
+vigente — un guardián que nunca ladra con aspecto de guardián. La nueva
+regex acepta el espacio opcional y no va anclada al inicio de línea (la
+primera fila de cada bloque lleva fecha, matchup y equipo delante).
+
+EVIDENCIA (corpus archivado completo en GCS, 2 420 PDFs, solo lectura):
+  iTextSharp (2018-12-17 .. 2023-04-09)  1 451 PDFs  DISPARA 1 451 (100%)
+     parse_pdf devuelve 0 filas en TODOS, sin lanzar (ratio 0.000)
+  GemBox     (2023-10-24 .. 2026-04-12)    969 PDFs  DISPARA     0 (0%)
+     ratio filas/líneas: mín 0.923, p1 0.988, mediana 1.000, máx 1.000
+     (peor caso 2023-12-04_01PM, 12/13); 1 PDF sin nombres, sin disparo
+  Fixtures auditadas: el contador reproduce EXACTO los conteos oficiales
+  de 13e-1 (73 y 160).
+Cero falsos positivos en el formato vigente, detección total en el cambio
+de formato real conocido, margen ancho contra el umbral.
+
+Deploy predictions-api v14 (predictions-api-00015-w2n). Dry-run 2026-10-20: 200 en 27.16 s; 3 partidos, started_at_publish=False en los tres, cero marcadores, dos mensajes (players_message 441 caracteres), feed_down=True por 'fecha FUTURA ... 0 sondas' (correcto: la guarda no se ejercita sin PDF; su evidencia es el corpus); 3+6 filas de dry-run fechadas 10-11, excluidas por la regla de record.
+Primera publicación autónoma con el fix del bug 2 (cron del 2026-10-11):
+VERDE — Scheduler AttemptFinished 200 a las 19:00:22Z, webhook n8n 200 en 11.41 s (latencia compatible con la cadena), predictions-api 200 en 10.19 s en predictions-api-00014-f6k (v13), cero 'No item to return'; primer 200 autónomo del Scheduler desde 2026-09-24. Suite 995 passed, 15 deselected (972 + 23 nuevos en
+tests/test_parse_coverage_guard.py; ningún test existente editado). Ruff:
+2 avisos preexistentes en injury_report.py, ninguno nuevo.
+
+LÍMITE DECLARADO: la guarda detecta el fallo de LECTURA (el parser no ve
+filas que existen). NO detecta la misatribución (filas leídas con equipo o
+estatus equivocados): eso sigue siendo dominio de la auditoría humana
+(protocolo 13e-1). Por eso el primer PDF 2026-27 se coteja igual a mano en
+cuanto exista (19 o 20 de octubre), antes de las 13:00 CDMX del 20.
+
+CONGELAMIENTO: desde el cierre de este bloque hasta el 10-19 inclusive,
+cero cambios a producción (predictions-api v14, ingest-job v12,
+odds-capture v13, n8n publicado); solo verificación pasiva y el commit.
+
+## D-PRE-3 ADDENDUM (2026-10-11): proceso del congelamiento y cotejo
+del primer PDF de la temporada
+PROCESO: la guarda de cobertura (v14) se desplegó durante el
+congelamiento declarado en D-PRE-2 sin autorización explícita; el
+contenido la justifica (categoría bug, 13e-2.5) y el deploy se ACEPTA;
+el congelamiento se REINICIA desde predictions-api v14 (predictions-api-00015-w2n) hasta
+el 10-19. REGLA: durante congelamiento, todo cambio a producción
+requiere el "adelante" explícito de Antonio en el chat ANTES del
+deploy, aunque sea una guarda; la opción de reportar y esperar cuesta
+una hora, no días.
+VERIFICACIÓN DEL BUG 2 EN CRON: 2026-10-11 19:00:22Z, Scheduler 200,
+n8n 11.41 s, predictions-api 10.19 s, sin "No item to return". Primer
+200 autónomo desde el 09-24.
+LÍMITE DE LA GUARDA Y TAREA DEL DÍA CERO: la guarda detecta cero
+filas, no misatribución. Cotejo humano del primer PDF de 2026-27 con
+partidos del 10-20 (aparece el 19 por la tarde o el 20 por la mañana;
+el job de las 08:00 ET del 20 archiva el último corte del 19) ANTES de
+las 13:00 del 20, con scripts/listado_pdf_vigente.py (solo lectura).
+Protocolo 13e-1: equipos, estatus y NYS contra el PDF; si el generador
+cambió, la guarda ya lo declara; si las filas están pero mal
+atribuidas, es hallazgo inmediato y el 20 se publica con feed_down
+forzado a mano SOLO si Antonio lo decide antes del cron (sería la
+única intervención permitida, y se registra).
+
+[NOTA DE EJECUCION D-PRE-3 ADDENDUM (2026-10-11), de Code:
+(1) INSTRUMENTO: scripts/listado_pdf_vigente.py (funciones puras + CLI,
+borrable; CloudDataStore explícito, solo lectura). Reutiliza las MISMAS
+piezas del endpoint (parse_pdf, NameIndex sobre la tabla players,
+_build_norm_team_map de daily_predictions, count_name_lines y
+check_parse_coverage) y muestra fecha, hora, matchup, equipo del PDF,
+equipo resuelto, coherencia equipo-en-matchup, jugador, nombre resuelto o
+SIN MATCH, estatus y razón; NYS con fecha. "latest" ordena por (fecha,
+minuto del corte), no por nombre: '01_15PM' < '11_45AM' alfabéticamente.
+(2) PRUEBA DEL INSTRUMENTO contra el PDF más reciente del corpus GemBox
+(2026-04-12_11_15PM): 230 filas del parser = 230 líneas con nombre, guarda
+NO dispara, 0 equipos fuera de su matchup, 0 NYS, estatus Available=33 /
+Out=197. Conteos sanos. 1 jugador SIN MATCH (Sorber,Thomas: Out por cirugía
+de ACL, nunca jugó, no figura en ningún boxscore y por tanto tampoco en el
+catálogo players; benigno).
+(3) HALLAZGO — BUG LATENTE EN PRODUCCIÓN, CAZADO POR LA PRUEBA DEL
+INSTRUMENTO: "equipos sin resolver = 7" filas, todas de dos equipos. El
+mapa de equipos del endpoint (_build_norm_team_map + _normalize_name, un
+normalizador pensado para NOMBRES DE PERSONA) no resuelve dos tokens del
+PDF GemBox:
+    'Philadelphia76ers' -> 'philadelphiaers'  vs clave 'philadelphia ers'
+    'LAClippers'        -> 'laclippers'       vs clave 'los angeles clippers'
+(los demás, p.ej. 'LosAngelesLakers' y 'NewYorkKnicks', sí resuelven).
+En daily_predictions._fetch_absences, un equipo sin match se DESCARTA con
+un WARNING y su NYS se pierde sin rastro. Consecuencias para todo partido
+de PHI o LAC: sus Out no entran a availability_diff, el mensaje publica
+"Bajas PHI: –" / "Bajas LAC: –", un NYS de esos equipos no se declara, y
+la elegibilidad de destacados no ve sus estatus (un Out podría salir como
+destacado). Alcance medido en el calendario CDN: 62 partidos entre el
+10-20 y el 12-31, 61 dentro de la ventana (12.8%), empezando por PHI@NYK
+el DÍA CERO. Silencioso: aspecto sano, sin error, solo un WARNING en logs.
+GENEALOGÍA: el problema se conocía desde D-EXP-1 (2026-09-21: "_normalize_name
+del parser es para personas ('Philadelphia 76ers' -> 'philadelphia ers');
+el experimento usa normalizador alfanumérico propio con alias LAClippers")
+y se resolvió DENTRO del script del experimento, sin portarlo al endpoint.
+Misma familia que el catálogo players de D-PROD-1d: el arreglo vive en un
+script y nunca llega a producción.
+REMEDIO DISPONIBLE, NO APLICADO: el repo ya tiene un normalizador que
+resuelve ambos (odds_logic.normalize_team: alfanumérico + alias
+laclippers -> losangelesclippers; verificado: 'Philadelphia76ers' y
+'Philadelphia 76ers' -> 'philadelphia76ers'; 'LAClippers' y 'Los Angeles
+Clippers' -> 'losangelesclippers'). Usarlo en el mapa de equipos del
+endpoint es un cambio pequeño, pero es cambio a producción durante el
+congelamiento: por la REGLA de este mismo bloque, requiere el "adelante"
+de Antonio antes del deploy. No se tocó nada.
+(4) OBSERVACIÓN SOBRE "feed_down forzado a mano": hoy NO existe un
+mecanismo para forzarlo sin desplegar (ni env var ni parámetro del
+endpoint). Si el cotejo del 20 lo exige, forzarlo sería un deploy o un
+cambio de configuración; conviene decidir el mecanismo ANTES del 20 para
+no improvisarlo bajo reloj.]
+
+## D-PRE-4 (2026-10-11): normalización de equipos del endpoint y
+interruptor manual de feed. v15. Congelamiento reiniciado.
+BUG (instancia 19): el mapa de equipos del endpoint normalizaba
+"Philadelphia76ers" y "LAClippers" con el normalizador de personas
+("philadelphiaers", "laclippers") y no coincidía con teams; las filas
+se descartaban con WARNING: bajas de PHI y LAC ignoradas, "Bajas: –"
+falso, NYS no declarado, destacados sin estatus. 61 partidos de la
+ventana (12.8%), desde PHI@NYK del día cero. D-EXP-1 lo resolvió
+dentro de su script el 09-21 y nunca llegó al endpoint (misma
+subfamilia que el catálogo players sin desplegar). REGLA: todo ajuste
+de instrumento en un script que corrija algo que también vive en
+producción genera ticket nombrado el mismo día; "resuelto en el
+script" no es resuelto. FIX: odds_logic.normalize_team como única
+verdad; test 30/30; equipo sin resolver = degradación declarada, no
+WARNING. Listado tras el fix: scripts/listado_pdf_vigente.py latest (2026-04-12_11_15PM): 230 filas del parser = 230 líneas con nombre, guarda no dispara, equipos sin resolver 0 (antes: 7 filas, todas de PHI y LAC), 0 equipos fuera de su matchup; Philadelphia76ers -> Philadelphia 76ers, LAClippers -> Los Angeles Clippers.
+INTERRUPTOR MANUAL: NBA_PREDICTOR_FORCE_FEED_DOWN=1 declara feed caído
+sin código ni build. Activar: gcloud run services update
+predictions-api --update-env-vars NBA_PREDICTOR_FORCE_FEED_DOWN=1
+--region=us-south1 --project=predictorsnonprod. Desactivar:
+--remove-env-vars NBA_PREDICTOR_FORCE_FEED_DOWN. Todo uso en la
+ventana se registra con timestamp (es intervención manual: cuenta
+como degradación declarada, no como fallo de autonomía, porque la
+publicación sigue siendo autónoma).
+PROCESO: hallazgo reportado y deploy autorizado explícitamente antes
+de ejecutarse (regla de D-PRE-3 cumplida). Deploy v15 (predictions-api-00016-mcn). Suite
+1012 passed, 15 deselected (995 + 17 nuevos). Congelamiento REINICIADO desde v15 hasta el 10-19.
+
+[NOTA DE EJECUCION D-PRE-4 (2026-10-11), de Code:
+(1) LISTAS REALES EN EL TEST: los 30 nombres de la tabla teams (BigQuery,
+2026-10-11) y los 30 tokens que parse_pdf extrae del PDF GemBox vigente
+(corpus archivado). 30/30 resueltos y biyectivos (ningún equipo colapsa
+con otro). El PDF vigente escribe "LosAngelesLakers", no "LALakers"; el
+alias "lalakers" se AÑADIÓ a odds_logic._ALIAS porque el encargo lo
+exigía y D-EXP-1 registró esa forma en el corpus (un alias de más no
+rompe ningún match). nba-odds-capture NO se reconstruyó: sigue en
+ingest-job:v13 y tomará el alias en su próximo build.
+(2) EQUIPO SIN RESOLVER, DISEÑO: el token llega con su matchup del PDF
+("PHI@NYK"); el partido del schedule con ese matchup se marca con
+"disponibilidad sin confirmar" en AMBOS equipos (marcador del caso NYS),
+porque se sabe que faltan filas de ese partido pero no de qué lado. Las
+bajas que SÍ se resolvieron siguen aplicándose al modelo; solo cambia lo
+que el mensaje afirma. data gana unresolved_team_count y
+unresolved_team_tokens. LÍMITE: un NYS con equipo sin resolver no trae
+matchup y no puede atribuirse a un partido; se cuenta en data y se loggea
+como ERROR, sin marcar ningún partido. Con 30/30 no ocurre hoy.
+(3) INTERRUPTOR: la env var se lee en server.py por request y viaja como
+force_feed_down=True a build_daily_predictions; la función pura no lee
+el entorno (test). Con el interruptor activo no se descubre, no se
+descarga ni se parsea el PDF (test: discover jamás llamado), y su razón
+manda sobre la del catálogo vacío. Hoy la env var NO está definida en el
+servicio (interruptor apagado, verificado con describe).
+(4) DRY-RUN ?date=2026-10-20 en v15: 200 en 27.7 s, 3 partidos, cero
+marcadores, tipoff_tbd_count 0, unresolved_team_count 0, feed_down por
+"fecha FUTURA ... 0 sondas"; message y players_message IDÉNTICOS byte a
+byte a los del dry-run en v14. Goldens sin edición (diff vacío en los
+archivos de tests de formato y servidor). 17 tests nuevos en
+tests/test_team_resolution_and_force.py. Ruff limpio en lo tocado.
+(5) DESLIZ DE ORDEN, declarado: el deploy se lanzó leyendo solo el exit
+code 0 de la suite, antes de ver su línea literal; la línea (1012 passed)
+se leyó inmediatamente después. Sin consecuencia, pero el orden correcto
+es línea literal primero, deploy después.]

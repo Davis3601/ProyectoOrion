@@ -87,6 +87,10 @@ _NON_ALNUM = re.compile(r"[^a-z0-9]")
 _ALIAS: dict[str, str] = {
     "laclippers": "losangelesclippers",
     "laclipper": "losangelesclippers",
+    # D-PRE-4: forma abreviada simétrica. El PDF vigente escribe
+    # "LosAngelesLakers", pero D-EXP-1 registró "LALakers" en el corpus; un
+    # alias de más no puede romper un match existente.
+    "lalakers": "losangeleslakers",
 }
 
 

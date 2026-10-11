@@ -24,6 +24,7 @@ from zoneinfo import ZoneInfo
 from fastapi import FastAPI, HTTPException, Query
 
 from nba_predictor.api.daily_predictions import (
+    FORCE_FEED_DOWN_ENV,
     DailyResult,
     build_daily_predictions,
     format_daily_message,
@@ -214,6 +215,9 @@ def predictions_today(
         # del injury report se sondea. La lógica de abajo jamás lo consulta.
         now_et=ahora.astimezone(INJURY_REPORT_TZ),
         now_cdmx=ahora.astimezone(_CDMX_TZ),
+        # Interruptor manual (D-PRE-4), leído en el borde por request: activarlo
+        # o quitarlo con `gcloud run services update` no exige build ni código.
+        force_feed_down=os.getenv(FORCE_FEED_DOWN_ENV) == "1",
     )
     message = format_daily_message(result)
     # players_message es el SEGUNDO mensaje de Telegram (D-PROD-1b): cadena

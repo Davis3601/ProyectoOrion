@@ -53,15 +53,43 @@ def _should_retrain(
     )
 
 
-def _should_rebuild_features(n_new: int) -> tuple[bool, str]:
+# Nombre del parquet canónico (el que lee el reentrenamiento) y el de
+# verificación que escribe --force-features. Dos constantes y no un sufijo
+# armado en el call site: el modo forzado no debe poder escribir el canónico
+# por un typo (D-PRE-1 / bug 3).
+FEATURES_CANONICAL_VERSION = "v1"
+FEATURES_FORCECHECK_VERSION = "v1_forcecheck"
+
+
+def _should_rebuild_features(n_new: int, force: bool = False) -> tuple[bool, str]:
     """Decide si corresponde reconstruir las features.
 
     Solo tiene sentido si hay datos nuevos — los rolling windows absorberán
     los nuevos partidos. Sin datos nuevos, el parquet no cambia.
+
+    force (--force-features, D-PRE-1 / bug 3): ejecuta el paso aunque no haya
+    partidos nuevos, para ejercitarlo en la nube ANTES del primer día real.
+    Es un rebuild de VERIFICACIÓN: escribe a nombre aparte y nunca al canónico
+    (ver features_target_version).
     """
+    if force:
+        return True, (
+            f"--force-features ({n_new} partidos nuevos) → rebuild de VERIFICACIÓN "
+            f"a features_{FEATURES_FORCECHECK_VERSION}.parquet; el canónico no se toca"
+        )
     if n_new > 0:
         return True, f"{n_new} partidos nuevos → rebuild de features necesario"
     return False, "0 partidos nuevos → features sin cambios, rebuild omitido"
+
+
+def features_target_version(force: bool) -> str:
+    """Versión de features a la que escribe el paso 2.
+
+    Normal → canónico. Forzado → nombre de verificación, SIEMPRE: el parquet
+    canónico alimenta el reentrenamiento y su SHA viaja al metadata del
+    modelo; un rebuild de verificación jamás debe sustituirlo.
+    """
+    return FEATURES_FORCECHECK_VERSION if force else FEATURES_CANONICAL_VERSION
 
 
 def _latest_model_metadata(

@@ -3776,3 +3776,248 @@ menor).
 
 FECHA FUTURA EN PRODUCCIÓN: verificada en v12 con log literal
 ("fecha FUTURA respecto a la hora ET actual ... 0 sondas").
+
+## D-PRE-1 ADDENDUM 2 (2026-10-11): regla operativa de la ventana sobre
+disparos manuales
+
+Caso límite de la regla "de record": un disparo manual en [12:50,
+13:30] CDMX del día de partido compite con el cron (13:00:02) y solo
+ganaría a menos de 2 s de distancia. NO se cierra con código (exigiría
+que n8n marque sus llamadas y el endpoint lo persista: cambio en
+producción contra el congelamiento del 16-oct, por un riesgo
+despreciable). SE CIERRA CON REGLA OPERATIVA: del 2026-10-21 al
+2026-12-31, PROHIBIDO todo disparo manual del webhook, del Scheduler
+de publicación o del endpoint con la fecha del día entre 12:50 y
+13:30 CDMX; cualquier disparo manual en la ventana, a cualquier hora,
+se registra con timestamp en CLAUDE.md el mismo día. Las verificaciones
+con ?date de fechas pasadas o futuras siguen permitidas: la regla "de
+record" las excluye por fecha de predicción. Si por error ocurriera un
+disparo en la franja, la adjudicación de enero lo resuelve a favor de
+la fila del cron identificada por latencia y hora exacta, y lo
+declara.
+
+## D-PRE-1 / BUG 3 CERRADO (2026-10-11): ingest job a 2Gi, paso 2
+verificado en la nube
+Memoria 512Mi -> 2Gi (revisión generación 9 de nba-ingest-job; imagen ingest-job:v12 en la generación 10). Ejecución forzada del paso 2 en
+la nube: exit 0, duración 32.1 s (ejecución nba-ingest-job-tk7vt, 16:54:21 -> 16:54:53 UTC; paso 2 en 16.2 s), memoria RSS pico del proceso 515.4 MiB (ru_maxrss) — POR ENCIMA del límite anterior de 512Mi con 0 partidos nuevos, 25% de 2Gi; sin warnings de memoria en logs,
+veredicto nivel 2 contra el parquet canónico: IDÉNTICO (9643 x 19 en ambos; SHA reconstruido 883900aa... vs canónico re-serializado 605e8d88..., difiere por serialización como en la Decisión 1). El flag escribe a nombre de verificación, jamás al canónico;
+cadencia del paso 3 intacta. Suite 942 passed, 15 deselected (926 + 16 nuevos).
+CORRECCIÓN DOCUMENTAL (append): D-PROD-1d declaró el mantenimiento del
+catálogo players "mantenido por el ingest job"; el job siguió en v6
+(2026-08-28) hasta v11 (2026-10-11): el mantenimiento se construyó y
+verificó en local pero NUNCA se desplegó; la tabla quedó en 1 660
+jugadores un mes. INSTANCIA 17 del patrón: "desplegado" sin jobs
+update. REGLA: todo bloque que diga desplegado lleva tag o revisión
+literal verificable con gcloud describe. Primer run real del catálogo:
+2026-10-22.
+
+[NOTA DE EJECUCION BUG 3 (2026-10-11), de Code:
+(1) REVISION: los Cloud Run Jobs no tienen revisiones como los Services;
+lo verificable con gcloud describe es metadata.generation. Memoria
+aplicada en la generación 9 (512Mi -> 2Gi, resto heredado: 1 CPU,
+timeout 1800 s, ingest-job-sa); imagen ingest-job:v12 en la generación 10.
+v12 en lugar de v11 porque el flag es código nuevo (el encargo lo
+preveía). nba-odds-capture sigue en ingest-job:v10, sin tocar.
+(2) EL BUG ERA REAL, NO UNA PROYECCION: el pico medido dentro del
+contenedor (515.4 MiB) supera los 512Mi incluso sin partidos nuevos; el
+22-oct el job habría muerto por OOM. La métrica de Cloud Monitoring
+container/memory/utilizations dio p99 ~8% (~164 MiB) para ese minuto: es
+muestreada y NO captura un pico de segundos; el ru_maxrss del kernel es
+la evidencia del pico y desde v12 el job lo loggea en cada paso 2.
+(3) La medición de RSS se toma tras escribir el parquet y ANTES de cargar
+el canónico para comparar; en modo normal no hay esa carga extra.
+(4) Nivel 2 con UNA implementación: el job importa
+_compare_features_content de scripts/rebuild_cloud.py (viaja en la imagen),
+la misma función de la reconstrucción del 2026-08-14. Contenido distinto
+en modo forzado = RuntimeError, exit != 0.
+(5) Parquet de verificación BORRADO de GCS tras el veredicto (decisión
+declarada: la evidencia vive en el log de la ejecución; un
+features_v1_forcecheck.parquet junto al canónico invitaría a cargar el
+equivocado). El canónico features_v1.parquet quedó intacto: 1 124 695
+bytes, timestamp 2026-08-14T16:44:11Z, antes y después.
+(6) Efecto colateral de la ejecución forzada: corrió también el paso 1
+(0 partidos), el archivo del injury report (sin PDF, pretemporada) y la
+evaluación del paso 3 (sin reentrenar, cadencia no cumplida). Ruff: 1
+aviso preexistente en scripts/ingest_job.py (F401 google.cloud.storage),
+ninguno nuevo.]
+
+## D-PRE-1 / BUG 4 CERRADO (2026-10-11): market_odds solo pre-partido;
+REVISIÓN DE PREPARACIÓN COMPLETA
+Columna commence_time añadida (aditivo, filas previas NULL); captura
+omite eventos con commence_time <= capture_ts (contador + log), clave
+intacta. Contaminación previa: imposible (max(game_date) = 2026-12-25; la cifra que decide es min(game_date) = 2026-10-20 > hoy, ningún partido de la tabla había empezado, y max(capture_ts) previo = 2026-10-11 03:15 UTC; 0 filas con game_date < hoy vs
+hoy 2026-10-11 (ET)). Deploy nba-odds-capture ingest-job:v13 (generación 5); ejecución manual: 83
+filas con commence_time, 0 omitidos. Suite 953 passed, 15 deselected (942 + 11 nuevos).
+PRE-REGISTRO 21-oct: late con omitidos > 0 y cero filas para
+iniciados; publish con 0 omitidos. Cierra la verificación pendiente
+de D-EXP-1 como conteo.
+ESTADO D-PRE-1: 4 de 4 bugs cerrados con evidencia literal (bug 1 2026-10-11, predictions-api-00013-cvk + ingest-job:v11; bug 2 2026-10-11, UI n8n con log 200 de 2.09 s y 74.24 s; bug 3 2026-10-11, generación 10 de nba-ingest-job con 2Gi; bug 4 2026-10-11, nba-odds-capture ingest-job:v13).
+LECCIÓN DE INSTRUMENTO (bug 3): Cloud Monitoring p99 muestrea y pierde
+picos de segundos (mostró ~164 MiB con pico real de 515.4 MiB);
+ru_maxrss del kernel es la evidencia y queda loggeado en cada paso 2.
+CONGELAMIENTO: desde el cierre de este bloque hasta el 20-oct, cero
+cambios a producción; solo verificación pasiva y el commit.
+
+[NOTA DE EJECUCION BUG 4 (2026-10-11), de Code — detalle, desviaciones y DOS
+HALLAZGOS que el bloque de arriba no contempla y que requieren adjudicación:
+(1) ESQUEMA: ALTER TABLE ... ADD COLUMN commence_time TIMESTAMP con
+descripción, ejecutado ANTES del deploy (el MERGE con la columna nueva
+fallaría contra la tabla vieja). bq show: columna al final, TIMESTAMP.
+264 filas previas, 264 NULL tras el ALTER. ACL de tabla INTACTA: mismo etag
+BwZb8wgQmNs= antes y después, única binding nba-odds-capture-sa como
+dataEditor.
+(2) EJECUCION MANUAL nba-odds-capture-7xmrg (17:28 UTC, label evening): 46
+eventos de la API, 1200 partidos en el índice, "Eventos iniciados omitidos:
+0 de 46", "MERGE completado: 83 filas, 46 eventos emparejados, 0 sin match,
+0 iniciados omitidos", exit 0. Las 83 filas ACTUALIZARON las evening
+existentes (total de la tabla sigue en 264; 181 NULL = filas publish/late
+aún no re-capturadas, se poblarán solas en la próxima captura de cada
+label). 0 filas escritas con commence_time <= capture_ts. Cuota: 468
+créditos restantes.
+(3) CONTAMINACION: el placeholder pedía max(game_date) vs hoy, pero en una
+tabla de odds de partidos FUTUROS el máximo siempre es futuro y no prueba
+nada; la cifra decisiva es el MÍNIMO (2026-10-20 > 2026-10-11) más
+"0 filas con game_date < hoy". Se completaron ambas.
+(4) TAG: ingest-job:v13 (v12 lo usa ya nba-ingest-job desde el bug 3). El
+repo de imágenes es COMPARTIDO por los dos jobs, así que "siguiente tag
+libre" avanza por los dos. nba-ingest-job sigue en v12, sin tocar.
+(5) TEST EDITADO, declarado: test_los_dieciseis_campos_del_schema pasó a
+test_los_diecisiete_campos_del_schema (añade commence_time). Es la guarda
+del schema y existe para moverse cuando el schema cambia; contorsionar el
+código para no tocarla habría sido peor. 11 tests nuevos en
+tests/test_odds_prepartido.py (iniciado excluido, futuro incluido, frontera
+exacta excluida, contador, commence ilegible delegado al matching,
+capture_ts naive = error, commence persistido con y sin match, columna
+TIMESTAMP en el MERGE, filtro antes del matching con el MISMO reloj).
+(6) HALLAZGO A — LA TEMPORADA REGULAR EMPIEZA EL 2026-10-20, NO EL 21.
+Tres partidos el martes 20: 0022600001 BOS@DET (15:00 ET), 0022600002
+PHI@NYK (19:00 ET), 0022600003 OKC@SAS (21:30 ET). Confirmado por dos
+fuentes independientes (schedule CDN y The Odds API, mismos game_id y
+horas). El dato estaba en el repo desde el 2026-09-20 (fixture
+_SCHEDULE_REAL de tests/test_odds_logic.py: "0022600001", 2026-10-20) y
+nadie lo leyó como "día uno". Todo el registro asume el 21 como primer día
+real: el hito, los pre-registros de "primer día real", el "congelado del
+16 al 20" y el PRE-REGISTRO de este mismo bloque. El 20 es día de
+publicación real: dos mensajes, filas en ambos logs, primer ejercicio de
+casi todo. La ventana del criterio (2026-10-21 -> 2026-12-31) es letra
+congelada: los 3 partidos del 20 quedan FUERA de ella por su letra; no se
+propone renegociarla. Adjudicación de Antonio pendiente sobre: mover el
+"día uno" operativo y los pre-registros al 20, y si el congelamiento
+termina el 19. Primera ejecución real del ingest job con partidos nuevos:
+2026-10-21 12:00 UTC (no el 22).
+(7) HALLAZGO B — PARTIDOS QUE EMPIEZAN ANTES DE LA PUBLICACION. La
+publicación sale a las 13:00 CDMX (cron 13:00:02, mensaje ~15-20 s
+después). Del calendario CDN, partidos 2026-10-20..12-31 con tipoff <=
+13:00:20 CDMX: 7 de 481 (más 6 con hora TBD de NBA Cup):
+  2026-10-20 BOS@DET 15:00 ET = 13:00 CDMX   (fuera de la ventana)
+  2026-10-31 POR@UTA 15:00 ET = 13:00 CDMX
+  2026-11-15 IND@PHI 13:00 ET = 12:00 CDMX
+  2026-11-21 MIL@PHI 13:00 ET = 12:00 CDMX
+  2026-12-25 SAS@NYK 12:00 ET = 11:00 CDMX
+  2026-12-26 POR@WAS 13:00 ET = 12:00 CDMX
+  2026-12-31 SAS@CHA 13:00 ET = 12:00 CDMX
+Para esos partidos el sistema publicará y registrará en predictions_log una
+predicción con predicted_at POSTERIOR al tipoff: no es pre-partido y
+contradice la promesa de 13e-2.4 ("timestamp pre-tip-off verificable"). El
+modelo no gana información (sus features no leen el partido en curso),
+pero la evidencia deja de ser verificablemente previa. La regla "de record"
+no los excluye. El fix de bug 4 ya los saca de market_odds (sus odds
+publish quedarán omitidas como iniciadas), así que el par predicción/odd
+de cierre tampoco existirá para ellos. Opciones a adjudicar, SIN
+recomendación implícita: excluirlos del criterio por regla congelada
+antes del dato (tipoff <= predicted_at = sin predicción válida); o cambiar
+la publicación esos días (cambio en producción contra el congelamiento).
+Nada se tocó.
+(8) Ruff limpio en los 4 archivos tocados.]
+
+## D-PRE-2 (2026-10-11): calendario real, exclusión de partidos
+iniciados y marcador de producto. CONGELAMIENTO desde su cierre.
+
+HALLAZGO A: la temporada regular empieza el MARTES 2026-10-20 (BOS@DET
+15:00 ET, PHI@NYK 19:00, OKC@SAS 21:30; CDN y The Odds API coinciden;
+el fixture lo tenía desde 09-20 y nadie lo leyó). El criterio de
+comercialización (ventana 10-21 → 12-31) NO se toca: esos 3 partidos
+quedan FUERA y se reportan en enero como "día cero". CALENDARIO
+OPERATIVO CORREGIDO: primer día real con publicación de dos mensajes,
+feed en vivo y filas en ambos logs = 10-20 (ensayo con partidos reales
+fuera del criterio, el mejor dry-run posible); primer ingest con
+partidos nuevos = 10-21; congelamiento hasta el 10-19 inclusive.
+
+HALLAZGO B: 7 de 481 partidos (6 en ventana) tienen tipoff <= 13:00
+CDMX: POR@UTA 10-31, IND@PHI 11-15, MIL@PHI 11-21, SAS@NYK 12-25
+(11:00), POR@WAS 12-26, SAS@CHA 12-31, más BOS@DET 10-20 (día cero);
+6 NBA Cup con hora TBD. Su predicción de record se emite DESPUÉS del
+tipoff, rompiendo la promesa de timestamp pre-partido de 13e-2.4. El
+modelo no gana información (las features no leen el partido), pero la
+promesa sí se rompe.
+REGLA PRE-REGISTRADA (antes de que exista dato): partido cuyo tipoff
+real (gameDateTimeUTC del schedule CDN archivado) <= predicted_at_utc
+de su servida de record queda EXCLUIDO del criterio predictivo (Brier
+vs B0, calibración) y del CLV; contado y declarado en la adjudicación.
+Computado en el query, log intocable. 6/~470 = 1.3%, sin efecto en
+potencia. Consistencia: el filtro del bug 4 ya deja esos partidos sin
+odds publish; el CLV los excluye solo. TBD de NBA Cup: se adjudican
+por su tipoff real cuando se publique.
+MARCADOR DE PRODUCTO (13e-2.5, degradación declarada): línea
+"⏱ Iniciado al publicar · predicción sin información del partido en
+curso" bajo el partido afectado, reloj inyectado por el borde, resto
+del mensaje byte a byte intacto (goldens sin edición), campo
+started_at_publish en data, logs sin cambio de esquema. Deploy
+predictions-api v13 (predictions-api-00014-f6k); dry-run 2026-10-20: 200 en 31.3 s; 3 partidos (BOS@DET 13:00 CDMX, PHI@NYK 17:00, OKC@SAS 19:30); started_at_publish=False en los tres y CERO marcadores en el mensaje (reloj real del 10-11, los tres futuros); tipoff_tbd_count=0; DOS mensajes (players_message de 441 caracteres, 6 destacados con nombres reales); feed_down=True con razón "fecha FUTURA ... 0 sondas" (correcto para una fecha futura); filas: 3 en predictions_log con model_version poblado y 6 en player_predictions_log, served_by predictions-api-00014-f6k (excluidas por la regla de record: predicted_at 10-11). Suite
+972 passed, 15 deselected (953 + 19 nuevos). VERIFICACIÓN EN VIVO PRE-REGISTRADA: 10-20, cron 13:00:02
+CDMX vs tipoff BOS@DET 13:00:00: marcador ENCENDIDO solo en ese
+partido, apagado en los otros dos. Cambiar la hora de publicación por
+día: DESCARTADO (rompe la uniformidad de la regla de record y toca
+producción sin necesidad).
+
+CONGELAMIENTO: desde el cierre de este bloque hasta el 10-19
+inclusive, cero cambios a producción (predictions-api v13, ingest-job
+v12, odds-capture v13, n8n publicado), solo verificación pasiva y el
+commit.
+
+PRE-REGISTRO DEL DÍA CERO (10-20): dos mensajes; feed_down=False con
+sufijo coherente con las 15:00 ET (True = hallazgo inmediato);
+marcador en BOS@DET; 200 del Scheduler con latencia de decenas de
+segundos medida en el log de predictions-api; filas en ambos logs con
+model_version; market_odds publish con 0 omitidos y late con omitidos
+> 0; 10-21: ingest con 3 partidos nuevos, paso 2 ejecutado con
+ru_maxrss loggeado, catálogo players creciendo.
+
+[NOTA DE EJECUCION D-PRE-2 (2026-10-11), de Code:
+(1) POSICION DEL MARCADOR: "bajo el partido" se implementó como la línea
+inmediatamente bajo el encabezado del partido (VISITANTE @ LOCAL · hora),
+ANTES de la línea de probabilidad: el lector sabe qué está leyendo antes
+de leer el número. Fijado en test con el texto exacto del mensaje.
+(2) TBD, DOBLE SEÑAL: el payload real marca la hora indefinida con
+gameStatusText "TBD" y una hora de relleno 00:00 ET = 05:00Z (verificado en
+scheduleLeagueV2_2026-10-11.json, gameId 0022601201). Leída como real, esa
+hora encendería el marcador el día del partido ("ya empezó" a las 23:00
+CDMX de la víspera). Se detecta por el texto "TBD" O por la hora 00:00 ET
+(ningún partido NBA empieza a medianoche ET); con TBD, tip_off_utc = None y
+started_at_publish = None (sin marcador), contado en tipoff_tbd_count.
+(3) UN SOLO INSTANTE POR REQUEST: server.py lee el reloj una vez y deriva
+now_et (descubrimiento del injury report, D-PRE-1) y now_cdmx (esta regla)
+del mismo instante. El sello de los logs (predicted_at_utc) sigue siendo
+su propia lectura posterior, sin cambios; para la regla de exclusión eso
+es conservador (un predicted_at más tardío excluye, nunca incluye de más).
+(4) started_at_publish es bool | None: None = no determinable (sin reloj,
+sin hora UTC, TBD). El marcador exige `is True`; None y False reproducen el
+mensaje vigente byte a byte (test parametrizado contra el GamePrediction
+sin el campo).
+(5) FIXTURE REAL del día 20 recortado del schedule que el ingest job
+archivó hoy en GCS (raw/schedules/scheduleLeagueV2_2026-10-11.json). El
+recorte "real" de tests/test_future_schedule.py empezaba en el 21-oct
+("semana inaugural") y omitía los tres partidos del 20: así se escondió el
+hallazgo A dentro de un fixture que se presentaba como fuente de verdad.
+(6) future_schedule.py lo usan también ingest-job (v12) y odds-capture
+(v13); el cambio solo AÑADE campos al ScheduledGame, así que sus imágenes
+desplegadas se comportan igual y no se reconstruyeron (prohibición del
+encargo).
+(7) OBSERVACION SIN CORREGIR (fuera de alcance, el resto del mensaje es
+byte a byte): un partido TBD que llegara al día de publicación con la hora
+aún sin definir mostraría "· 23:00 CDMX" en el encabezado (la hora de
+relleno convertida). En la práctica la NBA define la hora de la NBA Cup
+días antes; el contador tipoff_tbd_count lo delataría en data.
+(8) TESTS: 19 nuevos en tests/test_started_at_publish.py; ningún test
+existente editado (diff vacío en test_daily_predictions.py,
+test_daily_players_section.py y test_server.py). Ruff limpio.]

@@ -43,6 +43,15 @@ class ScheduledGame:
     away_tricode: str
     season: str
     tip_off_et: datetime | None = None  # tip-off en ET; None si el schedule no lo provee
+    # Tip-off REAL en UTC (aware), de gameDateTimeUTC. Es el instante que decide
+    # si un partido ya empezó al publicar (D-PRE-2). gameDateTimeEst NO sirve
+    # para eso: su Z es decorativo y la hora es ET (capa 4). None si el
+    # schedule no lo trae o si la hora está por definir (tip_off_tbd).
+    tip_off_utc: datetime | None = None
+    # Hora "TBD" (NBA Cup antes de definirse): el payload trae gameStatusText
+    # "TBD" y una hora de relleno 00:00 ET = 05:00Z. Leída como real, esa hora
+    # haría parecer "ya empezado" un partido de esa noche.
+    tip_off_tbd: bool = False
 
 
 def fetch_future_schedule(
@@ -127,6 +136,22 @@ def fetch_future_schedule(
                 except (ValueError, TypeError):
                     pass
 
+            # D-PRE-2: hora TBD = señal explícita del payload ("TBD") o la hora
+            # de relleno 00:00 ET (ningún partido NBA empieza a medianoche ET).
+            tip_off_tbd = str(g.get("gameStatusText", "")).strip().upper() == "TBD" or (
+                tip_off_et is not None and (tip_off_et.hour, tip_off_et.minute) == (0, 0)
+            )
+            tip_off_utc: datetime | None = None
+            raw_utc = g.get("gameDateTimeUTC", "")
+            if raw_utc and not tip_off_tbd:
+                try:
+                    # Aquí el Z SÍ es UTC (difiere 4-5 h de gameDateTimeEst).
+                    tip_off_utc = datetime.fromisoformat(str(raw_utc).replace("Z", "+00:00"))
+                except (ValueError, TypeError):
+                    pass
+                if tip_off_utc is not None and tip_off_utc.tzinfo is None:
+                    tip_off_utc = None
+
             ht = g.get("homeTeam", {})
             at = g.get("awayTeam", {})
 
@@ -141,6 +166,8 @@ def fetch_future_schedule(
                         away_tricode=str(at.get("teamTricode", "")),
                         season=cdn_season,  # CDN es autoritativo (patrón e-0)
                         tip_off_et=tip_off_et,
+                        tip_off_utc=tip_off_utc,
+                        tip_off_tbd=tip_off_tbd,
                     )
                 )
             except (KeyError, ValueError, TypeError) as exc:

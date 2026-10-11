@@ -19,6 +19,7 @@ import os
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Query
 
@@ -42,6 +43,9 @@ from nba_predictor.ingestion.injury_report import INJURY_REPORT_TZ
 from nba_predictor.storage import get_datastore
 
 _log = logging.getLogger(__name__)
+
+# Zona de la publicación (13:00 CDMX). Sin horario de verano desde 2022.
+_CDMX_TZ = ZoneInfo("America/Mexico_City")
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +198,11 @@ def predictions_today(
     """
     target_date = _parse_date(date_str)
     season = _current_season(target_date)  # usa target_date, no date.today()
+    # UN solo instante para todo el request, leído AQUÍ, en el borde: decide
+    # desde qué corte del injury report se sondea (D-PRE-1) y qué partidos ya
+    # empezaron al publicar (D-PRE-2). Dos lecturas del reloj darían dos
+    # "ahoras" para una sola servida.
+    ahora = datetime.now(timezone.utc)
 
     result: DailyResult = build_daily_predictions(
         target_date=target_date,
@@ -203,7 +212,8 @@ def predictions_today(
         player_map=_player_map(app.state.store),
         # El reloj entra AQUÍ, en el borde (D-PRE-1): decide desde qué corte
         # del injury report se sondea. La lógica de abajo jamás lo consulta.
-        now_et=datetime.now(INJURY_REPORT_TZ),
+        now_et=ahora.astimezone(INJURY_REPORT_TZ),
+        now_cdmx=ahora.astimezone(_CDMX_TZ),
     )
     message = format_daily_message(result)
     # players_message es el SEGUNDO mensaje de Telegram (D-PROD-1b): cadena

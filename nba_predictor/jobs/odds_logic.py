@@ -120,6 +120,49 @@ def build_schedule_index(
 # ---------------------------------------------------------------------------
 
 
+def parse_commence(commence_time: Any) -> datetime | None:
+    """commence_time de la API (ISO UTC con Z) -> datetime aware en UTC, o None."""
+    try:
+        dt = datetime.fromisoformat(str(commence_time).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    return dt if dt.tzinfo else None
+
+
+def exclude_started(
+    events: list[dict[str, Any]],
+    capture_ts: datetime,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """(eventos aún no iniciados, descripción de los ya iniciados).
+
+    market_odds es PRE-PARTIDO por definición (D-PRE-1 / bug 4). En octubre
+    los snapshots evening (19:45 ET) y late (23:15 ET) caen después del tipoff
+    de casi todos los partidos; si la API lista eventos en curso, el MERGE por
+    clave sobrescribiría la odd previa de otro día con una odd EN VIVO y el
+    análisis de CLV compararía contra un precio que no es de cierre. No se
+    sabe todavía qué devuelve la API para eventos iniciados: en vez de esperar
+    a verlo, es invariante — commence_time <= capture_ts NO se escribe jamás.
+    La frontera exacta se excluye: en el instante del tipoff ya no es previa.
+
+    Un commence_time ilegible NO se decide aquí (no se sabe si empezó): sigue
+    al matching, que ya lo avisa y no lo escribe.
+    """
+    if capture_ts.tzinfo is None:
+        raise ValueError("capture_ts debe llevar zona horaria (aware, UTC).")
+    pendientes: list[dict[str, Any]] = []
+    iniciados: list[str] = []
+    for ev in events:
+        inicio = parse_commence(ev.get("commence_time"))
+        if inicio is not None and inicio <= capture_ts:
+            iniciados.append(
+                f"{ev.get('away_team')} @ {ev.get('home_team')} "
+                f"(commence {inicio:%Y-%m-%d %H:%M}Z <= captura {capture_ts:%H:%M}Z)"
+            )
+            continue
+        pendientes.append(ev)
+    return pendientes, iniciados
+
+
 def _commence_date(commence_time: str) -> date | None:
     """commence_time viene en UTC ISO con Z. Devuelve la fecha UTC.
 
@@ -214,6 +257,9 @@ def extract_h2h_rows(
             "capture_ts": capture_ts,
             "source": SOURCE,
             "ingested_at": capture_ts,
+            # D-PRE-1 / bug 4: el tipoff de la propia API, persistido para que
+            # el análisis pueda verificar capture_ts < commence_time fila a fila.
+            "commence_time": parse_commence(event.get("commence_time")),
         })
     return filas
 

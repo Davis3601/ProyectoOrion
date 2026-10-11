@@ -40,6 +40,7 @@ from nba_predictor.jobs.odds_logic import (
     SPORT_KEY,
     MERGE_KEYS,
     build_schedule_index,
+    exclude_started,
     match_events,
     validate_snapshot_label,
 )
@@ -199,12 +200,14 @@ def merge_rows(store, rows: list[dict]) -> int:
         "home_price_american", "away_price_american",
         "home_price_decimal", "away_price_decimal",
         "snapshot_label", "capture_ts", "source", "ingested_at",
+        "commence_time",
     ]
     tipos = {
         "game_date": "DATE", "matched": "BOOL", "home_price_american": "INT64",
         "away_price_american": "INT64", "home_price_decimal": "FLOAT64",
         "away_price_decimal": "FLOAT64", "capture_ts": "TIMESTAMP",
         "ingested_at": "TIMESTAMP",
+        "commence_time": "TIMESTAMP",
     }
     struct_type = bigquery.StructQueryParameterType(
         *[bigquery.ScalarQueryParameterType(tipos.get(c, "STRING"), name=c)
@@ -296,7 +299,19 @@ def main() -> None:
             "plausible en pretemporada.", total_futuros, len(eventos),
         )
 
-    filas, sin_match = match_events(eventos, build_schedule_index(schedule), label)
+    # PRE-PARTIDO POR DEFINICIÓN (D-PRE-1 / bug 4): los eventos ya iniciados
+    # NO se escriben — una odd en vivo pisaría por MERGE la previa de otro día.
+    # UN solo reloj para el filtro y para las filas: el capture_ts escrito es
+    # exactamente el instante contra el que se decidió "no iniciado".
+    capture_ts = datetime.now(timezone.utc)
+    pendientes, iniciados = exclude_started(eventos, capture_ts)
+    for desc in iniciados:
+        log.info("Evento ya iniciado, omitido (market_odds es pre-partido): %s", desc)
+    log.info("Eventos iniciados omitidos: %d de %d", len(iniciados), len(eventos))
+
+    filas, sin_match = match_events(
+        pendientes, build_schedule_index(schedule), label, capture_ts
+    )
     for aviso in sin_match:
         log.warning("Partido de la API sin match en el schedule: %s", aviso)
 
@@ -311,8 +326,9 @@ def main() -> None:
 
     escritas = merge_rows(store, filas)
     log.info(
-        "MERGE completado: %d filas, %d eventos emparejados, %d sin match.",
-        escritas, len(eventos) - len(sin_match), len(sin_match),
+        "MERGE completado: %d filas, %d eventos emparejados, %d sin match, "
+        "%d iniciados omitidos.",
+        escritas, len(pendientes) - len(sin_match), len(sin_match), len(iniciados),
     )
 
 

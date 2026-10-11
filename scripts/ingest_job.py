@@ -24,6 +24,7 @@ diagnóstico post-run en Cloud Logging. Excepción no capturada → exit ≠ 0
 Uso:
   python scripts/ingest_job.py
   python scripts/ingest_job.py --force-retrain
+  python scripts/ingest_job.py --force-features   # verificación del Paso 2 (D-PRE-1)
   python scripts/ingest_job.py --check-endpoints
   NBA_PREDICTOR_MODE=cloud python scripts/ingest_job.py
 """
@@ -60,8 +61,10 @@ if TYPE_CHECKING:
 from nba_predictor.jobs.ingest_logic import (  # noqa: E402
     _archive_injury_report,
     _check_season_guard,
+    FEATURES_CANONICAL_VERSION,
     _collect_player_names,
     _latest_model_metadata,
+    features_target_version,
     injury_archive_dates,
     _persist_player_names,
     _season_from_raw_schedule,
@@ -192,8 +195,29 @@ def _step1_ingest(
     return n_new
 
 
-def _step2_features(ds: Any) -> str | None:
+def _peak_rss_mib() -> float | None:
+    """Pico de memoria residente del proceso en MiB (Linux: ru_maxrss en KiB).
+
+    Evidencia directa del margen contra el límite del contenedor (D-PRE-1 /
+    bug 3: el paso 2 midió 586.6 MiB en local contra 512Mi de límite). None
+    donde el módulo resource no existe (Windows).
+    """
+    try:
+        import resource
+    except ImportError:
+        return None
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+
+
+def _step2_features(ds: Any, force: bool = False) -> str | None:
     """Reconstruye features_v1 desde BigQuery y sube el parquet a GCS.
+
+    force (--force-features, D-PRE-1 / bug 3): rebuild de VERIFICACIÓN. Escribe
+    a features_v1_forcecheck.parquet — jamás al canónico — y compara su
+    CONTENIDO contra el canónico vigente con la misma regla nivel 2 de la
+    reconstrucción (Decisión 1 de Fase 5b: el SHA puede diferir por
+    serialización; lo que decide es el DataFrame). Contenido distinto =
+    RuntimeError: exit ≠ 0, ruidoso, y el paso 3 no corre sobre una duda.
 
     Returns
     -------
@@ -203,14 +227,40 @@ def _step2_features(ds: Any) -> str | None:
     """
     from nba_predictor.features.assemble import assemble_features
 
-    log.info("PASO 2 — Rebuild de features")
+    log.info("PASO 2 — Rebuild de features%s", " (FORZADO, verificación)" if force else "")
     log.info("  Ensamblando features desde BigQuery...")
     features = assemble_features(log=log.info)
     log.info("  %d × %d features ensambladas", len(features), len(features.columns))
 
     parquet_sha256 = _parquet_sha256_from_df(features)
-    ds.save_features(features)
-    log.info("  ✓ features_v1.parquet subido a GCS (SHA-256: %s...)", parquet_sha256[:16])
+    target = features_target_version(force)
+    ds.save_features(features, version=target)
+    log.info(
+        "  ✓ features_%s.parquet subido a GCS (SHA-256: %s...)", target, parquet_sha256[:16]
+    )
+    rss = _peak_rss_mib()
+    if rss is not None:
+        log.info("  RSS pico del proceso tras el paso 2: %.1f MiB", rss)
+
+    if force:
+        # Misma regla nivel 2 que la reconstrucción: UNA implementación, la de
+        # rebuild_cloud (viaja en la imagen con scripts/). Una segunda copia
+        # sería una segunda verdad de "idéntico".
+        from scripts.rebuild_cloud import _compare_features_content
+
+        canonical = ds.load_features(FEATURES_CANONICAL_VERSION)
+        canonical_sha = _parquet_sha256_from_df(canonical)
+        log.info(
+            "  Canónico features_%s.parquet: %d × %d (SHA-256 re-serializado: %s...)",
+            FEATURES_CANONICAL_VERSION, len(canonical), len(canonical.columns),
+            canonical_sha[:16],
+        )
+        same, detail = _compare_features_content(canonical, features)
+        if not same:
+            log.error("  ❌ NIVEL 2 — contenido DIFIERE del canónico: %s", detail)
+            raise RuntimeError(f"--force-features: contenido difiere del canónico: {detail}")
+        nivel = "1 (SHA idéntico)" if canonical_sha == parquet_sha256 else "2 (SHA difiere)"
+        log.info("  ✅ NIVEL %s — contenido IDÉNTICO al canónico", nivel)
     return parquet_sha256
 
 
@@ -409,6 +459,7 @@ def main(
     force_retrain: bool = False,
     today: date | None = None,
     now_et: datetime | None = None,
+    force_features: bool = False,
 ) -> None:
     from nba_predictor.config import TRAINING_SEASONS, settings
     from nba_predictor.ingestion.cdn_client import CDNClient
@@ -423,8 +474,8 @@ def main(
 
     today = today or date.today()
     log.info(
-        "=== ingest_job START  fecha=%s  force-retrain=%s ===",
-        today.isoformat(), force_retrain,
+        "=== ingest_job START  fecha=%s  force-retrain=%s  force-features=%s ===",
+        today.isoformat(), force_retrain, force_features,
     )
 
     try:
@@ -481,10 +532,10 @@ def main(
         _archive_injury_report(ds, date_str, now_et=now_et)
 
     # ── Paso 2: rebuild de features ─────────────────────────────────────────
-    do_rebuild, rebuild_reason = _should_rebuild_features(n_new)
+    do_rebuild, rebuild_reason = _should_rebuild_features(n_new, force=force_features)
     log.info("PASO 2 — %s", rebuild_reason)
     if do_rebuild:
-        _step2_features(ds)
+        _step2_features(ds, force=force_features)
 
     # ── Paso 3: reentrenamiento ─────────────────────────────────────────────
     _step3_retrain(
@@ -509,6 +560,15 @@ if __name__ == "__main__":
         help="Fuerza el reentrenamiento independientemente de la cadencia.",
     )
     parser.add_argument(
+        "--force-features",
+        action="store_true",
+        help=(
+            "Ejecuta el Paso 2 aunque no haya partidos nuevos, como VERIFICACIÓN: "
+            "escribe a features_v1_forcecheck.parquet (jamás al canónico) y compara "
+            "contenido contra el canónico (nivel 2). No fuerza el Paso 3."
+        ),
+    )
+    parser.add_argument(
         "--check-endpoints",
         action="store_true",
         help=(
@@ -521,4 +581,4 @@ if __name__ == "__main__":
     if args.check_endpoints:
         _run_check_endpoints()
     else:
-        main(force_retrain=args.force_retrain)
+        main(force_retrain=args.force_retrain, force_features=args.force_features)

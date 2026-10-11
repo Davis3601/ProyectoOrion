@@ -117,6 +117,12 @@ class GamePrediction:
     # sería ambigua entre "no hay datos" y "no hay destacados". El default es
     # False a propósito: mientras el cableado no exista (Tarea C), el mensaje
     # vigente se reproduce byte a byte.
+    started_at_publish: bool | None = None
+    # D-PRE-2: True si el tip-off REAL (gameDateTimeUTC) ya ocurrió al servir.
+    # El mensaje lo DECLARA (degradación declarada, 13e-2.5): la predicción se
+    # publica igual, pero no es pre-partido. None = no determinable (sin reloj
+    # inyectado, sin hora UTC o con hora TBD): sin marcador. El default None
+    # reproduce el mensaje vigente byte a byte.
 
 
 @dataclass
@@ -128,6 +134,9 @@ class DailyResult:
     feed_down: bool
     feed_down_reason: str | None        # descripción del error si feed_down
     model_version: str | None           # None solo si games está vacía (sin partidos)
+    tipoff_tbd_count: int = 0
+    # D-PRE-2: partidos del día con hora TBD (NBA Cup sin definir). No llevan
+    # marcador de "iniciado" porque su hora no se conoce; el contador lo declara.
 
 
 class _CatalogoVacio(RuntimeError):
@@ -155,6 +164,7 @@ def build_daily_predictions(
     max_injury_requests: int = 20,
     save_injury_raw: bool = True,
     now_et: datetime | None = None,
+    now_cdmx: datetime | None = None,
 ) -> DailyResult:
     """
     Orquesta el pipeline completo para un día: schedule → ausencias → predicciones.
@@ -179,6 +189,9 @@ def build_daily_predictions(
                         Decide desde qué corte del PDF se sondea (D-PRE-1).
                         None = lista histórica desde 11_45PM, correcta solo
                         para días ya terminados.
+    now_cdmx          : Hora actual (aware) inyectada por el borde (D-PRE-2).
+                        Decide started_at_publish de cada partido contra su
+                        tip-off REAL. None = no se determina (sin marcador).
 
     Returns
     -------
@@ -268,6 +281,7 @@ def build_daily_predictions(
             feed_down=feed_down,
             player_map=player_map,
         )
+        gp.started_at_publish = started_at_publish(sg, now_cdmx)
         game_preds.append(gp)
 
     # ── 6. Destacados del mensaje 2 (D-PROD-1c) ──
@@ -290,7 +304,36 @@ def build_daily_predictions(
         feed_down=feed_down,
         feed_down_reason=feed_down_reason,
         model_version=resolved_version,
+        tipoff_tbd_count=count_tipoff_tbd(games),
     )
+
+
+def count_tipoff_tbd(games: "list[ScheduledGame]") -> int:
+    """Partidos con hora TBD (D-PRE-2): sin marcador posible, se declaran contados."""
+    return sum(1 for sg in games if getattr(sg, "tip_off_tbd", False) is True)
+
+
+def started_at_publish(sg: "ScheduledGame", now: datetime | None) -> bool | None:
+    """¿El partido ya empezó en el instante de servir? (D-PRE-2)
+
+    Compara el tip-off REAL (gameDateTimeUTC, aware) contra la hora inyectada
+    por el borde; la función jamás lee el reloj. La frontera exacta cuenta como
+    iniciado: en el minuto del tip-off la predicción ya no es pre-partido.
+
+    None cuando no se puede determinar — sin reloj, sin hora UTC, u hora TBD —
+    y entonces el mensaje no lleva marcador: un "iniciado" inventado sobre una
+    hora de relleno sería peor que no decir nada.
+    """
+    if now is None:
+        return None
+    if now.tzinfo is None:
+        raise ValueError("now_cdmx debe llevar zona horaria (aware).")
+    if getattr(sg, "tip_off_tbd", False) is True:
+        return None
+    tip = getattr(sg, "tip_off_utc", None)
+    if not isinstance(tip, datetime) or tip.tzinfo is None:
+        return None
+    return tip <= now
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +361,8 @@ _PLAYERS_WINDOW = 10
 _FEED_DOWN_MSG = (
     "⚠️ Reporte de lesiones no disponible — predicciones sin ajuste de bajas de hoy."
 )
+# D-PRE-2: marcador de partido ya iniciado al publicar. Texto congelado en test.
+_STARTED_MSG = "⏱ Iniciado al publicar · predicción sin información del partido en curso"
 
 
 def format_daily_message(result: DailyResult) -> str:
@@ -368,6 +413,11 @@ def format_daily_message(result: DailyResult) -> str:
         if gp.tip_off_cdmx:
             matchup += f" · {gp.tip_off_cdmx}"
         lines.append(matchup)
+        # D-PRE-2: declarado justo bajo el encabezado, antes del número, para
+        # que el lector sepa qué está leyendo antes de leerlo. `is True` y no
+        # truthiness: None (no determinable) no enciende nada.
+        if gp.started_at_publish is True:
+            lines.append(_STARTED_MSG)
 
         home_pct = round(gp.probability_home * 100)
         away_pct = 100 - home_pct

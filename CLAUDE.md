@@ -4220,3 +4220,154 @@ tests/test_team_resolution_and_force.py. Ruff limpio en lo tocado.
 code 0 de la suite, antes de ver su línea literal; la línea (1012 passed)
 se leyó inmediatamente después. Sin consecuencia, pero el orden correcto
 es línea literal primero, deploy después.]
+
+## D-PRE-5 (2026-10-19): 200 del webhook ≠ entrega; n8n intacto, la
+auditoría diaria verifica el canal
+
+HALLAZGO: el 2026-10-18 el nodo Telegram registró ECONNRESET
+(19:00:18Z) y el webhook respondió 200 en 15.9 s; el mensaje SÍ llegó
+al canal (confirmado por Antonio): Telegram procesó el envío y se
+perdió la respuesta. Un fallo real de envío también devolvería 200,
+así que el 200 del Scheduler certifica que la cadena corrió, NO que el
+mensaje se entregó.
+DECISIÓN (Antonio): no se toca n8n durante la ventana. Reintentos
+DESCARTADOS (Telegram no es idempotente; el 10-18 habría duplicado).
+La entrega se verifica en la auditoría operativa diaria: mensaje
+presente en el canal (o ejecución verde en Executions de n8n). Un día
+sin mensaje en el canal cuenta como fallo de autonomía aunque el
+Scheduler marque 200.
+COSMÉTICO (post-congelamiento): el log "Injury report encontrado" usa
+%d con Content-Length (str) y emite un traceback de logging sin efecto
+(primer hit real: ingest 2026-10-19 12:00:18Z, PDF archivado igual).
+
+## D-PRE-6 (2026-10-20): destacados por EQUIPO ACTUAL; traspasados con su
+equipo nuevo y sus últimos 10. v16. Congelamiento reiniciado.
+
+HALLAZGO (Antonio, día cero, mensaje 2 publicado): Jaylen Brown salió como
+destacado de BOS; fue traspasado a PHI en el verano. Ningún componente usa
+el roster actual: el sistema no tiene fuente de plantillas y deduce el
+equipo de los partidos jugados. Para los destacados era BUG, no el rezago
+aceptado: la regla vieja ("último partido CON ESTE equipo dentro de 250
+días", D-PROD-1f) lo mantenía como candidato de BOS hasta el 2026-12-16
+(último partido con BOS 2026-04-10 + 250), porque sus 10 partidos con
+Boston nunca se renuevan. Contradice la adjudicación de D-PROD-1c
+("anomalía transitoria, se disuelve en 2-3 semanas cuando la ventana
+rueda"): para un traspasado la ventana del equipo viejo NO rueda.
+Discriminante del criterio: contradice lo escrito = bug, se corrige de
+inmediato. INSTANCIA 20 del patrón: la recencia "por equipo" se diseñó
+contra el caso Luol Deng y nadie la ejercitó contra un traspaso de verano.
+
+REGLA NUEVA (adjudicada por Antonio): (1) equipo actual de un jugador =
+equipo de su fila MÁS RECIENTE en toda la liga, cualquier fila incluida
+la de 0 minutos (fila = activado, Decisión 9); (2) candidato solo de ese
+equipo, con la recencia de 250 días medida sobre esa fila; (3)
+estadísticas = sus ÚLTIMOS 10 partidos jugados con CUALQUIER equipo.
+Consecuencia buscada por Antonio: un traspasado (Brown, LeBron) aparece
+como destacado de su equipo NUEVO con sus números reales recientes,
+aunque los haya hecho con el anterior. Coherente con el contrato
+congelado ("top 1 por minutos de los últimos 10 jugados"): el "con ese
+equipo" era del código, no del contrato. El modelo NO cambia: sus
+features arrastran plantillas del año previo exactamente como en el
+entrenamiento (walk-forward 0.63138 incluye ese efecto).
+LÍMITE DECLARADO: antes de la primera fila con su equipo nuevo, el sistema
+no puede saber que el jugador cambió de equipo; en el primer partido de
+cada equipo un traspasado puede salir todavía con el anterior. Cerrarlo
+exige una fuente de rosters actuales (spike post-ventana; stats.nba.com
+bloqueado en datacenter, el CDN usado no la expone).
+
+EVIDENCIA: 8 tests nuevos en tests/test_highlights_current_team.py con
+ids reales (BOS/PHI/Brown/Maxey): ROJOS contra el módulo anterior (5 de 8;
+los 3 que pasan son el límite declarado, la recencia y el estatus) y
+verdes con el fix; los 63 tests de destacados preexistentes pasan sin
+edición. Suite 1020 passed, 15 deselected (1012 + 8). Ruff limpio.
+Deploy predictions-api v16 (predictions-api-00017-9bs, 1Gi). Dry-run
+?date=2026-10-21: 200 en 66.2 s, 11 partidos, 22 destacados, 0 equipos sin
+resolver, sin errores de memoria (filas de dry-run fechadas 10-20,
+excluidas por la regla de record). Brown debutó con PHI esta noche; desde
+el ingest del 21 su fila más reciente es de PHI y deja de ser candidato de
+BOS.
+
+PROCESO: hallazgo reportado y deploy autorizado explícitamente por Antonio
+antes de ejecutarse (regla de D-PRE-3). Congelamiento REINICIADO desde v16.
+
+DÍA CERO (2026-10-20), verificación pre-registrada, resultado: Scheduler
+200 (19:00:59Z), n8n 200 en 47.95 s, predictions-api 200 en 45.87 s
+(00016-mcn, frío); corte del injury report 03_00PM descubierto y archivado;
+guarda 26/26; 0 equipos sin resolver; los 6 equipos del día entregaron
+(ningún NYS para el 20); predictions_log 3 filas a las 19:00:45Z con
+v1_logistic_bclean_2026-10-17 y ausencias aplicadas en los 3 partidos
+(PHI incluida, el caso de D-PRE-4); player_predictions_log 6 filas con
+nombres reales; job archivó 2026-10-19_11_45PM (política de "ayer").
+market_odds publish: "0 iniciados omitidos" CORRECTO — The Odds API
+movió el tipoff de BOS@DET a 19:10Z (CDN: 19:00Z) y la captura fue a las
+19:00:21Z; 0 filas de market_odds capturadas tras su commence_time.
+MATIZ (sin cambio en ventana): el marcador ⏱ usa la hora PROGRAMADA del
+CDN; el balón probablemente subió después de la publicación. Es
+conservador (nunca afirma "previo" en falso); afinar el texto queda para
+post-ventana. Aviso de sklearn "fitted without feature names" en el log:
+existe desde 00008-2bw (2026-09-24), no es nuevo.
+
+## D-PRE-6b (2026-10-20): cotejo, rollback de la supresión y LIMITACIÓN
+ACEPTADA del primer partido
+
+1. COTEJO (Antonio, fuente nba.com/news/nba-offseason-deals-2026 del
+   2026-10-19): 4 de 22 destacados del dry-run del 21 con equipo viejo
+   por traspaso de verano:
+     jugador          mostrado   está en   movimiento
+     Julius Randle    MIN        BKN       trade a 4 equipos, julio
+     Brandon Ingram   TOR        LAC       trade por Kawhi, 30-jun
+     Kawhi Leonard    LAC        TOR       mismo trade
+     Cody Williams    UTA        MIN       trade, 29-ago
+   Los otros 18 sin movimiento registrado.
+2. DECISIÓN (Antonio): se descarta la supresión del mensaje 2 (flag
+   NBA_PREDICTOR_HIGHLIGHTS_ENABLED, implementada y revertida sin
+   desplegar; v17 construida, nunca servida, tag no reutilizable).
+   Producción sigue en v16 (predictions-api-00017-9bs) con la regla de
+   D-PRE-6.
+3. LIMITACIÓN ACEPTADA Y DECLARADA, vigente para toda la ventana: un
+   jugador traspasado sale con su equipo anterior hasta su primera fila
+   de boxscore con el nuevo; después sale con el nuevo y sus últimos 10
+   partidos de cualquier equipo. Es consecuencia de diseño (el sistema
+   no tiene fuente de plantillas y no afirma lo que no ha visto), NO
+   bug: las publicaciones del 21 al 24 con esos 4 casos NO computan para
+   el gate operativo (b). Discriminante del criterio aplicado: esto es
+   lo que CLAUDE.md dice desde hoy; una publicación que lo contradiga sí
+   sería bug.
+4. La publicación del 2026-10-20 (Brown en BOS) es anterior a la ventana
+   y no computa para ningún gate. Instancia 20 del patrón.
+5. D-PRE-8 (mejora, primera semana de ventana, con pre-registro propio):
+   señal de plantilla desde boxscores de PRETEMPORADA (ingesta a
+   raw/boxscores_preseason/ y tabla roster_signals; jamás a games ni
+   features) y desde el equipo del injury report. Reduce el desfase al
+   primer partido de pretemporada visto. Habría resuelto los 4 casos
+   antes del 21. Spike previo: disponibilidad del liveData/boxscore
+   pre-partido a las 13:00 CDMX (solo HEAD).
+6. PENDIENTE DE PRE-REGISTRO antes del primer caso en ventana: regla de
+   evaluación de Brier para partidos con tipoff programado <=
+   predicted_at_utc (propuesta: fuera del primario, dentro del
+   secundario).
+7. Verificación pendiente de Antonio: Devin Carter bajo BOS en el PDF
+   del 20 y bajo ATL en la página oficial de movimientos.
+
+[NOTA DE TRANSCRIPCIÓN D-PRE-6b (2026-10-20), de Code — dos cruces con el
+registro que conviene adjudicar, sin cambiar lo transcrito arriba:
+(a) El punto 6 se cruza con D-PRE-2 (2026-10-11), que YA pre-registró
+una regla para el mismo caso: "partido cuyo tipoff real (gameDateTimeUTC
+del schedule CDN archivado) <= predicted_at_utc de su servida de record
+queda EXCLUIDO del criterio predictivo (Brier vs B0, calibración) y del
+CLV". La propuesta del punto 6 (fuera del primario, DENTRO del
+secundario) no contradice la exclusión del primario, pero sí añade su
+inclusión en un análisis secundario que D-PRE-2 no contemplaba. Si se
+adopta, conviene redactarla como ENMIENDA explícita de D-PRE-2 y no como
+regla nueva, para que no convivan dos textos sobre el mismo partido.
+Primer caso en ventana: POR@UTA del 2026-10-31.
+(b) "Tipoff programado" coincide con lo que mide D-PRE-2:
+gameDateTimeUTC del CDN es la hora PROGRAMADA (BOS@DET 19:00Z), mientras
+The Odds API registró el tipoff real a las 19:10Z (D-PRE-6, día cero).
+Ninguna de las dos reglas usa la hora real de salto.
+(c) Estado de producción verificado al escribir este bloque:
+predictions-api-00017-9bs (imagen predictions-api:v16) al 100% del
+tráfico; el código local de la supresión revertido con git
+checkout de config.py, daily_predictions.py y server.py, y borrado
+tests/test_highlights_suppressed.py; tests de destacados, mensajes y
+servidor 127/127 en verde tras el rollback.]

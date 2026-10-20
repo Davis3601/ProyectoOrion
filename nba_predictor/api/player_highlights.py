@@ -136,39 +136,62 @@ def rank_team_candidates(
 ) -> list[dict[str, Any]]:
     """Candidatos de UN equipo, ordenados por minutos rolling descendente.
 
-    Tres filtros, en este orden: RECENCIA (¿sigue en la plantilla?), estatus
-    (¿puede jugar hoy?) y mínimo de partidos (¿hay costumbre que describir?).
+    Cuatro filtros, en este orden: EQUIPO ACTUAL (¿es suyo hoy?), RECENCIA
+    (¿sigue activo?), estatus (¿puede jugar hoy?) y mínimo de partidos (¿hay
+    costumbre que describir?).
 
-    LA RECENCIA NO ES COSMÉTICA. Sin ella el universo es toda la historia del
-    equipo y gana quien más minutos promedió en CUALQUIER tramo de 10 partidos
-    de la última década: el dry-run del 2026-10-21 proponía a Luol Deng por
-    Miami con datos de 2016. El criterio es el último partido del jugador CON
-    ESE EQUIPO, no su último partido en la liga: un traspasado ya no representa
-    a su equipo anterior aunque siga jugando.
+    EQUIPO ACTUAL (D-PRE-6): el equipo de un jugador es el de su fila MÁS
+    RECIENTE en toda la liga — cualquier fila, también de 0 minutos, porque
+    desde la Decisión 9 una fila significa "activado con ese equipo". Antes el
+    criterio era "su último partido CON ESTE equipo dentro de la recencia", y
+    un traspasado seguía siendo candidato de su equipo VIEJO hasta que
+    caducaban los 250 días: Jaylen Brown habría salido como destacado de BOS
+    hasta el 2026-12-16, porque sus 10 partidos con Boston nunca se renuevan.
+    LÍMITE CONOCIDO: antes de su primera fila con el equipo nuevo, el sistema
+    no puede saber que cambió de equipo (no hay fuente de rosters).
 
-    target_date None desactiva el filtro — solo para tests que fijan otras
-    propiedades; la ruta de producción SIEMPRE lo pasa.
+    LA RECENCIA NO ES COSMÉTICA. Sin ella el universo es toda la historia y
+    gana quien más minutos promedió en CUALQUIER tramo de 10 partidos de la
+    última década: el dry-run del 2026-10-21 proponía a Luol Deng por Miami
+    con datos de 2016. Se aplica sobre la fila más reciente del jugador.
+
+    ESTADÍSTICAS: los ÚLTIMOS 10 partidos jugados del jugador, con CUALQUIER
+    equipo. El mensaje dice "últimos 10 partidos", y eso es literal: un
+    traspasado aparece con su equipo nuevo y sus números reales recientes
+    aunque los haya hecho con el anterior (adjudicado por Antonio, D-PRE-6).
+
+    target_date None desactiva SOLO la recencia — para tests que fijan otras
+    propiedades; la ruta de producción SIEMPRE lo pasa. El equipo actual se
+    aplica siempre: es un hecho de los datos, no un filtro temporal.
     """
-    del_equipo = hist_pgs[
-        (hist_pgs["team_id"] == team_id)
-        & hist_pgs["minutes"].notna()
-        & (hist_pgs["minutes"] > 0)
-    ]
-    if del_equipo.empty:
+    if hist_pgs.empty:
         return []
-
-    vigentes: set[int] | None = None
+    # Equipo actual: la fila más reciente de cada jugador (desempate estable
+    # por game_id para que dos filas del mismo día no dependan del orden).
+    orden = ["game_date", "game_id"] if "game_id" in hist_pgs.columns else ["game_date"]
+    ultima = (
+        hist_pgs.sort_values(orden, kind="stable")
+        .groupby("player_id", sort=False)
+        .tail(1)
+    )
+    actuales = ultima[ultima["team_id"] == team_id]
     if target_date is not None:
         import pandas as pd
 
         corte = pd.Timestamp(target_date - timedelta(days=recency_days))
-        ultimo = del_equipo.groupby("player_id")["game_date"].max()
-        vigentes = {int(p) for p in ultimo[ultimo >= corte].index}
+        actuales = actuales[actuales["game_date"] >= corte]
+    del_equipo_hoy = {int(p) for p in actuales["player_id"]}
+    if not del_equipo_hoy:
+        return []
+
+    jugados = hist_pgs[
+        hist_pgs["player_id"].isin(del_equipo_hoy)
+        & hist_pgs["minutes"].notna()
+        & (hist_pgs["minutes"] > 0)
+    ]
 
     candidatos: list[dict[str, Any]] = []
-    for pid, filas in del_equipo.groupby("player_id"):
-        if vigentes is not None and int(pid) not in vigentes:
-            continue
+    for pid, filas in jugados.groupby("player_id"):
         estatus = statuses.get(int(pid))
         if not is_eligible(estatus):
             continue

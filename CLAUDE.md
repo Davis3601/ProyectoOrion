@@ -4371,3 +4371,16 @@ tráfico; el código local de la supresión revertido con git
 checkout de config.py, daily_predictions.py y server.py, y borrado
 tests/test_highlights_suppressed.py; tests de destacados, mensajes y
 servidor 127/127 en verde tras el rollback.]
+
+- [CIERRE 2026-10-20] Punto 6 RETIRADO: D-PRE-2 (2026-10-11) ya lo
+   cubre y prevalece: partidos con tipoff programado <= publicación
+   quedan fuera del criterio y del CLV. La hora que gobierna es la
+   PROGRAMADA del CDN, única disponible a las 13:00; la hora real de
+   salto (The Odds API) es dato de mercado, no de calendario. Primer
+   caso en ventana POR@UTA 2026-10-31: sin decisión nueva.
+- [RESUELTO 2026-10-20] Devin Carter: SAC->ATL (trade, jun), ATL lo
+   cortó (11-sep), BOS lo firmó (Exhibit 10, 14-sep; conversión
+   14-oct). El PDF del 20 era correcto; la página oficial de movimientos
+   NO lista waivers ni Exhibit 10. Lección: para plantillas, el injury
+   report es más completo que la página de movimientos. Refuerza
+   D-PRE-8.

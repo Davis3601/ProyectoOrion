@@ -4384,3 +4384,94 @@ servidor 127/127 en verde tras el rollback.]
    NO lista waivers ni Exhibit 10. Lección: para plantillas, el injury
    report es más completo que la página de movimientos. Refuerza
    D-PRE-8.
+
+## D-PRE-8 (PRE-REGISTRO 2026-10-20): señales de plantilla para destacados
+
+Objetivo: reducir el desfase de plantilla del mensaje 2 con dos señales
+que el sistema ya ve: boxscores de PRETEMPORADA y el equipo bajo el que
+aparece cada jugador en el injury report. Filosofía intacta: equipo =
+lo visto más reciente; solo se amplía qué cuenta como visto.
+Alcance: SOLO el mensaje 2. games, team_game_stats, player_game_stats,
+el parquet de features, ausencias y modelo no cambian. Test de no
+contaminación obligatorio (hashes idénticos antes/después).
+Fuente y almacén: partidos con prefijo 001 de la temporada efectiva,
+mismo scheduleLeagueV2 y mismo endpoint liveData/boxscore vía S3; RAW a
+raw/boxscores_preseason/{game_id}.json; tabla roster_signals
+(player_id, team_id, game_id_o_snapshot, game_date, source ∈
+{preseason, injury_report}, observed_at), MERGE idempotente. El injury
+report alimenta la misma tabla con el equipo del PDF y la fecha del
+corte, solo filas con match de player_id.
+Regla: equipo actual = fila más reciente entre player_game_stats y
+roster_signals. Estadísticas: solo temporada regular, últimos 10 de
+cualquier equipo. Pretemporada da equipo, nunca números.
+Ingesta: paso nuevo en ingest_job, best-effort (WARNING, nunca tumba la
+ingesta regular). Backfill único de la pretemporada 2026 al desplegar.
+Expectativa: tras el backfill, Randle (BKN), Ingram (LAC), Kawhi (TOR)
+y Cody Williams (MIN) resuelven a su equipo correcto. Cobertura
+(jugadores con fila regular 2025-26 que tienen señal de pretemporada
+2026): conjetura >85%. Desviación = hallazgo.
+Límite declarado: jugadores de pretemporada cortados antes del inicio
+pueden conservar señal de un equipo donde no están; casi nunca son
+candidatos (minutos bajos). Aceptado.
+Prerrequisito: este spike (estructura del boxscore 001 == regular).
+Deploy fuera de 12:50-13:30, congelamiento reiniciado, junto con
+D-PRE-9.
+
+## D-PRE-9 (PRE-REGISTRO 2026-10-20): dos destacados por equipo
+
+Regla: top 2 por minutos rolling, mismos filtros de estatus y mínimo
+de partidos que el top 1; columna rank (1|2) en player_predictions_log;
+test de longitud del mensaje con el día de mayor carga del calendario
+2026-27; si el mensaje excede 3 800 caracteres, recorte DECLARADO a
+top 1 ese día con una línea que lo diga. Se despliega en el mismo
+deploy que D-PRE-8.
+
+## D-PRE-8 SPIKE RESULTADO (2026-10-20)
+
+Pre-registro sellado en CLAUDE.md a las 01:44:35Z (2026-10-21 UTC) ANTES de
+correr el spike. Script: scripts/spike_preseason_boxscore.py (funciones
+puras + CLI; LocalDataStore explícito; solo lectura de GCS y del CDN/S3;
+único archivo escrito: data/spike_preseason/report.json). 23 descargas en
+total; cero escrituras en GCS o BigQuery. Corrido a las 19:46 CDMX.
+
+TABLA a — partidos 001 en scheduleLeagueV2_2026-10-20.json (seasonYear
+2026-27):
+  partidos 001        67
+  rango de fechas     2026-10-03 -> 2026-10-16
+  con gameStatus 3    67 (todos jugados; ningún otro estado)
+
+DIFF c — estructura del boxscore (liveData/boxscore vía S3):
+  0012600009 (TOR vs MIA, 2026-10-03, primero de octubre) vs 0022600001
+    (BOS@DET, 2026-10-20): diff VACÍO
+  0012600063 (DEN@LAL, 2026-10-16, último jugado) vs 0022600001: diff VACÍO
+  Niveles comparados: claves de nivel superior, game, team,
+  team.statistics, player (13 claves), player.statistics (33 claves),
+  valores de status. Las tres firmas: minutes en ISO 8601 (PT##M##.##S,
+  p.ej. PT06M59.00S / PT04M29.00S / PT02M45.00S), status = {ACTIVE}.
+  Normalizadores de la Decisión 9 (_normalize_cdn_team_stats y
+  _normalize_cdn_player_stats) aceptan los tres payloads sin error:
+  2 filas de equipo cada uno; 42 / 41 / 28 filas de jugador activo.
+
+TABLA d — los 4 casos del cotejo en boxscores 001 de 2026-27 (ids desde
+la tabla players por nombre; 21 partidos 001 involucran a BKN, MIN, LAC,
+TOR o UTA y se revisaron TODOS, sin muestreo: 20 descargas para este
+paso, bajo la cota de 40):
+  jugador          player_id  apariciones 001  equipo visto  última fila 001
+  Julius Randle       203944                4  BKN           2026-10-14, 27:45 min
+  Brandon Ingram     1627742                2  LAC           2026-10-14, 0 min (ACTIVE)
+  Kawhi Leonard       202695                3  TOR           2026-10-15, 22:34 min
+  Cody Williams      1642262                6  MIN           2026-10-16, 27:23 min
+  Ninguno aparece con su equipo anterior en ningún boxscore 001.
+
+VEREDICTO:
+  estructura compatible: SÍ (diff vacío en ambos pares; parser de la
+  Decisión 9 acepta los payloads 001 tal cual).
+  casos visibles en pretemporada: 4 de 4, todos con su equipo CORRECTO
+  (el que nba.com lista tras los traspasos). La expectativa
+  pre-registrada (los 4 resuelven tras el backfill) queda sostenida por
+  el spike; se adjudica en la implementación con el backfill real.
+NOTA: la última fila 001 de Ingram es de 0 minutos con status ACTIVE: es
+señal de plantilla válida bajo la regla de D-PRE-8 ("activado" = visto)
+y no aporta números (la pretemporada nunca da números). La conjetura de
+cobertura >85% NO se midió aquí (fuera del alcance del spike); queda para
+la implementación.

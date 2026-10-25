@@ -194,7 +194,7 @@ def _hist_partido() -> pd.DataFrame:
 
 def test_top_uno_por_equipo_con_lado_correcto():
     hs = build_game_highlights(_hist_partido(), home_team_id=100, away_team_id=200,
-                               statuses_by_tid={}, player_map=NOMBRES)
+                               statuses_by_tid={}, player_map=NOMBRES, per_team=1)
     assert [(h.player_name, h.team) for h in hs] == [
         ("Local Uno", "home"), ("Visita Uno", "away")]
 
@@ -215,7 +215,7 @@ def test_el_excluido_cede_el_puesto_al_siguiente():
 
 def test_especialista_por_umbral_de_triples():
     hs = build_game_highlights(_hist_partido(), home_team_id=100, away_team_id=200,
-                               statuses_by_tid={}, player_map=NOMBRES)
+                               statuses_by_tid={}, player_map=NOMBRES, per_team=1)
     local, visita = hs
     assert local.fg3m_median == 1.0 and local.is_shooting_specialist is False
     assert visita.fg3m_median == 3.0 and visita.is_shooting_specialist is True
@@ -238,7 +238,7 @@ def test_sin_candidatos_en_ninguno_da_lista_vacia():
 
 def test_player_id_viaja_para_el_log():
     hs = build_game_highlights(_hist_partido(), home_team_id=100, away_team_id=200,
-                               statuses_by_tid={}, player_map=NOMBRES)
+                               statuses_by_tid={}, player_map=NOMBRES, per_team=1)
     assert [h.player_id for h in hs] == [1, 10]
 
 
@@ -305,6 +305,7 @@ def test_sin_target_date_el_filtro_no_se_aplica():
     hs = build_game_highlights(
         _hist_miami_real(), home_team_id=1610612748, away_team_id=999,
         statuses_by_tid={}, player_map={2736: "Luol Deng", 1628389: "Bam Adebayo"},
+        per_team=1,
     )
     assert [h.player_name for h in hs] == ["Luol Deng"]
 

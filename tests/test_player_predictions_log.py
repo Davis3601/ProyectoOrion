@@ -59,10 +59,12 @@ def _resultado(games) -> DailyResult:
 # ---------------------------------------------------------------------------
 
 
-def test_schema_tiene_dieciseis_campos_en_orden():
-    assert len(PLAYER_LOG_FIELDS) == 16
+def test_schema_tiene_diecisiete_campos_en_orden():
+    """D-PRE-9 añade rank AL FINAL: las 16 columnas previas no se mueven."""
+    assert len(PLAYER_LOG_FIELDS) == 17
     assert PLAYER_LOG_FIELDS[0] == "game_id"
-    assert PLAYER_LOG_FIELDS[-1] == "served_by"
+    assert PLAYER_LOG_FIELDS[-2] == "served_by"
+    assert PLAYER_LOG_FIELDS[-1] == "rank"
 
 
 def test_fila_lleva_exactamente_las_claves_del_schema():

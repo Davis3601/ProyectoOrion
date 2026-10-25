@@ -82,6 +82,10 @@ class PlayerHighlight:
     # Identidad para player_predictions_log. No aparece en el mensaje: el
     # nombre es para el lector y el id es para el JOIN de grading, igual que
     # absences_applied guarda ids mientras el mensaje muestra nombres.
+    rank: int | None = None
+    # D-PRE-9: puesto dentro de su equipo (1|2) por minutos rolling. Va al log;
+    # el mensaje no lo imprime (el orden de las líneas ya lo dice). None en
+    # objetos construidos a mano = 1 implícito, como las filas viejas del log.
 
 
 @dataclass
@@ -143,6 +147,16 @@ class DailyResult:
     # partido se publica DECLARADO ("disponibilidad sin confirmar" en ambos
     # equipos, el mismo marcador del caso NYS de 13e-2.5): se sabe que faltan
     # filas de ese partido pero no de cuál de los dos lados.
+    players_trimmed: bool = False
+    # D-PRE-9: True si el mensaje 2 con dos destacados por equipo excedía el
+    # presupuesto y se recortó a uno por equipo. Recorte DECLARADO: el mensaje
+    # lo dice en una línea y el log registra solo lo publicado.
+    highlights_truncated: str | None = None
+    # D-PRE-9, dos guardas en escalera: None = mensaje completo; "top1" =
+    # recortado a uno por equipo (> 3 800); "omitted" = ni con uno por equipo
+    # cabe (> 4 000): el mensaje 2 se sustituye por una sola línea que lo
+    # declara y player_predictions_log no registra nada, porque no se
+    # publicó ningún destacado. Los players calculados siguen en data.
 
 
 # Interruptor manual del feed (D-PRE-4). La env var se lee en el BORDE
@@ -333,9 +347,10 @@ def build_daily_predictions(
         game_preds=game_preds,
         statuses_by_tid=statuses_by_tid,
         player_map=player_map,
+        season=season,
     )
 
-    return DailyResult(
+    result = DailyResult(
         target_date=target_date.isoformat(),
         games=game_preds,
         feed_down=feed_down,
@@ -345,6 +360,48 @@ def build_daily_predictions(
         unresolved_team_count=len(unresolved_tokens),
         unresolved_team_tokens=unresolved_tokens,
     )
+    # ── 7. Presupuesto de longitud del mensaje 2 (D-PRE-9) ──
+    # Antes de devolver: el recorte cambia gp.players, y el log de destacados
+    # se construye de ESTE resultado — registra lo publicado, no lo calculado.
+    apply_players_length_budget(result)
+    return result
+
+
+def apply_players_length_budget(
+    result: DailyResult, limit: int | None = None
+) -> bool:
+    """Si el mensaje 2 excede el presupuesto, recorta a UN destacado por equipo.
+
+    Pre-registro D-PRE-9: más de 3 800 caracteres → recorte DECLARADO a top 1
+    ese día, con una línea que lo dice. Se conserva rank 1 (o rank None, que
+    es 1 implícito). Devuelve True si recortó. Modifica result in situ.
+
+    SEGUNDA GUARDA (adjudicada por Antonio, D-PRE-9): si incluso con uno por
+    equipo el mensaje excede PLAYERS_MESSAGE_HARD_LIMIT (4 000), el mensaje 2
+    se SUSTITUYE por una línea que declara la omisión y highlights_truncated
+    pasa a "omitted". Nunca se envía a Telegram algo que pueda rebotar contra
+    su límite duro (4 096): un Send fallido es un silencio, la omisión es
+    degradación declarada (13e-2.5).
+    """
+    limit = PLAYERS_MESSAGE_BUDGET if limit is None else limit
+    if len(format_players_message(result)) <= limit:
+        return False
+    for gp in result.games:
+        gp.players = [p for p in gp.players if p.rank in (None, 1)]
+    result.players_trimmed = True
+    result.highlights_truncated = "top1"
+    largo = len(format_players_message(result))
+    _log.warning(
+        "Mensaje 2 recortado a un destacado por equipo por longitud (D-PRE-9): %d caracteres",
+        largo,
+    )
+    if largo > PLAYERS_MESSAGE_HARD_LIMIT:
+        result.highlights_truncated = "omitted"
+        _log.error(
+            "Mensaje 2 OMITIDO por longitud (D-PRE-9): %d > %d aun con uno por equipo",
+            largo, PLAYERS_MESSAGE_HARD_LIMIT,
+        )
+    return True
 
 
 def count_tipoff_tbd(games: "list[ScheduledGame]") -> int:
@@ -384,6 +441,19 @@ _DISCLAIMER = "Predicciones estadísticas — no constituyen consejo de apuestas
 
 # Límite duro de un mensaje de texto de Telegram, en caracteres UTF-8.
 TELEGRAM_MAX_CHARS = 4096
+
+# Presupuesto del mensaje 2 (pre-registro D-PRE-9): por encima, recorte
+# declarado a un destacado por equipo. 296 caracteres bajo el límite duro.
+PLAYERS_MESSAGE_BUDGET = 3800
+
+# Segunda guarda (D-PRE-9): por encima de esto, ni recortado se envía; el
+# mensaje 2 es una sola línea que lo declara. 96 bajo el límite duro.
+PLAYERS_MESSAGE_HARD_LIMIT = 4000
+_PLAYERS_OMITTED_LINE = "🏀 Destacados · {fecha}: omitidos hoy por longitud del día."
+
+# Línea del recorte declarado (D-PRE-9), bajo el título: el lector sabe antes
+# de leer que hoy hay uno por equipo y por qué.
+_PLAYERS_TRIMMED_LINE = "(un destacado por equipo hoy por longitud)"
 
 # Título del SEGUNDO mensaje. Declara la ventana UNA vez y de forma factual:
 # no dice "esperado", "proyectado" ni nada que prometa cobertura (D-EXP-4).
@@ -518,7 +588,11 @@ def format_players_message(result: DailyResult) -> str:
 
     d = date.fromisoformat(result.target_date)
     fecha = f"{d.day} {_MESES_ES[d.month]} {d.year}"
+    if result.highlights_truncated == "omitted":
+        return _PLAYERS_OMITTED_LINE.format(fecha=fecha)
     lines: list[str] = [_PLAYERS_TITLE.format(fecha=fecha)]
+    if result.players_trimmed:
+        lines.append(_PLAYERS_TRIMMED_LINE)
     for bloque in bloques:
         lines.append("")
         lines.extend(bloque)
@@ -804,8 +878,15 @@ def _attach_highlights(
     game_preds: list[GamePrediction],
     statuses_by_tid: dict[int, dict[int, str]],
     player_map: dict[int, str],
+    season: str | None = None,
 ) -> None:
     """Rellena players / players_data_available de cada partido, in situ.
+
+    D-PRE-8: carga también roster_signals de la temporada efectiva (season,
+    la del payload CDN). Solo deciden el EQUIPO actual; las estadísticas
+    siguen siendo de temporada regular. Si no cargan, se sigue con la regla de
+    D-PRE-6 (equipo = última fila jugada) y un WARNING: la señal mejora el
+    mensaje 2, su ausencia no lo invalida.
 
     El histórico se carga UNA vez para todos los partidos del día: los mismos
     métodos del DataStore que ya usa live_lookup, sin lector nuevo. Cargarlo
@@ -824,6 +905,7 @@ def _attach_highlights(
         build_game_highlights,
         derive_box_stats,
         recent_seasons,
+        season_of,
     )
 
     temporadas = recent_seasons(target_date)
@@ -856,6 +938,23 @@ def _attach_highlights(
         _log.warning("Sin destacados hoy: no se pudo cargar el histórico: %s", exc)
         return
 
+    roster_signals = None
+    try:
+        from nba_predictor.jobs.roster_signals import season_window
+
+        inicio, fin = season_window(season or season_of(target_date))
+        senales = store.load_roster_signals(start_date=inicio, end_date=fin)
+        # Anti-leakage del mismo tipo que el historial: solo lo visto ANTES
+        # del día a publicar.
+        roster_signals = senales[
+            pd.to_datetime(senales["game_date"]) < pd.Timestamp(target_date)
+        ]
+        _log.info("Destacados: %d señales de plantilla en %s", len(roster_signals), season)
+    except Exception as exc:
+        _log.warning(
+            "Señales de plantilla no disponibles (equipo = última fila jugada): %s", exc
+        )
+
     por_game_id = {sg.game_id: sg for sg in scheduled}
     for gp in game_preds:
         sg = por_game_id.get(gp.game_id)
@@ -869,6 +968,7 @@ def _attach_highlights(
                 statuses_by_tid=statuses_by_tid,
                 player_map=player_map,
                 target_date=target_date,
+                roster_signals=roster_signals,
             )
             gp.players_data_available = bool(gp.players)
         except Exception as exc:

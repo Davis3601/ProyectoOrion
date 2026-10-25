@@ -154,6 +154,7 @@ def _archive_injury_report(
     date_str: str,
     max_requests: int = 20,
     now_et: datetime | None = None,
+    sink: list[tuple[str, str, bytes]] | None = None,
 ) -> bool:
     """Archiva el snapshot del PDF de injury report para date_str.
 
@@ -165,6 +166,11 @@ def _archive_injury_report(
     now_et (D-PRE-1): hora actual inyectada por main(). Para la fecha de hoy
     decide desde qué corte se sondea; sin ella la búsqueda arrancaba en
     11_45PM y a las 08:00 ET jamás encontraba nada.
+
+    sink (D-PRE-8): si se pasa, recibe (date_str, suffix, pdf_bytes) de cada
+    PDF archivado, para que el paso de señales de plantilla lo lea sin una
+    segunda descarga ni un segundo descubrimiento (que podría elegir otro
+    corte). El archivo sigue sin parsearse AQUÍ; el que parsea es el paso 1b.
 
     Returns True si se archivó con éxito, False si hubo cualquier error.
     """
@@ -179,6 +185,8 @@ def _archive_injury_report(
         )
         pdf_bytes = download_snapshot(url)
         store.save_raw_injury_report(date_str, suffix, pdf_bytes)
+        if sink is not None:
+            sink.append((date_str, suffix, pdf_bytes))
         _log.info(
             "  ✓ Injury report archivado: %s_%s (%d bytes)",
             date_str, suffix, len(pdf_bytes),

@@ -6,6 +6,10 @@ Tres pasos secuenciales:
      Fuente: CDN/S3 endpoint (cdn_client.py, Decisión 9).
      - boxscores → raw/boxscores_live/{game_id}.json en GCS
      - schedule  → raw/schedules/scheduleLeagueV2_{fecha}.json en GCS (cada corrida)
+  1a. Archivo best-effort del PDF de injury report (Decisión 4 del feed).
+  1b. Señales de plantilla best-effort (D-PRE-8): boxscores 001 → roster_signals
+     + raw/boxscores_preseason/; equipos del PDF archivado → roster_signals.
+     JAMÁS escribe games, team_game_stats ni player_game_stats.
   2. Rebuild de features + save_features a GCS (solo si hubo nuevos).
   3. Reentrenamiento B-limpia + versión nueva al registry GCS (solo si
      hoy − fecha_última_versión ≥ RETRAIN_CADENCE_DAYS, o --force-retrain).
@@ -36,7 +40,7 @@ import io
 import json
 import logging
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -71,6 +75,7 @@ from nba_predictor.jobs.ingest_logic import (  # noqa: E402
     _should_rebuild_features,
     _should_retrain,
 )
+from nba_predictor.jobs.roster_signals import roster_signals_step  # noqa: E402
 
 
 def _parquet_sha256_from_df(df: pd.DataFrame) -> str:
@@ -499,8 +504,14 @@ def main(
             json.dumps(payload), content_type="application/json"
         )
 
+    # El schedule crudo de ESTA corrida se captura al persistirlo: el paso 1b
+    # (D-PRE-8) lee de él los partidos 001 sin una segunda descarga, y
+    # _step1_ingest no cambia de contrato.
+    schedule_capturado: dict[str, dict] = {}
+
     def _save_raw_schedule(date_str: str, payload: dict) -> None:
         """Persiste el JSON CDN del schedule en raw/schedules/."""
+        schedule_capturado["raw"] = payload
         path = f"{gcs_prefix}raw/schedules/scheduleLeagueV2_{date_str}.json"
         gcs_client.bucket(bucket_name).blob(path).upload_from_string(
             json.dumps(payload), content_type="application/json"
@@ -521,15 +532,26 @@ def main(
         save_raw_schedule_fn=_save_raw_schedule,
     )
 
-    # ── Paso 1b: archivo best-effort del PDF de injury report ───────────────
+    # ── Paso 1a: archivo best-effort del PDF de injury report ───────────────
     # Decisión 4 del feed: discover → GET → save_raw. Sin parsear, sin ausencias.
     # Fallo → WARNING; los pasos 2-3 continúan sin interrupción.
     # D-PRE-1: el reloj ET entra AQUÍ, en el borde. A las 08:00 ET el día de hoy
     # apenas empieza, así que se archiva el último corte de AYER (completo) y el
     # último de HOY hasta esta hora; cada uno con su propio best-effort.
     now_et = now_et or datetime.now(INJURY_REPORT_TZ)
+    archivados: list[tuple[str, str, bytes]] = []
     for date_str in injury_archive_dates(now_et):
-        _archive_injury_report(ds, date_str, now_et=now_et)
+        _archive_injury_report(ds, date_str, now_et=now_et, sink=archivados)
+
+    # ── Paso 1b: señales de plantilla (D-PRE-8), best-effort ────────────────
+    # Pretemporada y PDF dan EQUIPO, jamás números: solo alimentan la
+    # selección de destacados. roster_signals_step nunca lanza.
+    log.info("PASO 1b — Señales de plantilla")
+    resumen = roster_signals_step(
+        ds, cdn_client, schedule_capturado.get("raw"), archivados,
+        observed_at=now_et.astimezone(timezone.utc),
+    )
+    log.info("  Señales de plantilla: %s", resumen)
 
     # ── Paso 2: rebuild de features ─────────────────────────────────────────
     do_rebuild, rebuild_reason = _should_rebuild_features(n_new, force=force_features)

@@ -11,7 +11,7 @@ from typing import Any
 import joblib
 import pandas as pd
 
-from .base import DataStore
+from .base import ROSTER_SIGNAL_COLUMNS, DataStore
 
 # ---------------------------------------------------------------------------
 # Imports opcionales — el módulo se puede importar sin [cloud] instalado.
@@ -65,6 +65,10 @@ def _gcs_model_path(version_name: str, filename: str) -> str:
 
 def _gcs_injury_report_path(date_str: str, suffix: str) -> str:
     return f"raw/injury_reports/{date_str}_{suffix}.pdf"
+
+
+def _gcs_preseason_boxscore_path(game_id: str) -> str:
+    return f"raw/boxscores_preseason/{game_id}.json"
 
 
 def _build_merge_sql(
@@ -125,7 +129,8 @@ _PLAYERS_TABLE: str = "players"
 
 _PLAYER_LOG_TABLE: str = "player_predictions_log"
 
-# Schema de los 16 campos de la evidencia de destacados (D-PROD-1c). Explícito
+# Schema de los 17 campos de la evidencia de destacados (D-PROD-1c + rank de
+# D-PRE-9; las filas anteriores a rank lo tienen NULL = 1 implícito). Explícito
 # por la misma razón que el de predictions_log: la tabla la provisiona el
 # usuario y el log es evidencia — un tipo inferido distinto por lote (p.ej.
 # fg3m_median todo nulo un día) rompería el JOIN de grading.
@@ -146,7 +151,11 @@ _PLAYER_LOG_SCHEMA: list[tuple[str, str]] = [
     ("model_version", "STRING"),
     ("predicted_at_utc", "TIMESTAMP"),
     ("served_by", "STRING"),
+    ("rank", "INTEGER"),
 ]
+
+
+_ROSTER_SIGNALS_TABLE: str = "roster_signals"
 
 
 # Claves de idempotencia por tabla (definición única, referenciada en _save_tabular)
@@ -155,6 +164,9 @@ _MERGE_KEYS: dict[str, list[str]] = {
     "games": ["game_id"],
     "team_game_stats": ["game_id", "team_id"],
     "player_game_stats": ["game_id", "player_id"],
+    # D-PRE-8: una señal por jugador por fuente por referencia (partido 001 o
+    # snapshot del PDF). Re-ingestar el mismo partido o el mismo PDF actualiza.
+    _ROSTER_SIGNALS_TABLE: ["player_id", "source", "ref_id"],
 }
 
 
@@ -473,6 +485,62 @@ class CloudDataStore(DataStore):
         ).upload_from_string(meta_bytes, content_type="application/json")
 
         return Path(version_name)
+
+    # ------------------------------------------------------------------
+    # Señales de plantilla (D-PRE-8) → BigQuery roster_signals + RAW GCS
+    # ------------------------------------------------------------------
+
+    def save_roster_signals(self, signals: pd.DataFrame) -> None:
+        """MERGE con staging por (player_id, source, ref_id). Idempotente.
+
+        Usa la máquina de _save_tabular (staging con expiración + MERGE +
+        delete). Solo la escribe el ingest job, cuya SA tiene dataEditor del
+        DATASET y por tanto puede crear la staging. La tabla destino la
+        provisiona el operador con su DDL explícito; el CREATE IF NOT EXISTS de
+        _save_tabular es entonces un no-op.
+        """
+        if signals.empty:
+            return
+        df = signals[list(ROSTER_SIGNAL_COLUMNS)].copy()
+        df["player_id"] = df["player_id"].astype("int64")
+        df["team_id"] = df["team_id"].astype("int64")
+        df["game_date"] = pd.to_datetime(df["game_date"]).dt.date
+        df["observed_at"] = pd.to_datetime(df["observed_at"], utc=True)
+        self._save_tabular(df, _ROSTER_SIGNALS_TABLE)
+
+    def load_roster_signals(
+        self,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> pd.DataFrame:
+        """Se ITERAN las filas (como load_player_names): ningún lector nuevo
+        debe depender de bigquery.readsessions.create (capa 5, reincidente en
+        D-ODDS). Son miles de filas por temporada: el transporte por filas sobra.
+        """
+        table = _full_table_id(self.project_id, self.dataset, _ROSTER_SIGNALS_TABLE)
+        clauses: list[str] = []
+        if start_date:
+            clauses.append(f"game_date >= '{start_date.isoformat()}'")
+        if end_date:
+            clauses.append(f"game_date <= '{end_date.isoformat()}'")
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        cols = ", ".join(ROSTER_SIGNAL_COLUMNS)
+        rows = self._bq.query(f"SELECT {cols} FROM `{table}` {where}").result()
+        df = pd.DataFrame(
+            [{c: getattr(r, c) for c in ROSTER_SIGNAL_COLUMNS} for r in rows],
+            columns=list(ROSTER_SIGNAL_COLUMNS),
+        )
+        if not df.empty:
+            df["game_date"] = pd.to_datetime(df["game_date"]).dt.date
+        return df
+
+    def save_raw_preseason_boxscore(self, game_id: str, payload: dict) -> None:
+        self._gcs.bucket(self.bucket_name).blob(
+            self._gcs_path(_gcs_preseason_boxscore_path(game_id))
+        ).upload_from_string(
+            json.dumps(payload, ensure_ascii=False),
+            content_type="application/json",
+        )
 
     # ------------------------------------------------------------------
     # Injury Reports → GCS (PDF bytes)

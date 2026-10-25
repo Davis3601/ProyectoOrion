@@ -91,7 +91,7 @@ class TestTraspaso:
         hist = pd.concat([_verano(), _debut_brown_en_phi()], ignore_index=True)
         hs = build_game_highlights(hist, home_team_id=NYK, away_team_id=PHI,
                                    statuses_by_tid={}, player_map=NOMBRES,
-                                   target_date=date(2026, 10, 22))
+                                   target_date=date(2026, 10, 22), per_team=1)
         assert [(h.player_name, h.team) for h in hs] == [("Jaylen Brown", "away")]
 
     def test_limite_conocido_antes_del_debut_sigue_en_su_equipo_viejo(self):

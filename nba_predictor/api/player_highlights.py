@@ -40,6 +40,9 @@ from nba_predictor.config import (  # noqa: E402
     HIGHLIGHT_RECENCY_DAYS,
 )
 
+# D-PRE-9: destacados por equipo. Mismos filtros para el 2 que para el 1.
+HIGHLIGHTS_PER_TEAM = 2
+
 # Mínimo de partidos jugados para que un jugador sea publicable. Con menos de
 # tres, "mediana y rango" describen ruido, no una costumbre; el puesto pasa al
 # siguiente por minutos. El sufijo "(últimos n)" cubre el tramo 3..9.
@@ -124,6 +127,44 @@ def is_eligible(status: str | None) -> bool:
     return status not in EXCLUDED_STATUSES
 
 
+def latest_team_rows(
+    hist_pgs: "pd.DataFrame",
+    roster_signals: "pd.DataFrame | None" = None,
+) -> "pd.DataFrame":
+    """Fila MÁS RECIENTE de cada jugador: player_id, team_id, game_date.
+
+    D-PRE-8: lo "visto" son las filas de player_game_stats (temporada regular)
+    MÁS las señales de plantilla (pretemporada e injury report). Gana la más
+    reciente por game_date; empate, por game_id / ref_id — el orden de cadena
+    de los dos identificadores, que es estable y no depende del orden de carga.
+
+    Las señales SOLO deciden el equipo: no entran a las estadísticas, que
+    siguen saliendo exclusivamente de hist_pgs (temporada regular).
+    """
+    import pandas as pd
+
+    ref = "game_id" if "game_id" in hist_pgs.columns else None
+    partes = [pd.DataFrame({
+        "player_id": hist_pgs["player_id"].astype("int64"),
+        "team_id": hist_pgs["team_id"].astype("int64"),
+        "game_date": pd.to_datetime(hist_pgs["game_date"]),
+        "ref": hist_pgs[ref].astype(str) if ref else "",
+    })]
+    if roster_signals is not None and not roster_signals.empty:
+        partes.append(pd.DataFrame({
+            "player_id": roster_signals["player_id"].astype("int64"),
+            "team_id": roster_signals["team_id"].astype("int64"),
+            "game_date": pd.to_datetime(roster_signals["game_date"]),
+            "ref": roster_signals["ref_id"].astype(str),
+        }))
+    vistos = pd.concat(partes, ignore_index=True)
+    return (
+        vistos.sort_values(["game_date", "ref"], kind="stable")
+        .groupby("player_id", sort=False)
+        .tail(1)[["player_id", "team_id", "game_date"]]
+    )
+
+
 def rank_team_candidates(
     hist_pgs: "pd.DataFrame",
     team_id: int,
@@ -133,6 +174,7 @@ def rank_team_candidates(
     *,
     target_date: date | None = None,
     recency_days: int = HIGHLIGHT_RECENCY_DAYS,
+    roster_signals: "pd.DataFrame | None" = None,
 ) -> list[dict[str, Any]]:
     """Candidatos de UN equipo, ordenados por minutos rolling descendente.
 
@@ -149,6 +191,8 @@ def rank_team_candidates(
     hasta el 2026-12-16, porque sus 10 partidos con Boston nunca se renuevan.
     LÍMITE CONOCIDO: antes de su primera fila con el equipo nuevo, el sistema
     no puede saber que cambió de equipo (no hay fuente de rosters).
+    D-PRE-8 lo acota: roster_signals (pretemporada + injury report) cuenta
+    como fila vista para decidir el EQUIPO, nunca para los números.
 
     LA RECENCIA NO ES COSMÉTICA. Sin ella el universo es toda la historia y
     gana quien más minutos promedió en CUALQUIER tramo de 10 partidos de la
@@ -166,14 +210,9 @@ def rank_team_candidates(
     """
     if hist_pgs.empty:
         return []
-    # Equipo actual: la fila más reciente de cada jugador (desempate estable
-    # por game_id para que dos filas del mismo día no dependan del orden).
-    orden = ["game_date", "game_id"] if "game_id" in hist_pgs.columns else ["game_date"]
-    ultima = (
-        hist_pgs.sort_values(orden, kind="stable")
-        .groupby("player_id", sort=False)
-        .tail(1)
-    )
+    # Equipo actual: la fila más reciente de cada jugador entre lo jugado y las
+    # señales de plantilla (desempate estable por game_id / ref_id).
+    ultima = latest_team_rows(hist_pgs, roster_signals)
     actuales = ultima[ultima["team_id"] == team_id]
     if target_date is not None:
         import pandas as pd
@@ -216,20 +255,24 @@ def build_game_highlights(
     min_games: int = MIN_GAMES_IN_WINDOW,
     target_date: date | None = None,
     recency_days: int = HIGHLIGHT_RECENCY_DAYS,
+    roster_signals: "pd.DataFrame | None" = None,
+    per_team: int = HIGHLIGHTS_PER_TEAM,
 ) -> list["PlayerHighlight"]:
-    """Top 1 por equipo (2 por partido) como PlayerHighlight listos para formato.
+    """Top `per_team` por equipo (D-PRE-9: 2) como PlayerHighlight listos para formato.
+
+    Orden de salida: local rank 1, local rank 2, visitante rank 1, visitante
+    rank 2 — el formato agrupa por lado conservando este orden.
 
     Un equipo sin candidato publicable simplemente no aporta jugador; el otro
     sí. No se rellena el hueco con alguien que no cumple: el contrato dice top
-    1 POR EQUIPO, no dos del mismo.
+    N POR EQUIPO, y un equipo con un solo candidato publica uno.
     """
-    from nba_predictor.api.daily_predictions import PlayerHighlight
-
-    salida: list[PlayerHighlight] = []
+    salida: list["PlayerHighlight"] = []
     for team_id, lado in ((home_team_id, "home"), (away_team_id, "away")):
         candidatos = rank_team_candidates(
             hist_pgs, team_id, statuses_by_tid.get(team_id, {}), window, min_games,
             target_date=target_date, recency_days=recency_days,
+            roster_signals=roster_signals,
         )
         if not candidatos:
             # Plantel renovado por completo, expansión, o todos excluidos por
@@ -240,23 +283,33 @@ def build_game_highlights(
                 team_id, recency_days,
             )
             continue
-        c = candidatos[0]
-        fg3m = c["fg3m_median"]
-        salida.append(PlayerHighlight(
-            player_name=player_map.get(c["player_id"], f"#{c['player_id']}"),
-            team=lado,
-            pts_median=c["pts_median"],
-            pts_min=c["pts_min"],
-            pts_max=c["pts_max"],
-            reb_median=c["reb_median"],
-            ast_median=c["ast_median"],
-            games_in_window=c["games_in_window"],
-            status=status_mark(c["status"]),
-            fg3m_median=fg3m,
-            is_shooting_specialist=fg3m >= SPECIALIST_MIN_FG3M,
-            player_id=c["player_id"],
-        ))
+        for rank, c in enumerate(candidatos[:per_team], start=1):
+            salida.append(_highlight(c, lado, rank, player_map))
     return salida
+
+
+def _highlight(
+    c: dict[str, Any], lado: str, rank: int, player_map: dict[int, str]
+) -> "PlayerHighlight":
+    """Un candidato rankeado → PlayerHighlight publicable."""
+    from nba_predictor.api.daily_predictions import PlayerHighlight
+
+    fg3m = c["fg3m_median"]
+    return PlayerHighlight(
+        player_name=player_map.get(c["player_id"], f"#{c['player_id']}"),
+        team=lado,
+        pts_median=c["pts_median"],
+        pts_min=c["pts_min"],
+        pts_max=c["pts_max"],
+        reb_median=c["reb_median"],
+        ast_median=c["ast_median"],
+        games_in_window=c["games_in_window"],
+        status=status_mark(c["status"]),
+        fg3m_median=fg3m,
+        is_shooting_specialist=fg3m >= SPECIALIST_MIN_FG3M,
+        player_id=c["player_id"],
+        rank=rank,
+    )
 
 
 def season_of(d: date) -> str:

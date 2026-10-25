@@ -8,6 +8,12 @@ import pandas as pd
 
 # CHECK 4 — Simetría: todo save_* tiene su load_* correspondiente.
 
+# Columnas de roster_signals (D-PRE-8), en orden. Definición única para ambos
+# adapters y para los productores de señales.
+ROSTER_SIGNAL_COLUMNS: tuple[str, ...] = (
+    "player_id", "team_id", "source", "ref_id", "game_date", "observed_at",
+)
+
 
 class DataStore(ABC):
     """Interface for NBA data storage.
@@ -174,6 +180,41 @@ class DataStore(ABC):
         rows vacía → no-op (día sin partidos: nada que registrar).
         """
         ...
+
+    # ----- Señales de plantilla (D-PRE-8) -----
+
+    @abstractmethod
+    def save_roster_signals(self, signals: pd.DataFrame) -> None:
+        """Persiste señales de plantilla. Idempotente por (player_id, source, ref_id).
+
+        Columnas: player_id, team_id, source ('preseason' | 'injury_report'),
+        ref_id (game_id del partido 001 o nombre del snapshot del PDF),
+        game_date, observed_at.
+
+        Tabla SEPARADA a propósito: una señal dice "visto con este equipo",
+        jamás aporta números. Nada de esto entra a games, team_game_stats,
+        player_game_stats ni a las features (D-PRE-8).
+        """
+
+    @abstractmethod
+    def load_roster_signals(
+        self,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> pd.DataFrame:
+        """Señales de plantilla con game_date en [start_date, end_date] (ambos opcionales).
+
+        Devuelve las seis columnas de save_roster_signals, game_date como date.
+        Tabla vacía o inexistente en local → DataFrame vacío con esas columnas.
+        """
+
+    @abstractmethod
+    def save_raw_preseason_boxscore(self, game_id: str, payload: dict) -> None:
+        """RAW del boxscore de PRETEMPORADA (prefijo 001) en raw/boxscores_preseason/.
+
+        Directorio propio, jamás boxscores/ ni boxscores_live/: esos alimentan
+        la capa STRUCTURED, y la pretemporada nunca debe entrar ahí.
+        """
 
     # ----- Injury Reports (Fase 5b / 13e-1) -----
 

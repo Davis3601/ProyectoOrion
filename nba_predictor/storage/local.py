@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from .base import DataStore
+from .base import ROSTER_SIGNAL_COLUMNS, DataStore
 
 
 def _serialize_log_row(row: dict) -> dict:
@@ -142,10 +142,31 @@ class LocalDataStore(DataStore):
                     games_in_window  INTEGER,
                     model_version    TEXT,
                     predicted_at_utc TEXT,
-                    served_by        TEXT
+                    served_by        TEXT,
+                    rank             INTEGER
                 );
                 CREATE INDEX IF NOT EXISTS idx_plog_date ON predictions_log(game_date);
+
+                -- roster_signals (D-PRE-8): "visto con este equipo", sin números.
+                -- Tabla aparte: nada de la pretemporada toca games ni *_game_stats.
+                CREATE TABLE IF NOT EXISTS roster_signals (
+                    player_id   INTEGER NOT NULL,
+                    team_id     INTEGER NOT NULL,
+                    source      TEXT    NOT NULL,
+                    ref_id      TEXT    NOT NULL,
+                    game_date   DATE    NOT NULL,
+                    observed_at TEXT    NOT NULL,
+                    PRIMARY KEY (player_id, source, ref_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_rs_date ON roster_signals(game_date);
             """)
+            # D-PRE-9: rank (1|2) en player_predictions_log. CREATE TABLE IF NOT
+            # EXISTS no altera una tabla ya creada, así que la columna se añade
+            # a mano en los espejos existentes. Las filas anteriores quedan con
+            # rank NULL = 1 implícito (solo había un destacado por equipo).
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(player_predictions_log)")}
+            if "rank" not in cols:
+                conn.execute("ALTER TABLE player_predictions_log ADD COLUMN rank INTEGER")
     
     def save_teams(self, teams: pd.DataFrame) -> None:
         if teams.empty:
@@ -418,14 +439,61 @@ class LocalDataStore(DataStore):
                 (game_id, game_date, player_id, player_name, team_tricode,
                  status_flag, pts_median, pts_min, pts_max, reb_median,
                  ast_median, fg3m_median, games_in_window, model_version,
-                 predicted_at_utc, served_by)
+                 predicted_at_utc, served_by, rank)
                 VALUES (:game_id, :game_date, :player_id, :player_name, :team_tricode,
                         :status_flag, :pts_median, :pts_min, :pts_max, :reb_median,
                         :ast_median, :fg3m_median, :games_in_window, :model_version,
-                        :predicted_at_utc, :served_by)
+                        :predicted_at_utc, :served_by, :rank)
                 """,
-                [_serialize_log_row(r) for r in rows],
+                [{"rank": None, **_serialize_log_row(r)} for r in rows],
             )
+
+    # ----- Señales de plantilla (D-PRE-8) -----
+
+    def save_roster_signals(self, signals: pd.DataFrame) -> None:
+        """INSERT OR REPLACE por (player_id, source, ref_id): idempotente."""
+        if signals.empty:
+            return
+        df = signals[list(ROSTER_SIGNAL_COLUMNS)].copy()
+        df["game_date"] = pd.to_datetime(df["game_date"]).dt.strftime("%Y-%m-%d")
+        df["observed_at"] = pd.to_datetime(df["observed_at"], utc=True).map(
+            lambda t: t.isoformat()
+        )
+        with sqlite3.connect(self.db_path) as conn:
+            df.to_sql("_rs_staging", conn, if_exists="replace", index=False)
+            conn.execute("""
+                INSERT OR REPLACE INTO roster_signals
+                (player_id, team_id, source, ref_id, game_date, observed_at)
+                SELECT player_id, team_id, source, ref_id, game_date, observed_at
+                FROM _rs_staging
+            """)
+            conn.execute("DROP TABLE _rs_staging")
+
+    def load_roster_signals(
+        self,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> pd.DataFrame:
+        query = "SELECT * FROM roster_signals WHERE 1=1"
+        params: list = []
+        if start_date is not None:
+            query += " AND game_date >= ?"
+            params.append(start_date.isoformat())
+        if end_date is not None:
+            query += " AND game_date <= ?"
+            params.append(end_date.isoformat())
+        with sqlite3.connect(self.db_path) as conn:
+            df = pd.read_sql(query, conn, params=params)
+        if not df.empty:
+            df["game_date"] = pd.to_datetime(df["game_date"]).dt.date
+        return df[list(ROSTER_SIGNAL_COLUMNS)]
+
+    def save_raw_preseason_boxscore(self, game_id: str, payload: dict) -> None:
+        target_dir = self.raw_dir / "boxscores_preseason"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        (target_dir / f"{game_id}.json").write_text(
+            json.dumps(payload, ensure_ascii=False), encoding="utf-8"
+        )
 
     def load_player_names(self) -> dict[int, str]:
         """Nombres desde los JSON crudos: en local, los archivos SON el catálogo.
@@ -440,9 +508,15 @@ class LocalDataStore(DataStore):
         )
 
         nombres = load_player_names_from_raw_json(self.raw_dir)
-        live_dir = self.raw_dir / "boxscores_live"
-        if live_dir.exists():
-            nombres.update(load_player_names_from_cdn_json(live_dir))
+        # Pretemporada primero y CDN de temporada regular al final: ambos son
+        # formato CDN, y el nombre de un partido oficial gana sobre el de un
+        # partido de exhibición. La pretemporada aporta los novatos que aún
+        # no han jugado un partido oficial (D-PRE-8), espejo de lo que el job
+        # persiste en la tabla players en la nube.
+        for sub in ("boxscores_preseason", "boxscores_live"):
+            d = self.raw_dir / sub
+            if d.exists():
+                nombres.update(load_player_names_from_cdn_json(d))
         return nombres
 
     def save_player_names(self, mapping: dict[int, str]) -> None:

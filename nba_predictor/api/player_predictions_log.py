@@ -29,7 +29,8 @@ if TYPE_CHECKING:
 
 _log = logging.getLogger(__name__)
 
-# Los 16 campos del schema, en orden. Definición única del contrato: los tests
+# Los 17 campos del schema, en orden (rank añadido en D-PRE-9; las filas
+# anteriores lo tienen NULL, que significa 1 implícito). Definición única del contrato: los tests
 # comparan contra esta constante, no contra una lista repetida.
 PLAYER_LOG_FIELDS: tuple[str, ...] = (
     "game_id",
@@ -48,6 +49,7 @@ PLAYER_LOG_FIELDS: tuple[str, ...] = (
     "model_version",
     "predicted_at_utc",
     "served_by",
+    "rank",
 )
 
 
@@ -74,6 +76,10 @@ def build_player_log_rows(
     predictions_log.
     """
     stamp = predicted_at_utc or datetime.now(timezone.utc)
+    if getattr(result, "highlights_truncated", None) == "omitted":
+        # D-PRE-9: el mensaje 2 se sustituyó por la línea de omisión; no se
+        # publicó ningún destacado y el log registra lo PUBLICADO.
+        return []
 
     filas: list[dict[str, Any]] = []
     for gp in result.games:
@@ -100,6 +106,7 @@ def build_player_log_rows(
                 "model_version": model_version,
                 "predicted_at_utc": stamp,
                 "served_by": served_by,
+                "rank": 1 if p.rank is None else int(p.rank),
             })
     return filas
 

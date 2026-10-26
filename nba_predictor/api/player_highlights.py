@@ -165,6 +165,36 @@ def latest_team_rows(
     )
 
 
+def observed_this_season(
+    hist_pgs: "pd.DataFrame",
+    roster_signals: "pd.DataFrame",
+    target_date: date,
+) -> set[int]:
+    """Jugadores VISTOS en la temporada de target_date: una fila de temporada
+    regular desde su inicio, o una señal de plantilla (pretemporada o injury
+    report).
+
+    D-PRE-10: un jugador sin ninguna observación de la temporada en curso no es
+    candidato, aunque sus filas de abril caigan dentro de los 250 días de
+    recencia. Caso real (2026-10-21 al 23): Toby Okani salió como destacado de
+    MEM sin equipo NBA y Andersson Garcia de UTA jugando en el Río Breogán;
+    ninguno tenía una sola señal ni partido de 2026-27. Es la regla de
+    D-PROD-1f ("jamás un jugador rancio con aspecto sano") aplicada al cambio
+    de temporada, que la recencia de 250 días no cubre.
+    """
+    import pandas as pd
+
+    from nba_predictor.jobs.roster_signals import season_window
+
+    inicio, _ = season_window(season_of(target_date))
+    corte = pd.Timestamp(inicio)
+    jugados = hist_pgs.loc[pd.to_datetime(hist_pgs["game_date"]) >= corte, "player_id"]
+    vistos = roster_signals.loc[
+        pd.to_datetime(roster_signals["game_date"]) >= corte, "player_id"
+    ]
+    return {int(p) for p in jugados} | {int(p) for p in vistos}
+
+
 def rank_team_candidates(
     hist_pgs: "pd.DataFrame",
     team_id: int,
@@ -207,6 +237,12 @@ def rank_team_candidates(
     target_date None desactiva SOLO la recencia — para tests que fijan otras
     propiedades; la ruta de producción SIEMPRE lo pasa. El equipo actual se
     aplica siempre: es un hecho de los datos, no un filtro temporal.
+
+    VISTO EN LA TEMPORADA (D-PRE-10): con target_date y señales de plantilla
+    cargadas, el candidato debe tener al menos una observación de la temporada
+    en curso (observed_this_season). Sin señales (None o vacías) el filtro no
+    se aplica: al arranque de temporada todos tendrían cero filas de 2026-27 y
+    el mensaje 2 quedaría vacío por un fallo de carga, no por los datos.
     """
     if hist_pgs.empty:
         return []
@@ -220,6 +256,8 @@ def rank_team_candidates(
         corte = pd.Timestamp(target_date - timedelta(days=recency_days))
         actuales = actuales[actuales["game_date"] >= corte]
     del_equipo_hoy = {int(p) for p in actuales["player_id"]}
+    if target_date is not None and roster_signals is not None and not roster_signals.empty:
+        del_equipo_hoy &= observed_this_season(hist_pgs, roster_signals, target_date)
     if not del_equipo_hoy:
         return []
 

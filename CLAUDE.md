@@ -4475,3 +4475,504 @@ señal de plantilla válida bajo la regla de D-PRE-8 ("activado" = visto)
 y no aporta números (la pretemporada nunca da números). La conjetura de
 cobertura >85% NO se midió aquí (fuera del alcance del spike); queda para
 la implementación.
+
+## D-PRE-8 + D-PRE-9 RESULTADO (2026-10-25): señales de plantilla y dos
+destacados por equipo EN PRODUCCIÓN. Congelamiento reiniciado desde
+ingest v14 / api v18.
+
+PROCESO: visto bueno de Antonio el 2026-10-20 con condición previa (segunda
+guarda de longitud, cumplida en local: suite 1081 passed, 15 deselected). La
+Parte D estaba fechada para el 21 después de las 13:30 y NO se ejecutó ese
+día; se pidió y obtuvo un "adelante" nuevo el 2026-10-25 (regla de D-PRE-3:
+un permiso con fecha no se estira). Código en el commit f0e3ac9; ambas
+imágenes construidas desde ese árbol limpio.
+
+PASO 1 — DDL: tabla roster_signals creada con schema explícito (player_id,
+team_id INT64; source, ref_id STRING; game_date DATE; observed_at TIMESTAMP;
+todos REQUIRED). predictions-api-sa con roles/bigquery.dataViewer A NIVEL
+TABLA, única binding (etag BwZepOAiUYQ=). ingest-job-sa escribe por su
+dataEditor de dataset (necesario: el MERGE con staging crea tablas).
+PASO 2 — ALTER: player_predictions_log gana rank INT64 como columna 17, al
+final; verificado con bq show antes de seguir; 310 filas históricas con rank
+NULL (= 1 implícito); ACL intacta (etag BwZcMQU3q4M=, única binding
+predictions-api-sa dataEditor).
+PASO 3 — ingest-job:v14 (build 9740da7d, generación 11 de nba-ingest-job,
+2Gi heredado). Se ESPERÓ al cron de las 12:00 UTC (v12, 8 partidos nuevos
+del 24, features reconstruidas, sin reentrenamiento) para que la ejecución
+manual viera 0 partidos nuevos y los hashes fueran comparables. Ejecución
+manual nba-ingest-job-wrt8j: exit 0 en 68 s; paso 1 con 0 nuevos; paso 1b
+{preseason_terminados 67, preseason_nuevos 67, fallidos 0, señales
+preseason 2513, pdfs 2, señales injury_report 142}; catálogo de nombres
+actualizado (654 jugadores vistos; tabla players en 1 800); paso 2 omitido;
+paso 3 sin reentrenamiento. Los dos ERROR del log son el traceback cosmético
+del %d ya registrado en D-PRE-5.
+  roster_signals: preseason 2 513 filas / 654 jugadores / 67 partidos
+  (2026-10-03 -> 2026-10-16); injury_report 142 filas / 101 jugadores / 2
+  snapshots (2026-10-24, 2026-10-25). raw/boxscores_preseason/: 67 objetos.
+NO CONTAMINACIÓN EN LA NUBE (BIT_XOR(FARM_FINGERPRINT(TO_JSON_STRING(fila)))
++ COUNT, antes y después de la ejecución manual):
+  games              14 465   3761456664913468706    idéntico
+  team_game_stats    28 930  -6654812698214788786    idéntico
+  player_game_stats 372 244   2030149853047931963    idéntico
+  features_v1.parquet md5 kqWDm5+yOyiEWddMFF234w==, generación
+                     1792929648344863 (el objeto no se reescribió)
+  filas con prefijo 001 en las tres tablas STRUCTURED: 0.
+PASO 4 — predictions-api:v18 (build c7508314), revisión
+predictions-api-00018-cv8 al 100%, 1Gi, predictions-api-sa. Dry-run
+?date=2026-10-26: 200 en 60.2 s; 9 partidos; mensaje 2 de 2 276 caracteres,
+36 destacados (18 rank 1 + 18 rank 2), sin recorte (highlights_truncated
+null), cero nombres "#"; model_version v1_logistic_bclean_2026-10-24;
+feed_down por "fecha FUTURA ... 0 sondas" (correcto). Evidencia: 36 filas
+en player_predictions_log (rank 1: 18, rank 2: 18, NULL: 0) y 9 en
+predictions_log, served_by predictions-api-00018-cv8, game_date 2026-10-26
+(excluidas por la regla de record: predicted_at 10-25).
+VERIFICACIÓN DE QUE v18 USA LAS SEÑALES: la API no exporta INFO a Cloud
+Logging, así que el log no lo prueba. Se recalcularon los destacados del 26
+en local sobre los datos de la nube (CloudDataStore explícito, solo
+lectura), con y sin roster_signals: la salida de v18 es IDÉNTICA al cálculo
+con señales (2 655 leídas) y distinta al cálculo sin ellas en 3 de 9
+partidos (MIA: Bez Mbeng por Davion Mitchell; PHX: Kennedy Chandler por
+Miles Bridges; UTA: John Konchar por Bez Mbeng).
+
+DESVIACIONES DECLARADAS:
+(1) COBERTURA bajo la conjetura pre-registrada: 82.9% (490 de 591 jugadores
+con fila regular 2025-26 tienen señal de pretemporada 2026; medido en el
+backfill local del 2026-10-20) contra >85%. En rotación (>=20 min de media)
+94.8% (275 de 290). De los 97 sin señal, 36 jugaron menos de 10 partidos
+(llamados de abril: Okani, Andersson Garcia, Lucas Williamson...); el resto
+incluye veteranos sin señal (Westbrook, Cam Thomas, Lonzo Ball, Vince
+Williams Jr.), con la lectura probable de agentes libres sin firmar o
+lesionados, NO verificada. Hallazgo, no fallo: la conjetura era optimista,
+como las anteriores de la serie.
+(2) LÍMITE NUEVO VISIBLE: las señales mueven jugadores de equipo pero no sacan
+a nadie. Un jugador sin señal sigue siendo candidato por sus filas de abril
+dentro de los 250 días (en el dry-run: Okani y Williamson en MEM, Garcia en
+UTA). Se disuelve solo cuando la ventana de 10 partidos rueda con 2026-27
+(criterio de selección adjudicado en D-PROD-1c, opción A). Cambiarlo es
+cambio de contrato: backlog.
+(3) LONGITUD: margen medido en el día de mayor carga de 2026-27 (2026-11-02,
+15 partidos, empatado con 2026-12-23 y 2027-04-11). Con nombres de ~18
+caracteres y sin marcas: 3 752 de 3 800 (48 de margen); el peor caso
+sintético con dos por equipo mide 7 187 (recorte declarado a top 1 = 3 770).
+SEGUNDA GUARDA (condición de Antonio): si aun con uno por equipo el mensaje 2
+pasa de 4 000, se sustituye por "🏀 Destacados · {fecha}: omitidos hoy por
+longitud del día.", data lleva highlights_truncated='omitted' y
+player_predictions_log no registra nada (no se publicó ningún destacado); los
+calculados siguen en data. Escalera: None / "top1" / "omitted".
+(4) NOMBRES DE NOVATOS: el paso 1b escribe en la tabla players los nombres de
+los boxscores de pretemporada (declarado; players no estaba en la lista de
+prohibidos). En local, load_player_names lee también raw/boxscores_preseason/.
+(5) DRY-RUN del 26 y no del 22 del encargo: el 22 ya había pasado y sus dos
+partidos no tocaban a ninguno de los cuatro traspasos. No se hizo dry-run del
+día en curso: escribiría filas fechadas hoy y, si el cron fallara, la regla
+de record tomaría la más temprana (la del dry-run).
+(6) TERCER LECTOR de scheduleLeagueV2 (preseason_played_games, prefijo 001):
+los otros dos descartan la pretemporada por diseño. Crece el backlog del
+doble parser.
+(7) TESTS EXISTENTES EDITADOS (6): cinco con per_team=1 explícito porque
+fijaban el contrato de un destacado por equipo, y la guarda del schema del
+log de 16 a 17 campos.
+
+DISPAROS MANUALES EN LA VENTANA (regla de D-PRE-1 addendum 2), fuera de la
+franja 12:50-13:30 CDMX:
+  2026-10-25T12:02:28Z  ejecución manual de nba-ingest-job (v14, backfill)
+  2026-10-25T12:05:43Z  GET /predictions/today?date=2026-10-26 (dry-run v18)
+
+REGISTROS ATRASADOS DE LOS PRE-REGISTROS DEL 21 (auditoría de solo lectura,
+2026-10-25):
+- Ingest con partidos nuevos 21-24: cuatro ejecuciones en verde; games
+  2026-27 = 28 partidos hasta el 23 (3+11+2+12); paso 2 corrió con RSS pico
+  535.9 MiB el 24 y 533.0 MiB el 25 (dentro de 2Gi); reentrenamiento por
+  cadencia el 24 (v1_logistic_bclean_2026-10-24).
+- Catálogo players creciendo: 1 660 -> 1 708 (al 24) -> 1 800 (tras v14).
+- Latencia de predictions-api en el cron: 82.4 s (21), 37.7 s (22), 90.2 s
+  (23), 69.3 s (24). Umbral de ~150 s NO alcanzado: sin segundo warmup.
+- Servida de record diaria entre 13:00 y 13:01 CDMX, con model_version.
+- market_odds: cero filas escritas con commence_time <= capture_ts en todo
+  20-24; publish con 0 omitidos los cinco días; late con 1-5 omitidos;
+  evening también con omitidos 1-5 (efecto EDT predicho en D-EXP-1).
+  Verificación pre-registrada de D-PRE-1/bug 4 CUMPLIDA.
+- Entrega en el canal 21-24: pendiente de confirmación de Antonio (D-PRE-5).
+
+PRE-REGISTRO 2026-10-25, 13:00 CDMX (reprogramado del 22, que suponía el
+deploy del 21): los cuatro traspasos juegan hoy (IND@BKN, LAC@OKC, TOR@MIN).
+El mensaje 2 debe mostrar a Randle en BKN, Ingram en LAC, Kawhi en TOR y
+Cody Williams en MIN, para los que entren en el top 2 de su equipo; dos por
+equipo; sin recorte (7 partidos); filas con rank 1 y 2 en
+player_predictions_log servidas por predictions-api-00018-cv8.
+
+BACKLOG (post-ventana, sin tocar ahora):
+- D-PRE-8b: filtrar señales por observed_at en vez de game_date < target_date
+  (hoy se descarta el PDF de las 08:00 ET del propio día, anterior a la
+  publicación; conservador, no leakage).
+- Destacados extendidos (3 o 5 por equipo): 3 con recorte a 2 cabe sin
+  recorte el 87% de los días; 5 exige varios mensajes con bucle en n8n.
+- Redacción del título: "(últimos 10 partidos)" -> "últimos 10 de temporada
+  regular" (no hay playoffs en la base; prefijo 002 únicamente).
+- Cosmético del %d en el log del injury report (D-PRE-5).
+- Unificación de los lectores de scheduleLeagueV2.
+
+TRAMPAS DE ENTORNO NUEVAS (PowerShell 5 + bq): (a) una consulta multilínea
+pasada como argumento a bq llega truncada a la primera línea ("Unexpected end
+of script"); (b) pasada por pipe, PowerShell le antepone un BOM ("Illegal
+input character \357") aun fijando $OutputEncoding sin BOM; (c) bq en Git
+Bash no arranca (python3.12 no encontrado). Vía que funcionó: consulta de UNA
+línea entre comillas simples, con las comillas internas de SQL duplicadas.
+(d) El mensaje de commit con " -m " dentro de una sola cadena se fusiona en el
+título (e924a8c y f0e3ac9): un -m por párrafo, cada uno con sus comillas.
+
+Suite: 1081 passed, 15 deselected (1020 + 61: 43 de roster_signals y 18 de
+dos destacados y guardas). Ruff limpio en lo tocado (1 aviso preexistente
+F401 en scripts/ingest_job.py). Rollback disponible: predictions-api:v16
+(revisión 00017-9bs) e ingest-job:v12; la tabla y la columna nuevas no
+estorban a las versiones viejas.
+
+CONGELAMIENTO: reiniciado desde ingest-job v14 (generación 11) /
+predictions-api v18 (predictions-api-00018-cv8).
+
+## D-PRE-10 (2026-10-25): destacado debe haber sido VISTO en la temporada;
+jugadores fuera de la NBA publicados. v19. Congelamiento reiniciado.
+
+HALLAZGO (cotejo de Antonio contra box scores de RealGM, 2026-10-25): Toby
+Okani salió como destacado de MEM el 21 y el 23 sin equipo NBA (NYK lo cortó
+el 30-sep), y Andersson Garcia de UTA el 23 jugando en el Río Breogán.
+Verificado en BigQuery: los dos, y Lucas Williamson, con CERO señales de
+2026-27 y CERO filas de esta temporada; última fila de marzo-abril de 2026,
+dentro de los 250 días de recencia. Eran candidatos por sus filas de abril y
+encabezaban a su equipo por minutos (suplentes de abril en equipos ya
+eliminados). Contradice lo escrito en D-PROD-1f ("jamás un jugador rancio con
+aspecto sano"): BUG por el discriminante del criterio, no limitación.
+CORRECCIÓN DE REGISTRO PROPIO (append, no reescritura): el punto (2) del bloque
+"D-PRE-8 + D-PRE-9 RESULTADO" de esta misma mañana describió este caso como un
+límite que "se disuelve solo cuando la ventana de 10 partidos rueda". Es FALSO
+para un jugador que no está en la NBA: su ventana nunca rueda porque nunca
+vuelve a jugar. La lectura correcta es la de este bloque.
+
+FIX (adelante de Antonio en el chat): un candidato debe tener al menos una
+observación de la temporada en curso — fila de temporada regular desde el
+inicio de la temporada o señal de plantilla (pretemporada o injury report) —
+(player_highlights.observed_this_season). Solo con target_date y señales
+cargadas y no vacías: si roster_signals no carga, la regla degrada a D-PRE-6
+en vez de vaciar el mensaje 2 por un fallo de carga. Una señal de la
+temporada pasada no cuenta. Ingram (solo señales) sigue siendo candidato.
+Tests: 9 nuevos en tests/test_observed_this_season.py con ids reales (Okani
+1643253, Williamson 1631351, Garcia 1643158, Morant 1629630, Ingram 1627742);
+4 de 9 ROJOS contra el código anterior (las exclusiones de Okani, Williamson y
+Garcia, y la señal de la temporada pasada) y 9/9 verdes con el fix. Suite
+1090 passed, 15 deselected (1081 + 9). Ruff limpio en lo tocado.
+
+DEPLOY: predictions-api:v19 construida a las 10:33 CDMX desde el árbol de
+trabajo (f0e3ac9 + este cambio, SIN commitear al construirla). El deploy fue
+bloqueado por el clasificador de permisos de Claude Code (despliegue a
+producción) y NO se rodeó; no llegó antes de las 12:50. Aprobado por Antonio
+y desplegado a las 16:29 CDMX: revisión predictions-api-00019-hq2, 100%,
+1Gi. Dry-run ?date=2026-10-26 (disparo manual 2026-10-25T22:30:03Z): 200 en
+57.7 s, 9 partidos, 36 destacados, 2 248 caracteres, sin recorte, cero "#",
+ningún equipo con menos de dos. Diferencia contra v18 SOLO en MEM@UTA: salen
+Okani, Williamson, Garcia y John Konchar; entran Ace Bailey, Lauri
+Markkanen, Jahmai Mashack y Jerami Grant (cotejo de equipos pendiente de
+Antonio).
+
+PUBLICACIONES AFECTADAS (servidas de record, todas con v16/v18, antes del fix):
+  2026-10-21  Toby Okani (MEM)
+  2026-10-23  Toby Okani (MEM), Andersson Garcia (UTA)
+  2026-10-25  Toby Okani y Lucas Williamson (MEM), Andersson Garcia y John
+              Konchar (UTA), Russell Westbrook (SAC)
+  (25-oct: 5 de 28 destacados sin ninguna observación de 2026-27; los que v19
+  habría excluido. Konchar y Westbrook NO estaban en el cotejo de Antonio:
+  por los datos parecen fuera de plantilla, sin confirmar.)
+PENDIENTE DE ADJUDICACIÓN DE ANTONIO — gate operativo (b) de 13e-2.4:
+"CERO publicaciones corruptas por bug: una -> gris global; dos -> rojo". Estas
+publicaciones contienen un destacado equivocado por bug en tres días de la
+ventana. El registro no define si "corrupta" significa mensaje malformado o
+contenido equivocado; D-PRE-6b declaró aceptados solo los traspasos de verano
+del 21 al 24, no a jugadores fuera de la NBA. Code no lo adjudica.
+
+MEDICIÓN DE ACIERTOS DE ANTONIO (21-24 + día cero), lectura registrada:
+puntos evaluados por el RANGO publicado: 44 de 60 dentro (73%; IC95 aprox.
+[61%, 83%]) contra la cobertura histórica de [min,max] de 85.6% (D-EXP-4).
+Por debajo, no concluyente, con explicación probable de arranque de temporada
+(ventanas de abril). Rebotes, asistencias y triples evaluados por coincidencia
+EXACTA con la mediana: no es lo que el mensaje publica y explica la mayor
+parte del "30% de acierto" global. Decisión de Antonio: no basta con
+"justificarse" con la mediana; se explora cómo acercar rango y valor central
+al resultado real (D-EXP-7, pre-registro propio, a redactar).
+
+DISPAROS MANUALES (regla de la ventana), fuera de 12:50-13:30 CDMX:
+  2026-10-25T22:30:03Z  GET /predictions/today?date=2026-10-26 (dry-run v19)
+
+CONGELAMIENTO: reiniciado desde predictions-api v19 (predictions-api-00019-hq2)
+/ ingest-job v14 (generación 11, sin cambios).
+
+## D-EXP-7: DESTACADOS MÁS CERCA DEL RESULTADO REAL — valor central y rango
+(PRE-REGISTRO 2026-10-25, revisado por el chat de diseño)
+
+MOTIVO: la medición de Antonio (20-24 oct) dio 73% de puntos dentro del rango
+publicado (44/60) contra el 85.6% histórico, y medianas lejos del valor real
+en rebotes y asistencias. Decisión de Antonio: no basta con "es la mediana";
+se busca la forma de publicar un valor central y un rango más cercanos al
+resultado. OFFLINE: cero despliegue; B-limpia, features y mensaje 1 intactos.
+
+UNIVERSO: el de D-EXP-3/4 (minutes > 0, >= 10 jugados previos, 2016-17..
+2025-26, mismos folds walk-forward, shift 1, cero leakage), importado de su
+script — una reimplementación sería una segunda verdad.
+POBLACIÓN PRIMARIA: selector exacto: top 2 por minutos rolling por equipo y
+partido, reconstruido con la regla de producción; el filtro de estatus Out no
+es reconstruible en histórico y se declara que la población histórica es
+ligeramente más amplia.
+  RESOLUCIÓN 1 (Antonio, opción a): la población primaria es el selector
+  RESTRINGIDO AL UNIVERSO (>= 10 jugados previos), comparable con D-EXP-3/4.
+  Los destacados del selector con 3 a 9 partidos en su ventana quedan como
+  subconjunto DESCRIPTIVO (reportado, sin puerta).
+  RESOLUCIÓN 2 (Antonio, a favor): en el histórico no existen señales de
+  plantilla (roster_signals nace en 2026), así que el selector reconstruido
+  usa la regla de D-PRE-6 (equipo = fila más reciente en la liga, recencia de
+  250 días, mínimo 3 jugados, top 2 por minutos rolling) SIN señales y sin el
+  filtro "visto en la temporada" de D-PRE-10, que por diseño de v19 no se
+  aplica cuando no hay señales. Declarado, igual que el filtro de Out.
+POBLACIONES SECUNDARIAS: titulares (rolling de minutos >= 28) y universo
+completo.
+SUBCONJUNTO DE ARRANQUE: los primeros 21 días de cada temporada regular, con
+puerta propia (ver PUERTA DE ARRANQUE).
+STATS: pts, reb, ast, fg3m.
+
+BRAZOS — VALOR CENTRAL (parámetros FIJADOS AQUÍ, sin tuning sobre validación):
+  B0  mediana de los últimos 10 jugados (lo publicado hoy).
+  C1  media de los últimos 10.
+  C2  media exponencial por partido, vida media 5 partidos.
+  C3  shrinkage de arranque: (n_act * media_act + K * media_prev) /
+      (n_act + K) con K = 5, donde n_act = partidos de la temporada en curso y
+      media_prev = media de la temporada anterior; con n_act >= 10 se usa la
+      media de los últimos 10 de la temporada en curso.
+  C4  ajuste por contexto: OLS por fold sobre el RESIDUO (real - C1),
+      ajustada solo en el train del fold, con rating defensivo rolling del
+      rival, ritmo rolling del rival, local/visitante y back-to-back propio.
+  C5  media expansiva de la temporada en curso; con n_act < 3, media de los
+      últimos 10 de la temporada anterior.
+BARRIDO DE SENSIBILIDAD (exploratorio, NO elegible para promoción, se corre
+después de adjudicar): vida media {3,5,8} para C2; K {3,5,10} para C3;
+ventanas {5,20} para B0/C1.
+
+BRAZOS — RANGO:
+  R0  [mínimo, máximo] de los últimos 10 (lo publicado hoy).
+  R1  conformal escalado al 80% (PRIMARIO): centro ± q * dispersión_10, con
+      dispersión_10 = desviación absoluta media de los últimos 10 y q = cuantil
+      0.80 de |real - centro| / dispersión_10 medido en el TRAIN de cada fold.
+      Si dispersión_10 = 0, el rango cae a R2 para ese jugador-partido.
+  R2  conformal absoluto al 80% (secundario): centro ± q', q' = cuantil 0.80 de
+      |real - centro| en el train del fold.
+  R1 y R2 se comparan entre sí a cobertura idéntica, de modo que el ancho sea
+  la única diferencia.
+ORDEN: el experimento de RANGO corre UNA sola vez, con el centro ya adjudicado
+por la puerta de CENTRO (el ganador, o B0 si ninguno cruza). No se evalúa el
+rango con candidatos de centro no ganadores.
+
+MÉTRICAS:
+  valor central: MAE; diferencia pareada por jugador-partido contra B0.
+  rango: cobertura (% del real dentro), ancho medio, e interval score de
+         Winkler a alfa = 0.2.
+
+FASE 0 (gate ejecutable, regla de D-EXP-2): MDE por stat y por población con
+la sd de la diferencia pareada de los DOS primeros folds (2020-21 es temporada
+corta), extrapolado al n total. MDE relativo > 3% del MAE de B0 = SIN
+RESOLUCIÓN en esa celda (descriptiva). El subconjunto de arranque puede quedar
+sin resolución: se declara.
+
+PUERTAS NUMÉRICAS (sin lectura alternativa, regla de D-EXP-2b):
+  CENTRO, por stat, en la población primaria: un candidato GANA si (a) el IC95
+  del MAE pareado agregado excluye cero a su favor, Y (b) mejora en >= 5 de
+  los folds de D-EXP-3, Y (c) la mejora relativa es >= max(3%, MDE relativo
+  del stat). Si varios ganan, se publica el de mayor mejora; si ninguno,
+  sigue B0.
+  Multiplicidad: 4 stats x 5 brazos = 20 contrastes; se espera ~1 falso
+  positivo al 95%. Un ganador con mejora entre el umbral y umbral + 1 punto
+  porcentual y sin consistencia por fold se reporta como "débil, no
+  desplegable".
+  RANGO, por stat, en la población primaria: R1 GANA si (a) su cobertura
+  agregada queda en [78%, 82%] Y en todos los folds en [75%, 85%], Y (b) su
+  interval score es mejor que el de R0 con IC95 que excluye cero, Y (c) su
+  ancho medio es menor que el de R0.
+  PUERTA DE ARRANQUE (subconjunto de los primeros 21 días, solo C3 y R1): C3
+  gana si mejora >= 3% del MAE de B0 en el subconjunto, con IC95 que excluye
+  cero y mejora en >= 4 de 6 temporadas. Consecuencia: si gana en arranque y
+  no en agregado, se despliega como REGLA DE RÉGIMEN (activa los primeros 21
+  días de cada temporada; después, B0 o el ganador agregado). R1: cobertura
+  en arranque reportada con banda [75%, 85%]; fuera de banda = hallazgo, no
+  veto.
+
+EXPECTATIVAS (con la serie de expectativas optimistas fallidas a la vista):
+  centro: C1 algo mejor que B0 (~1% en pts, por D-EXP-4); C2 entre 0% y 1%;
+  C3 ~0% en el agregado y 1-3% en el subconjunto de arranque; C4 entre 0% y
+  1% (precedente nulo: C2 de D-EXP-3); C5 ~0-1% en agregado y, en arranque,
+  peor que C3. Nulo plausible y legítimo.
+  rango: R1 cumple la cobertura por construcción; ancho 20-35% menor que R0
+  en la población primaria; interval score mejor que R0. En el subconjunto de
+  arranque, R0 cubre menos que en el agregado (consistente con el 73% vivo).
+  ESCENARIO PESIMISTA explícito: ningún centro cruza la puerta de 3%; R1
+  cumple cobertura pero el ancho mejora < 15%.
+  Mejora > 10% del MAE en el centro = auditar leakage antes de celebrar.
+
+CONSECUENCIA DE PRODUCTO (si alguna puerta cruza): cambio del mensaje 2, no
+del modelo. El rango solo puede llamarse "80%" si la cobertura MEDIDA lo
+respalda (regla de D-EXP-4); rebotes y asistencias podrían ganar rango.
+Diseño del formato, presupuesto de longitud computado (regla de D-PROD-1b) y
+despliegue: tarea aparte, con adelante de Antonio y respetando el
+congelamiento.
+REGLA DEL MONITOR VIVO: si la cobertura viva del rango publicado, sobre los
+últimos 100 jugador-partidos con game_date posterior a predicted_at_utc, baja
+de 72%, el texto del mensaje vuelve a "rango de sus últimos 10" sin número de
+cobertura, con deploy declarado.
+
+ENTREGABLE PARALELO, sin pre-registro (no es experimento, es instrumento):
+script de solo lectura que cruza player_predictions_log con player_game_stats
+y emite la tabla diaria de cobertura del rango publicado y error de la
+mediana (la medición manual de Antonio, automatizada). Cruza solo partidos
+con game_date posterior a predicted_at_utc, misma regla que el grading del
+criterio. Los destacados no tienen no-peeking (no hay criterio pre-registrado
+sobre ellos).
+
+FUERA DE ESTE PRE-REGISTRO: benchmark contra líneas de props de jugador =
+D-EXP-8, experimento aparte, una sola medición diagnóstica con tope de
+créditos.
+
+RESULTADO: pendiente de fase 0 y ejecución.
+
+SELLADO: 2026-10-25T22:45:37Z, ANTES de escribir el experimento y de computar la fase 0. Borrador de Code, 12 ajustes del chat de diseño aplicados verbatim, resoluciones 1 y 2 de Antonio.
+
+## D-EXP-7 RESULTADO CENTRO + ARRANQUE (2026-10-25) y ADJUDICACIÓN
+
+CORRIDA: scripts/experiment_destacados_d7.py centro. Primera corrida FALLIDA
+antes de cualquier métrica (KeyError por is_home duplicado en el merge con el
+contexto de equipo; no escribió fase 0 ni resultados); corregida y repetida.
+Orden verificado por timestamps de la corrida válida: audit_sample_centro.json
+16:55:45, mde_fase0.json 16:55:46, results_centro.json 16:55:48 (CDMX). Sanidad
+contra experimentos previos: en el universo completo MAE B0 pts 4.781 (= D-EXP-4)
+y MAE C1 pts 4.730 (= D-EXP-3).
+
+CONTEOS: universo 148 484; población primaria (selector reconstruido, >= 10
+previos) 22 745; titulares 51 184; seleccionados con 3-9 jugados (descriptivo)
+122; subconjunto de arranque de la primaria 2 952.
+
+FASE 0: todas las celdas CON resolución. MDE relativo de celda (peor
+candidato): primaria 0.75-0.86%; titulares 0.51-0.58%; universo 0.32-0.40%;
+arranque de la primaria 2.0-2.4%.
+
+CENTRO, población primaria — mejora relativa del MAE contra B0 (mediana), con
+folds con mejora sobre 6:
+  stat   C1 media     C2 exponencial  C3 shrinkage   C4 contexto   C5 temporada
+  pts    +1.14% 6/6   +2.87% 6/6      +1.78% 6/6     +1.00% 6/6    +2.23% 6/6
+  reb    +1.10% 6/6   +2.68% 6/6      +1.54% 6/6     +0.99% 6/6    +2.50% 6/6
+  ast    +0.68% 5/6   +2.53% 6/6      +1.48% 6/6     +0.55% 5/6    +1.78% 6/6
+  fg3m   -0.45% 2/6   +1.32% 6/6      +0.11% 3/6     -0.72% 2/6    +1.69% 6/6
+PUERTA DE CENTRO: ningún candidato cruza (umbral max(3%, MDE) = 3%) -> centro
+B0 en los cuatro stats. Escenario pesimista pre-registrado REALIZADO en el
+centro.
+DESVIACIONES DE EXPECTATIVA (al alza, primera vez en la serie): C2 2.5-2.9%
+contra 0-1% esperado; C3 agregado 1.5-1.8% contra ~0%; C5 2.2% contra 0-1%. C1
+~1% y C4 0-1% como se esperaba.
+
+PUERTA DE ARRANQUE (C3, primeros 21 días, primaria, n = 2 952): CRUZA 4/4.
+  pts +5.84% (IC95 de la mejora [+0.277, +0.466] pts) 6/6
+  reb +3.37% ([+0.045, +0.106]) 6/6
+  ast +4.44% ([+0.058, +0.117]) 6/6
+  fg3m +3.96% ([+0.029, +0.070]) 6/6
+
+DIAGNÓSTICOS DESCRIPTIVOS pedidos por Antonio (no cambian ninguna puerta):
+(a) Arranque de la primaria, mejora contra B0 (* = IC95 excluye cero):
+  stat   C1             C2             C3             C5
+  pts    +1.46% 6/6*    +3.46% 6/6*    +5.84% 6/6*    +0.02% 3/6
+  reb    +0.63% 3/6     +1.79% 6/6*    +3.37% 6/6*    -1.98% 1/6
+  ast    -1.08% 1/6     +1.28% 6/6*    +4.44% 6/6*    -2.99% 0/6
+  fg3m   +0.02% 3/6     +2.05% 5/6*    +3.96% 6/6*    -1.08% 1/6
+  Lectura: pasar de mediana a media explica a lo sumo ~1.5% del arranque; la
+  ganancia de C3 es propia del shrinkage hacia la temporada anterior. C5 (media
+  de la temporada en curso) es peor que C3 en el arranque, como se esperaba.
+(b) Fallback de C3 (sin temporada anterior y n_act < 10): primaria 35 de
+  22 745 (0.15%); arranque de la primaria 22 de 2 952 (0.75%). Despreciable.
+
+ADJUDICACIÓN (Antonio, 2026-10-25):
+1. Centro = B0 en pts, reb, ast, fg3m. C2 registrado como "mejora real
+   (2.5-2.9%, IC excluye cero, 6/6), bajo umbral, no desplegable; sin
+   renegociación". Hallazgo: toda media supera a la mediana.
+2. Arranque: C3 CRUZA 4/4 -> REGLA DE RÉGIMEN adoptada (primeros 21 días
+   de cada temporada regular, centro C3; después B0). Despliegue como
+   tarea aparte (D-PRE-11) con: encabezado del mensaje 2 cambiado
+   durante el régimen a "(inicio de temporada: mezcla con {temporada
+   anterior})"; rango R0 sin cambio en régimen (declarado); tests con
+   fecha dentro y fuera de los 21 días; dry-run; deploy fuera de
+   12:50-13:30; congelamiento reiniciado.
+3. Antes de escribir D-PRE-11, dos diagnósticos descriptivos (no
+   cambian la puerta): (a) C1 vs B0 y C2 vs B0 en el subconjunto de
+   arranque, para separar "media vs mediana" de "shrinkage"; (b) filas
+   de fallback C3 (sin temporada anterior) dentro de la población
+   primaria y del arranque, en número y porcentaje.
+4. Etapa RANGO: correr UNA vez con --centro pts=B0,reb=B0,ast=B0,fg3m=B0.
+5. Append a CLAUDE.md del RESULTADO de centro y arranque con las tablas,
+   los diagnósticos de 3, y la adjudicación. Sin commit ni push.
+(Los diagnósticos de 3 son los de arriba.)
+
+INTERPRETACIONES DECLARADAS EN EL CÓDIGO (el texto sellado admitía más de una):
+(i) sin temporada anterior, C3 usa C1 y C5 usa C1 mientras n_act < 3;
+(ii) "débil, no desplegable" = cruza con mejora < umbral + 1 pp y sin mejora en
+TODOS los folds; (iii) el MDE de la celda es el del peor candidato.
+
+ETAPA RANGO — CORRIDA INVÁLIDA POR DEFECTO DE INSTRUMENTO (2026-10-25T23:16:52Z,
+exit 0): R0 ([mín, máx] de los últimos 10) se calculó con un rolling sobre las
+filas del UNIVERSO ya filtrado, no sobre la serie completa de jugados del
+jugador: valores NaN en las primeras filas de cada jugador y, donde no son NaN,
+una ventana distinta de la publicada. Su ancho y su interval score salieron NaN
+y las condiciones (b) y (c) de la puerta fallaron por comparación con NaN, no
+por los datos; su cobertura (82.5% pts) está sesgada. R1 y R2 NO dependen de
+ese cálculo (su dispersión salió de la serie completa). Lo informativo, ya
+visto: R1 cubre 79.0-81.1% en las seis temporadas y los cuatro stats (ancho
+medio pts 21.0); R2 cubre solo 66-78% en la población de destacados (el
+conformal absoluto calibrado sobre todo el universo se queda corto con los
+titulares). El pre-registro permite UNA corrida de rango y el script lo
+impide por diseño: repetirla tras ver resultados es adjudicación de Antonio.
+Propuesta de Code: conservar el archivo como results_rango_INVALIDA_R0.json,
+corregir R0 sobre la serie de jugados (sin parámetros que elegir), test que
+compare R0 contra el [mín, máx] que publica producción, y repetir UNA vez.
+RESULTADO DEL RANGO: pendiente de esa adjudicación.
+
+Tests del experimento: 20 (tests/test_experiment_destacados_d7.py) + 6 del
+instrumento de seguimiento (tests/test_seguimiento_destacados.py).
+
+## D-EXP-7 RESULTADO RANGO (2026-10-25, corrida válida tras adelante de Antonio)
+
+RE-RUN ADJUDICADO: la corrida de las 23:16:52Z quedó como evidencia en
+data/experiment_destacados_d7/results_rango_INVALIDA_R0.json. Corrección
+mecánica (sin parámetros): R0 y la dispersión se calculan ahora sobre la serie
+COMPLETA de jugados (range_series), con test que iguala R0 al [mín, máx] de
+player_window_stats de producción. Corrida válida 2026-10-26T02:26:34Z, exit 0,
+centro adjudicado B0 en los cuatro stats. Población primaria (selector), n =
+22 745.
+
+TABLA (cobertura / ancho medio / interval score de Winkler a alfa 0.2):
+  stat   R0 [mín,máx]            R1 conformal 80%         R2 absoluto 80%
+  pts    82.8% / 22.52 / 30.20   79.3% / 21.01 / 29.40    68.1% / 15.00 / 29.91
+  reb    86.8% /  7.87 / 10.35   80.2% /  7.43 / 10.22    77.5% /  6.00 / 10.17
+  ast    87.1% /  6.91 /  9.14   79.5% /  6.46 /  9.10    66.7% /  4.00 / 10.03
+  fg3m   91.0% /  4.31 /  5.57   80.6% /  4.15 /  5.90    66.0% /  2.33 /  6.76
+  Cobertura de R1 por fold: pts 79.0-79.5%; reb 79.1-81.1%; ast 78.8-80.5%;
+  fg3m 79.9-81.1% (las seis temporadas dentro de [75%, 85%]).
+  Winkler R0 - R1 (positivo = R1 mejor), IC95: pts +0.805 [+0.639, +0.970];
+  reb +0.130 [+0.068, +0.191]; ast +0.043 [-0.014, +0.100]; fg3m -0.335
+  [-0.376, -0.294].
+
+PUERTA DE RANGO: R1 CRUZA en pts y reb (cobertura en banda, interval score mejor
+con IC que excluye cero, más estrecho). NO cruza en ast (IC del interval score
+incluye cero) ni en fg3m (interval score PEOR que R0).
+EXPECTATIVA vs RESULTADO: se esperaba R1 20-35% más estrecho que R0; salió
+6.7% (pts), 5.6% (reb), 6.5% (ast), 3.7% (fg3m). Se cumple el ESCENARIO
+PESIMISTA pre-registrado ("R1 cumple cobertura pero el ancho mejora < 15%"),
+ahora también en el rango. Lectura: R1 compra una promesa medida (80%) y un
+rango algo más estrecho a cambio de cubrir menos que R0 (79% contra 83-91%);
+en triples el [mín, máx] de soporte corto es difícil de mejorar.
+R2 descartado: el conformal absoluto calibrado sobre todo el universo se queda
+en 66-78% de cobertura con los destacados.
+
+PENDIENTE DE ADJUDICACIÓN DE ANTONIO: (1) si se adopta R1 en el mensaje 2 para
+pts y reb (y cómo se redacta: el número "80%" solo con la cobertura medida que
+lo respalda, regla de D-EXP-4; rebotes ganaría rango, hoy solo lleva mediana);
+(2) el barrido de sensibilidad exploratorio (no elegible para promoción), que
+el pre-registro manda correr después de adjudicar.

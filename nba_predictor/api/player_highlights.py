@@ -23,6 +23,8 @@ import logging
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 if TYPE_CHECKING:
     import pandas as pd
 
@@ -38,7 +40,16 @@ STAT_WINDOW = 10
 from nba_predictor.config import (  # noqa: E402
     HIGHLIGHT_HISTORY_SEASONS,
     HIGHLIGHT_RECENCY_DAYS,
+    HIGHLIGHT_REGIME_DAYS,
+    HIGHLIGHT_SHRINK_K,
+    PTS_R1_Q_SCALED,
+    PTS_R2_Q_ABS,
 )
+
+# Modos del mensaje 2 (D-PRE-11). None = comportamiento previo (B0 + [mín, máx]).
+MODE_REGIMEN = "regimen"   # arranque: centro C3, rango [mín, máx] sin etiqueta
+MODE_R1 = "r1"             # después: centro B0, rango de puntos R1 al 80%
+CENTER_STATS: tuple[str, ...] = ("pts", "reb", "ast", "fg3m")
 
 # D-PRE-9: destacados por equipo. Mismos filtros para el 2 que para el 1.
 HIGHLIGHTS_PER_TEAM = 2
@@ -106,6 +117,81 @@ def player_window_stats(
         "ast_median": float(ventana["ast"].median()),
         "fg3m_median": float(ventana["fg3m"].median()),
     }
+
+
+def highlight_mode(target_date: date, season_start: date,
+                   regime_days: int = HIGHLIGHT_REGIME_DAYS) -> str:
+    """Régimen de arranque los primeros `regime_days` días desde el primer partido
+    002 de la temporada (día 0 = ese partido): la misma definición del
+    experimento, (fecha - inicio).days < 21. Con 2026-27 empezando el
+    2026-10-20, el régimen va del 20-oct al 9-nov; el 10-nov ya es R1."""
+    return MODE_REGIMEN if (target_date - season_start).days < regime_days else MODE_R1
+
+
+def regime_center(
+    played: "pd.DataFrame",
+    target_date: date,
+    window: int = STAT_WINDOW,
+    k: float = HIGHLIGHT_SHRINK_K,
+    stats: tuple[str, ...] = CENTER_STATS,
+) -> dict[str, float]:
+    """Valor central C3 de D-EXP-7 (shrinkage de arranque), por stat.
+
+    `played`: filas JUGADAS del jugador, todas anteriores a target_date.
+      n_act = jugados de la temporada en curso; media_act su media; media_prev
+      la media de la temporada anterior.
+      n_act >= window -> media de los últimos `window` (C1);
+      si no -> (n_act * media_act + k * media_prev) / (n_act + k).
+    Sin temporada anterior: media de los últimos `window` disponibles (la de C1,
+    con el mínimo de producción de 3 jugados en vez del 10 del experimento;
+    declarado). Las claves devueltas son las del publicado: {stat}_median.
+    """
+    actual = season_of(target_date)
+    previa = recent_seasons(target_date, 2)[0]
+    temporada = played["game_date"].map(lambda d: season_of(d.date() if hasattr(d, "date") else d))
+    act = played[temporada == actual]
+    prev = played[temporada == previa]
+    ultimos = played.sort_values("game_date", kind="stable").tail(window)
+    out: dict[str, float] = {}
+    n = len(act)
+    for st in stats:
+        c1 = float(ultimos[st].mean())
+        if n >= window or prev.empty:
+            out[f"{st}_median"] = c1
+        else:
+            ma = float(act[st].mean()) if n else 0.0
+            out[f"{st}_median"] = float((n * ma + k * float(prev[st].mean())) / (n + k))
+    return out
+
+
+def r1_pts_range(
+    played: "pd.DataFrame",
+    window: int = STAT_WINDOW,
+    q_scaled: float = PTS_R1_Q_SCALED,
+    q_abs: float = PTS_R2_Q_ABS,
+) -> dict[str, float] | None:
+    """Rango R1 de puntos al 80% (D-EXP-7), o None si no aplica.
+
+    Centro B0 (mediana de los últimos 10) ± q * dispersión_10, con dispersión_10
+    = desviación absoluta media de esos 10; dispersión 0 -> centro ± q_abs (R2).
+    Solo con la ventana COMPLETA de 10: R1 se calibró y validó con 10 partidos;
+    con menos, el llamador conserva [mín, máx] (declarado).
+
+    Los extremos se publican como ENTEROS [ceil(lo), floor(hi)], acotados en 0:
+    los puntos son enteros, así que ese intervalo contiene exactamente los
+    mismos valores posibles que [lo, hi] y la cobertura medida no cambia.
+    """
+    import math
+
+    ventana = played.sort_values("game_date", kind="stable").tail(window)
+    if len(ventana) < window:
+        return None
+    x = ventana["pts"].astype(float).to_numpy()
+    centro = float(np.median(x))
+    disp = float(np.mean(np.abs(x - x.mean())))
+    mitad = q_scaled * disp if disp > 0 else q_abs
+    return {"pts_min": float(max(0, math.ceil(centro - mitad))),
+            "pts_max": float(math.floor(centro + mitad))}
 
 
 def status_mark(status: str | None) -> str | None:
@@ -205,6 +291,7 @@ def rank_team_candidates(
     target_date: date | None = None,
     recency_days: int = HIGHLIGHT_RECENCY_DAYS,
     roster_signals: "pd.DataFrame | None" = None,
+    mode: str | None = None,
 ) -> list[dict[str, Any]]:
     """Candidatos de UN equipo, ordenados por minutos rolling descendente.
 
@@ -275,6 +362,14 @@ def rank_team_candidates(
         stats = player_window_stats(filas, window)
         if stats["games_in_window"] < min_games:
             continue
+        # D-PRE-11: el modo cambia lo PUBLICADO (centro y rango), nunca la
+        # selección: el orden sigue siendo por minutos rolling.
+        if mode == MODE_REGIMEN and target_date is not None:
+            stats.update(regime_center(filas, target_date, window))
+        elif mode == MODE_R1:
+            r1 = r1_pts_range(filas, window)
+            if r1 is not None:
+                stats.update(r1)
         candidatos.append({"player_id": int(pid), "status": estatus, **stats})
 
     # Desempate por player_id: el orden tiene que ser determinista o dos
@@ -295,6 +390,7 @@ def build_game_highlights(
     recency_days: int = HIGHLIGHT_RECENCY_DAYS,
     roster_signals: "pd.DataFrame | None" = None,
     per_team: int = HIGHLIGHTS_PER_TEAM,
+    mode: str | None = None,
 ) -> list["PlayerHighlight"]:
     """Top `per_team` por equipo (D-PRE-9: 2) como PlayerHighlight listos para formato.
 
@@ -310,7 +406,7 @@ def build_game_highlights(
         candidatos = rank_team_candidates(
             hist_pgs, team_id, statuses_by_tid.get(team_id, {}), window, min_games,
             target_date=target_date, recency_days=recency_days,
-            roster_signals=roster_signals,
+            roster_signals=roster_signals, mode=mode,
         )
         if not candidatos:
             # Plantel renovado por completo, expansión, o todos excluidos por

@@ -4976,3 +4976,102 @@ pts y reb (y cómo se redacta: el número "80%" solo con la cobertura medida que
 lo respalda, regla de D-EXP-4; rebotes ganaría rango, hoy solo lleva mediana);
 (2) el barrido de sensibilidad exploratorio (no elegible para promoción), que
 el pre-registro manda correr después de adjudicar.
+
+## D-EXP-7 ADJUDICACIÓN RANGO + D-PRE-11 RESULTADO (2026-10-25/26): régimen de
+arranque C3 y rango de puntos R1 al 80% EN PRODUCCIÓN. v20. Congelamiento
+reiniciado.
+
+ADJUDICACIÓN D-EXP-7 RANGO (Antonio, 2026-10-25):
+- pts: R1 ADOPTADO. Etiqueta "80%" solo fuera del régimen de arranque;
+  en régimen, R0 sin etiqueta. Monitor vivo: últimos 100 jugador-partidos
+  con game_date > predicted_at_utc; < 72% => reversión declarada a
+  "rango de sus últimos 10" sin número, con deploy.
+- reb: cruza, DIFERIDO por presupuesto de longitud; recomputar el peor
+  caso con el rango de rebotes añadido antes de decidir (D-PROD-1b).
+- ast, fg3m: sin cambio.
+- Reportar cobertura de R1 en el subconjunto de arranque (punto 8 del
+  pre-registro), banda [75%, 85%], como hallazgo.
+- Barrido de sensibilidad: correr al final, exploratorio.
+
+HALLAZGO (punto 8): R1 de puntos en el ARRANQUE de la población primaria cubre
+80.66% (2 381 de 2 952), por temporada 79.6-81.9%: dentro de la banda
+[75%, 85%].
+PRESUPUESTO DE REBOTES (D-PROD-1b, computado): el día real de 15 partidos
+(12-23, modo R1) mide 3 725 caracteres; con rango de rebotes (ancho medio R1
+de reb de D-EXP-7, 7.43) serían ~4 104: pasa de 3 800, forzaría el recorte a
+uno por equipo los días llenos. La decisión de diferirlo se sostiene.
+
+CALIBRACIÓN DE R1 (constantes versionadas en config, sin la temporada actual):
+PTS_R1_Q_SCALED = 1.902174, PTS_R2_Q_ABS = 7.5, n = 291 764, temporadas
+2014-15..2025-26, centro B0, cuantil 0.80 (72 filas con dispersión 0 en la
+calibración).
+
+IMPLEMENTACIÓN (player_highlights + daily_predictions):
+- highlight_mode: régimen si (fecha - primer partido 002 de la temporada en
+  games).days < 21 (2026-27: 20-oct a 9-nov; R1 desde el 10-nov). Sin partidos
+  de la temporada en games, el inicio es el propio día (día 0).
+- Régimen: centro C3 (n_act >= 10: media de los últimos 10; si no,
+  (n_act*media_act + 5*media_prev)/(n_act + 5)) en pts, reb, ast y 3P; rango
+  [mín, máx] sin cambio; título "(inicio de temporada: mezcla con 2025-26)".
+- Fuera: centro B0; rango de PUNTOS R1 = B0 ± 1.902174 * dispersión_10
+  (dispersión 0 -> B0 ± 7.5); título "(últimos 10 partidos · rango de puntos
+  al 80%)". Reb, ast y 3P sin cambio.
+- El modo cambia lo publicado, NUNCA la selección (orden por minutos intacto).
+DECISIONES DECLARADAS que el encargo no fijaba:
+(a) extremos de R1 publicados como ENTEROS [ceil(lo), floor(hi)], acotados en
+    0: contienen exactamente los mismos puntos posibles que [lo, hi] (test), así
+    que la cobertura medida no cambia;
+(b) R1 solo con la ventana COMPLETA de 10 (se calibró con 10); con 3 a 9
+    jugados la línea conserva [mín, máx] y su sufijo "(últimos n)" — el título
+    dice "80%" y esas líneas no lo cumplen: ADJUDICACIÓN PENDIENTE de Antonio
+    (alternativas: marcar esas líneas, u omitir el 80% del título);
+(c) C3 en producción usa el mínimo de producción (3 jugados) y, sin temporada
+    anterior, la media de los últimos disponibles (el experimento exigía 10);
+(d) sin cambio de schema: en player_predictions_log, pts_median & co. guardan
+    el valor central PUBLICADO (C3 en régimen, B0 después) y pts_min/pts_max el
+    rango publicado (R0 o R1); el modo se deriva de la fecha y del primer
+    partido 002 de la temporada, y R1 de games_in_window = 10. El monitor del
+    instrumento de seguimiento lo deriva así;
+(e) el especialista de triples se decide sobre el centro publicado (C3 en
+    régimen).
+
+TESTS: 22 nuevos (tests/test_regime_r1.py): fecha en régimen y fuera; tope
+exacto (11-09 último día de régimen, 11-10 primero de R1); C3 en sus cuatro
+ramas; R1 contra el cálculo del experimento en 5 filas REALES de la muestra de
+auditoría (tests/fixtures/d7_r1_audit_rows.json: Siakam, Zubac, Mitchell,
+Anunoby, Murray); enteros equivalentes; dispersión 0; acotado en 0; sin R1 con
+menos de 10; el modo no cambia el orden; modo desde el primer partido 002;
+títulos; presupuesto con los títulos nuevos (día de 15 con nombres típicos:
+3 752 / 3 772 en régimen / 3 777 en R1, bajo 3 800). Instrumento de
+seguimiento: +2 tests del monitor R1 (8 en total). Suite 1142 passed, 15
+deselected (1090 + 22 del experimento + 8 del seguimiento + 22 de D-PRE-11).
+Un test existente pasó sin editarse gracias a un retorno tolerante en
+build_daily_predictions (test_player_map_vacio_declara_feed_caido parchea
+_attach_highlights con None). Ruff limpio.
+
+DEPLOY: predictions-api:v20, revisión predictions-api-00020-99m, 100%, 1Gi,
+desplegada a las 23:5x CDMX del 2026-10-25 (fuera de 12:50-13:30).
+DRY-RUNS (disparos manuales de la ventana, registrados):
+  2026-10-26T05:52:06Z  ?date=2026-10-26  200 en 58.2 s  9 partidos, 36
+      destacados, 2 254 caracteres, modo régimen, sin recorte, cero "#"
+  2026-10-26T05:53:04Z  ?date=2026-11-02  200 en 84.6 s  15 partidos, 60
+      destacados, 3 698 caracteres, modo régimen, sin recorte
+  2026-10-26T05:54:29Z  ?date=2026-12-23  200 en 83.2 s  15 partidos, 60
+      destacados, 3 725 caracteres, modo R1, sin recorte (75 de margen)
+  Evidencia: 36 / 60 / 60 filas en player_predictions_log (rank 1 y 2 a
+  partes iguales, served_by 00020-99m); ancho medio del rango de puntos 22.9
+  y 22.3 en régimen (R0) contra 19.8 con R1. Sin WARNING en la revisión.
+  En régimen el rango no cambia y el centro sí (p. ej. Anthony Gill 10.5 ->
+  4.9, su repunte de abril diluido; Anthony Edwards 20.5 -> 29.2).
+
+INSTRUMENTO: scripts/seguimiento_destacados.py gana el MONITOR R1 (últimos
+100 jugador-partidos con R1 publicado, alerta bajo 72%); hoy "insuficiente"
+(R1 empieza el 10-nov). Tabla 20-24 oct reproduce el 44/60 = 73.3% del cotejo
+manual de Antonio.
+COTEJO PENDIENTE: DET aparece con Elijah Harkless y Taurean Prince como top 2
+(publicado así el 25 y en el dry-run del 12-23); confirmar contra plantilla.
+PENDIENTES: barrido de sensibilidad (exploratorio, al final); adjudicación del
+punto (b).
+
+CONGELAMIENTO: reiniciado desde predictions-api v20 (predictions-api-00020-99m)
+/ ingest-job v14 (generación 11, sin cambios).

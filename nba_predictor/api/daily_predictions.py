@@ -151,6 +151,11 @@ class DailyResult:
     # D-PRE-9: True si el mensaje 2 con dos destacados por equipo excedía el
     # presupuesto y se recortó a uno por equipo. Recorte DECLARADO: el mensaje
     # lo dice en una línea y el log registra solo lo publicado.
+    highlights_mode: str | None = None
+    highlights_prev_season: str | None = None
+    # D-PRE-11: "regimen" (primeros 21 días: centro C3, rango [mín, máx] sin
+    # etiqueta) | "r1" (después: centro B0, rango de puntos R1 al 80%) | None
+    # (sin destacados calculados, o resultado construido a mano: título previo).
     highlights_truncated: str | None = None
     # D-PRE-9, dos guardas en escalera: None = mensaje completo; "top1" =
     # recortado a uno por equipo (> 3 800); "omitted" = ni con uno por equipo
@@ -340,7 +345,7 @@ def build_daily_predictions(
     # (precedente cerrado 2026-08-25/26 para el snapshot y para predictions_log).
     # Un fallo aquí deja players_data_available=False, un WARNING, y el mensaje 1
     # servido completo e intacto.
-    _attach_highlights(
+    destacados = _attach_highlights(
         store=store,
         target_date=target_date,
         scheduled=games,
@@ -349,6 +354,8 @@ def build_daily_predictions(
         player_map=player_map,
         season=season,
     )
+    # Best-effort también aquí: cualquier retorno no esperado = sin modo (título previo).
+    modo_destacados, previa_destacados = destacados if destacados else (None, None)
 
     result = DailyResult(
         target_date=target_date.isoformat(),
@@ -359,6 +366,8 @@ def build_daily_predictions(
         tipoff_tbd_count=count_tipoff_tbd(games),
         unresolved_team_count=len(unresolved_tokens),
         unresolved_team_tokens=unresolved_tokens,
+        highlights_mode=modo_destacados,
+        highlights_prev_season=previa_destacados,
     )
     # ── 7. Presupuesto de longitud del mensaje 2 (D-PRE-9) ──
     # Antes de devolver: el recorte cambia gp.players, y el log de destacados
@@ -458,6 +467,13 @@ _PLAYERS_TRIMMED_LINE = "(un destacado por equipo hoy por longitud)"
 # Título del SEGUNDO mensaje. Declara la ventana UNA vez y de forma factual:
 # no dice "esperado", "proyectado" ni nada que prometa cobertura (D-EXP-4).
 _PLAYERS_TITLE = "🏀 Destacados · {fecha} (últimos 10 partidos)"
+
+# D-PRE-11: títulos por modo. El "80%" solo aparece fuera del régimen, donde el
+# rango de puntos es R1 y su cobertura MEDIDA lo respalda (D-EXP-7: 79.0-79.5%
+# por temporada; regla de D-EXP-4). En régimen el rango es [mín, máx], sin
+# etiqueta de cobertura.
+_PLAYERS_TITLE_REGIMEN = "🏀 Destacados · {fecha} (inicio de temporada: mezcla con {prev})"
+_PLAYERS_TITLE_R1 = "🏀 Destacados · {fecha} (últimos 10 partidos · rango de puntos al 80%)"
 
 # Marca editorial de D-EXP-1, una vez por partido (no por jugador): el peso
 # medido de Questionable es ~0.48. Es el destino que la puerta de D-EXP-2 le
@@ -590,7 +606,13 @@ def format_players_message(result: DailyResult) -> str:
     fecha = f"{d.day} {_MESES_ES[d.month]} {d.year}"
     if result.highlights_truncated == "omitted":
         return _PLAYERS_OMITTED_LINE.format(fecha=fecha)
-    lines: list[str] = [_PLAYERS_TITLE.format(fecha=fecha)]
+    if result.highlights_mode == "regimen" and result.highlights_prev_season:
+        titulo = _PLAYERS_TITLE_REGIMEN.format(fecha=fecha, prev=result.highlights_prev_season)
+    elif result.highlights_mode == "r1":
+        titulo = _PLAYERS_TITLE_R1.format(fecha=fecha)
+    else:
+        titulo = _PLAYERS_TITLE.format(fecha=fecha)
+    lines: list[str] = [titulo]
     if result.players_trimmed:
         lines.append(_PLAYERS_TRIMMED_LINE)
     for bloque in bloques:
@@ -879,8 +901,13 @@ def _attach_highlights(
     statuses_by_tid: dict[int, dict[int, str]],
     player_map: dict[int, str],
     season: str | None = None,
-) -> None:
+) -> tuple[str | None, str | None]:
     """Rellena players / players_data_available de cada partido, in situ.
+
+    D-PRE-11: devuelve (modo, temporada anterior) — modo "regimen" los primeros
+    21 días desde el primer partido 002 de la temporada en `games` (si aún no
+    hay ninguno, el inicio es el propio target_date: día 0), "r1" después; o
+    (None, None) si no se calcularon destacados.
 
     D-PRE-8: carga también roster_signals de la temporada efectiva (season,
     la del payload CDN). Solo deciden el EQUIPO actual; las estadísticas
@@ -904,11 +931,13 @@ def _attach_highlights(
     from nba_predictor.api.player_highlights import (
         build_game_highlights,
         derive_box_stats,
+        highlight_mode,
         recent_seasons,
         season_of,
     )
 
     temporadas = recent_seasons(target_date)
+    previa = recent_seasons(target_date, 2)[0]
     try:
         all_games = store.load_games()[["game_id", "game_date"]].copy()
         all_games["game_date"] = pd.to_datetime(all_games["game_date"])
@@ -925,7 +954,7 @@ def _attach_highlights(
             _log.warning(
                 "Sin destacados hoy: no hay player_game_stats en %s", temporadas
             )
-            return
+            return None, None
 
         hist_pgs = pgs[pgs["game_id"].isin(set(hist["game_id"]))].merge(
             hist, on="game_id", validate="many_to_one"
@@ -936,7 +965,20 @@ def _attach_highlights(
         )
     except Exception as exc:
         _log.warning("Sin destacados hoy: no se pudo cargar el histórico: %s", exc)
-        return
+        return None, None
+
+    # Modo del día: el inicio de temporada se lee del calendario JUGADO (games),
+    # la misma definición del experimento (D-EXP-7).
+    actual = season_of(target_date)
+    de_la_temporada = all_games[
+        all_games["game_id"].astype(str).str.startswith("002")
+        & all_games["game_date"].map(lambda d: season_of(d.date())).eq(actual)
+    ]
+    inicio_temp = de_la_temporada["game_date"].min()
+    inicio = (min(inicio_temp.date(), target_date)
+              if not pd.isna(inicio_temp) else target_date)
+    modo = highlight_mode(target_date, inicio)
+    _log.info("Destacados: modo %s (inicio de temporada %s)", modo, inicio)
 
     roster_signals = None
     try:
@@ -969,6 +1011,7 @@ def _attach_highlights(
                 player_map=player_map,
                 target_date=target_date,
                 roster_signals=roster_signals,
+                mode=modo,
             )
             gp.players_data_available = bool(gp.players)
         except Exception as exc:
@@ -977,6 +1020,7 @@ def _attach_highlights(
             )
             gp.players = []
             gp.players_data_available = False
+    return modo, previa
 
 
 def _predict_one(

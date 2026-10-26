@@ -74,6 +74,27 @@ HIGHLIGHT_RECENCY_DAYS: int = 250
 # 2026-09-24: "Memory limit of 1024 MiB exceeded with 1029 MiB used").
 HIGHLIGHT_HISTORY_SEASONS: int = 3
 
+# ── D-PRE-11 (adjudicación de D-EXP-7, 2026-10-25) ──
+# Régimen de arranque: los primeros 21 días de cada temporada regular, contados
+# desde su primer partido 002, el valor central publicado es C3 (shrinkage hacia
+# la temporada anterior, K = 5); después, la mediana de los últimos 10 (B0).
+# D-EXP-7: C3 cruzó la puerta de arranque en los cuatro stats (+3.4% a +5.8% del
+# MAE, 6/6 temporadas); ningún centro cruzó la puerta general.
+HIGHLIGHT_REGIME_DAYS: int = 21
+HIGHLIGHT_SHRINK_K: float = 5.0
+
+# Rango de PUNTOS fuera del régimen: R1 conformal escalado al 80% alrededor de B0,
+# centro ± q * dispersión_10 (desviación absoluta media de los últimos 10); con
+# dispersión 0 cae a R2, centro ± q_abs. CONSTANTES VERSIONADAS, calibradas con
+# TODO el histórico hasta la temporada anterior (sin la actual). Recalibrar es
+# cambiar estas tres líneas con su nueva fecha y su nuevo n, jamás en caliente.
+# D-EXP-7: R1 cubrió 79.0-79.5% por temporada en la población de destacados.
+PTS_R1_Q_SCALED: float = 1.902174
+PTS_R2_Q_ABS: float = 7.5
+PTS_R1_CALIBRATION: str = (
+    "2026-10-25 · n=291764 · temporadas 2014-15..2025-26 · centro B0 · cuantil 0.80"
+)
+
 # Cap de días de descanso. Más de una semana no añade frescura marginal
 # y los ~100 días de offseason distorsionarían rest_diff.
 REST_DAYS_CAP: int = 7

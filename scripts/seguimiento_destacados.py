@@ -58,7 +58,7 @@ WITH rec AS (
     AND DATE(l.predicted_at_utc, 'America/Mexico_City') = l.game_date
 )
 SELECT r.game_date, r.game_id, r.player_id, r.player_name, r.team_tricode,
-       r.status_flag, r.rank, r.pts_median, r.pts_min, r.pts_max,
+       r.status_flag, r.rank, r.pts_median, r.pts_min, r.pts_max, r.games_in_window,
        r.reb_median, r.ast_median, r.fg3m_median, r.served_by,
        s.minutes, s.fgm, s.fg3m, s.ftm, s.oreb, s.dreb, s.ast,
        tm.abbreviation AS real_tricode,
@@ -90,6 +90,7 @@ def classify_row(row: dict[str, Any]) -> dict[str, Any]:
         "game_date": str(row["game_date"]), "game_id": row["game_id"],
         "player": row["player_name"], "team": row["team_tricode"],
         "rank": row.get("rank"), "status": row.get("status_flag"),
+        "games_in_window": row.get("games_in_window"),
     }
     minutos = row.get("minutes")
     if row.get("real_tricode") is None:
@@ -123,6 +124,35 @@ def classify_row(row: dict[str, Any]) -> dict[str, Any]:
         med = row.get(f"{st}_median")
         out[f"err_{st}"] = None if med is None else abs(real[st] - float(med))
     return out
+
+
+MONITOR_N = 100
+MONITOR_UMBRAL = 0.72
+REGIMEN_DIAS = 21
+
+
+def monitor_r1(evals: list[dict[str, Any]], inicio_temporada: date) -> dict[str, Any]:
+    """MONITOR VIVO de R1 (adjudicación de D-EXP-7, 2026-10-25). Función PURA.
+
+    Filas con rango R1 publicado: fuera del régimen de 21 días y con ventana
+    completa de 10 (con menos, el rango publicado es [mín, máx]). Sobre las
+    ÚLTIMAS 100 evaluadas: cobertura < 72% => ALERTA, y la regla adjudicada es
+    revertir el texto a "rango de sus últimos 10" sin número, con deploy
+    declarado. Con menos de 100 filas no hay veredicto.
+    """
+    r1 = [e for e in evals if e["veredicto"] == "evaluado"
+          and (date.fromisoformat(e["game_date"]) - inicio_temporada).days >= REGIMEN_DIAS
+          and e.get("games_in_window") == 10]
+    r1.sort(key=lambda e: (e["game_date"], e["game_id"]))
+    ult = r1[-MONITOR_N:]
+    res: dict[str, Any] = {"filas_r1": len(r1), "ventana": len(ult)}
+    if len(ult) < MONITOR_N:
+        res["veredicto"] = "insuficiente"
+        return res
+    cob = sum(e["pts_en_rango"] for e in ult) / len(ult)
+    res["cobertura_ultimos_100"] = round(cob, 4)
+    res["veredicto"] = "ALERTA" if cob < MONITOR_UMBRAL else "ok"
+    return res
 
 
 def summarize(evals: list[dict[str, Any]]) -> dict[str, Any]:
@@ -195,13 +225,21 @@ def main() -> None:
     ])
     filas = [dict(r.items()) for r in store._bq.query(sql, job_config=cfg).result()]
     evals = [classify_row(f) for f in filas]
+    q_ini = (f"SELECT MIN(game_date) AS d FROM `{settings.gcp_project_id}.{settings.bq_dataset}"
+             f".games` WHERE season = '{desde.year}-{(desde.year + 1) % 100:02d}' "
+             f"AND STARTS_WITH(game_id, '002')")
+    inicio = next(iter(store._bq.query(q_ini).result())).d or desde
+    monitor = monitor_r1(evals, inicio)
 
     sys.stdout.reconfigure(encoding="utf-8")
     print(render(evals))
+    print()
+    print(f"MONITOR R1 (inicio de temporada {inicio}; régimen {REGIMEN_DIAS} días): {monitor}")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out = OUT_DIR / f"{desde}_{hasta}.json"
     out.write_text(json.dumps({"desde": str(desde), "hasta": str(hasta),
-                               "resumen": summarize(evals), "detalle": evals},
+                               "resumen": summarize(evals), "monitor_r1": monitor,
+                               "detalle": evals},
                               ensure_ascii=False, indent=1, default=str), encoding="utf-8")
     print(f"\n[detalle en {out}]")
 

@@ -61,3 +61,28 @@ def test_resumen_cuenta_solo_evaluados_en_la_cobertura():
     s = seg.summarize(evals)
     assert (s["destacados"], s["evaluados"], s["no_jugo"]) == (3, 2, 1)
     assert s["pts_en_rango"] == 1 and s["cobertura_pts"] == 0.5
+
+
+def _ev_r1(d, dentro, n=10):
+    return {"veredicto": "evaluado", "game_date": d, "game_id": d, "games_in_window": n,
+            "pts_en_rango": dentro}
+
+
+def test_monitor_r1_ignora_el_regimen_y_ventanas_cortas():
+    from datetime import date
+
+    ini = date(2026, 10, 20)
+    evals = [_ev_r1("2026-11-09", False)] * 50 + [_ev_r1("2026-11-12", False, n=7)] * 50
+    m = seg.monitor_r1(evals, ini)
+    assert m["filas_r1"] == 0 and m["veredicto"] == "insuficiente"
+
+
+def test_monitor_r1_alerta_bajo_72():
+    from datetime import date
+
+    ini = date(2026, 10, 20)
+    ok = [_ev_r1(f"2026-11-{10 + i // 10:02d}", i % 4 != 0) for i in range(100)]   # 75%
+    mal = [_ev_r1(f"2026-11-{10 + i // 10:02d}", i % 10 >= 3) for i in range(100)]  # 70%
+    assert seg.monitor_r1(ok, ini)["veredicto"] == "ok"
+    m = seg.monitor_r1(mal, ini)
+    assert m["veredicto"] == "ALERTA" and m["cobertura_ultimos_100"] == 0.70

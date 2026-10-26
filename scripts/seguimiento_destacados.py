@@ -118,8 +118,13 @@ def classify_row(row: dict[str, Any]) -> dict[str, Any]:
     }
     out["veredicto"] = "evaluado"
     out["real"] = real
-    out["pts_en_rango"] = bool(row["pts_min"] <= real["pts"] <= row["pts_max"])
-    out["ancho_rango"] = float(row["pts_max"] - row["pts_min"])
+    if row.get("pts_min") is None or row.get("pts_max") is None:
+        # Sin rango publicado (ventana corta en modo R1): solo se evalúa el centro.
+        out["pts_en_rango"] = None
+        out["ancho_rango"] = None
+    else:
+        out["pts_en_rango"] = bool(row["pts_min"] <= real["pts"] <= row["pts_max"])
+        out["ancho_rango"] = float(row["pts_max"] - row["pts_min"])
     for st in STATS:
         med = row.get(f"{st}_median")
         out[f"err_{st}"] = None if med is None else abs(real[st] - float(med))
@@ -164,11 +169,15 @@ def summarize(evals: list[dict[str, Any]]) -> dict[str, Any]:
         "no_jugo": sum(e["veredicto"] == "no_jugo" for e in evals),
         "equipo_distinto": sum(e["veredicto"] == "equipo_distinto" for e in evals),
     }
-    if ev:
-        dentro = sum(e["pts_en_rango"] for e in ev)
+    con_rango = [e for e in ev if e["pts_en_rango"] is not None]
+    res["sin_rango"] = len(ev) - len(con_rango)
+    if con_rango:
+        dentro = sum(e["pts_en_rango"] for e in con_rango)
         res["pts_en_rango"] = dentro
-        res["cobertura_pts"] = round(dentro / len(ev), 4)
-        res["ancho_medio_pts"] = round(sum(e["ancho_rango"] for e in ev) / len(ev), 2)
+        res["cobertura_pts"] = round(dentro / len(con_rango), 4)
+        res["ancho_medio_pts"] = round(
+            sum(e["ancho_rango"] for e in con_rango) / len(con_rango), 2)
+    if ev:
         for st in STATS:
             errs = [e[f"err_{st}"] for e in ev if e[f"err_{st}"] is not None]
             res[f"mae_mediana_{st}"] = round(sum(errs) / len(errs), 3) if errs else None
@@ -182,7 +191,7 @@ def render(evals: list[dict[str, Any]]) -> str:
     for d in dias + ["TOTAL"]:
         sub = evals if d == "TOTAL" else [e for e in evals if e["game_date"] == d]
         s = summarize(sub)
-        if s["evaluados"]:
+        if s.get("cobertura_pts") is not None:
             lines.append(
                 f"{d:<11} {s['destacados']:>4}  {s['evaluados']:>4}  {s['no_jugo']:>3}  "
                 f"{s['equipo_distinto']:>3}  {s['pts_en_rango']:>9}  {s['cobertura_pts']:>9.1%}  "

@@ -5075,3 +5075,57 @@ punto (b).
 
 CONGELAMIENTO: reiniciado desde predictions-api v20 (predictions-api-00020-99m)
 / ingest-job v14 (generación 11, sin cambios).
+
+## D-PRE-11b + BARRIDO D-EXP-7 (2026-10-26)
+
+REGLA ADJUDICADA (Antonio, 2026-10-26): "rango de puntos solo con ventana
+completa de 10; con 3-9 jugados, centro y sufijo, sin rango". Razón: una línea
+con [mín, máx] de 6 partidos bajo un título que dice 80% es la promesa sin
+medición que D-EXP-4 prohíbe; en el histórico son 122 de 22 745 destacados.
+ALCANCE APLICADO por Code, declarado para confirmación: SOLO en el modo R1 (el
+que promete "80%" en el título). En el régimen de arranque el título no promete
+cobertura y las líneas de ventana corta conservan [mín, máx] con su sufijo.
+IMPLEMENTACIÓN: pts_min/pts_max = None en esas líneas; el formato publica
+"• Nombre (TRI): 24 pts · 7 reb · 5 ast (últimos 6)"; player_predictions_log
+guarda NULL en pts_min/pts_max; el instrumento de seguimiento evalúa solo el
+centro de esas filas (contador sin_rango). Tests: +4 en test_regime_r1.py, +1
+en test_seguimiento_destacados.py. Suite 1147 passed, 15 deselected (1142 + 5).
+DEPLOY: predictions-api:v21 CONSTRUIDA (2026-10-26 00:28 CDMX); deploy
+BLOQUEADO por el clasificador de permisos (despliegue a producción sin
+autorización explícita en el chat durante el congelamiento) y NO rodeado.
+PENDIENTE del adelante de Antonio. Producción sigue en v20.
+
+DET CON HARKLESS Y PRINCE (lectura de Antonio, 2026-10-26, sin cambio): no es
+bug. Prince es rotación real; Harkless es two-way (el PDF del 20 lo listaba
+Out por G League) y sale por sus minutos de abril. Pasa el filtro de v19
+porque el injury report es observación de la temporada. Los días que el PDF lo
+marque Out, el filtro de estatus ya lo excluye, y en ~2 semanas la ventana
+rueda y desaparece solo. Regla candidata NO adoptada ("un jugador Out por
+asignación a G League no es candidato aunque el estatus del día sea
+Available"): decisión de contrato, no se toma por un caso.
+
+BARRIDO DE SENSIBILIDAD D-EXP-7 (exploratorio, NO elegible para promoción;
+mismas 22 745 filas de la población primaria, contra el mismo B0 de 10):
+  CENTRO, mejora relativa vs B0 (* = cruza la puerta de centro):
+    stat  C2 hl3  C2 hl8   C3 k3  C3 k10  B0 w5   C1 w5   B0 w20  C1 w20
+    pts   +1.32%  +3.56%*  +1.77% +1.70%  -5.42%  -2.38%  +2.07%  +2.65%
+    reb   +1.02%  +3.57%*  +1.45% +1.58%  -5.55%  -2.54%  +2.42%  +2.81%
+    ast   +0.98%  +3.21%*  +1.46% +1.43%  -4.99%  -2.49%  +2.03%  +2.34%
+    fg3m  -0.19%  +2.21%   +0.03% +0.14%  -4.64%  -3.86%  +2.95%  +1.40%
+  ARRANQUE, C3 con K=3 / K=10 (adjudicado con K=5: cruza 4/4):
+    pts +5.83% / +5.17% cruza ambos; reb +2.73% NO cruza / +3.62% cruza;
+    ast +4.29% / +4.05%; fg3m +3.45% / +4.11% (todos 6/6 folds).
+RESPUESTA A LA ÚNICA PREGUNTA DEL BARRIDO — ¿algún valor habría cambiado una
+adjudicación? SÍ, dos:
+  (1) CENTRO: con vida media 8, C2 cruza la puerta en pts, reb y ast (+3.2% a
+      +3.6%): el centro adjudicado (B0) habría cambiado en tres stats.
+  (2) ARRANQUE reb: con K=3, C3 no cruza (+2.73%): la regla de régimen no se
+      habría adoptado para rebotes. pts, ast y fg3m robustos a K.
+LECTURA: patrón coherente — más historia suavizada mejora el centro (vida
+media 8 > 5 > 3; ventana 20 > 10 > 5); la mediana de 10 es ruidosa. NO se
+promueve nada: 8 variantes por stat son el "jardín de senderos" que el
+pre-registro evita, y el valor 8 se eligió viendo resultados. VÍA LIMPIA
+propuesta: pre-registro nuevo (D-EXP-7b) con vida media FIJADA en 8 antes de
+mirar y evaluación sobre datos que ningún análisis ha tocado (2026-27 a medida
+que se juega, vía el instrumento de seguimiento). El arranque de rebotes queda
+ADOPTADO por la regla, anotado como frágil ante K.

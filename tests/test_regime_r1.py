@@ -260,3 +260,42 @@ def test_presupuesto_dia_lleno_con_titulos_nuevos():
     assert largos[MODE_REGIMEN] == 3_752 + 20
     assert largos[MODE_R1] == 3_752 + 25
     assert largos[MODE_R1] <= PLAYERS_MESSAGE_BUDGET          # cabe, con 23 de margen
+
+
+# ── Regla del 2026-10-26: con ventana corta en modo R1, sin rango de puntos ──
+
+def test_r1_con_ventana_corta_no_publica_rango():
+    h = _hist()
+    corto = h[(h["player_id"] == 2)].head(6)                 # jugador 2 con solo 6 jugados
+    hist = pd.concat([h[h["player_id"] == 1], corto], ignore_index=True)
+    cands = {c["player_id"]: c for c in rank_team_candidates(
+        hist, 100, {}, target_date=date(2026, 11, 20), mode=MODE_R1)}
+    assert cands[2]["games_in_window"] == 6
+    assert cands[2]["pts_min"] is None and cands[2]["pts_max"] is None
+    assert cands[1]["pts_min"] is not None                    # ventana completa: R1
+
+
+def test_r1_con_ventana_corta_en_regimen_conserva_min_max():
+    h = _hist()
+    hist = pd.concat([h[h["player_id"] == 1], h[h["player_id"] == 2].head(6)])
+    c = {x["player_id"]: x for x in rank_team_candidates(
+        hist, 100, {}, target_date=date(2026, 10, 26), mode=MODE_REGIMEN)}[2]
+    assert c["pts_min"] is not None and c["pts_max"] is not None
+
+
+def test_linea_sin_rango_solo_centro_y_sufijo():
+    p = _ph("Jugador Corto", "home", 2, pts_min=None, pts_max=None, games_in_window=6)
+    msg = format_players_message(_res([_gp_fmt(0, [p])], MODE_R1))
+    assert "• Jugador Corto (PHI): 24 pts · 7 reb · 5 ast (últimos 6)" in msg.splitlines()
+
+
+def test_log_guarda_nulo_sin_rango():
+    from datetime import datetime, timezone
+
+    from nba_predictor.api.player_predictions_log import build_player_log_rows
+
+    p = _ph("Jugador Corto", "home", 2, pts_min=None, pts_max=None, games_in_window=6)
+    fila = build_player_log_rows(_res([_gp_fmt(0, [p])], MODE_R1), served_by="r",
+                                 model_version="v1",
+                                 predicted_at_utc=datetime(2026, 11, 20, tzinfo=timezone.utc))[0]
+    assert fila["pts_min"] is None and fila["pts_max"] is None

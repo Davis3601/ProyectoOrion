@@ -715,16 +715,123 @@ def etapa_rango(centro_por_stat: dict[str, str]) -> None:
               f"puerta {'CRUZA' if r['puerta']['cruza'] else 'no cruza'}")
 
 
+BARRIDO_HALFLIFE = (3, 8)
+BARRIDO_K = (3, 10)
+BARRIDO_VENTANAS = (5, 20)
+
+
+def etapa_barrido() -> None:
+    """BARRIDO DE SENSIBILIDAD (exploratorio, NO elegible para promoción).
+
+    Varía solo los parámetros fijados: vida media de C2 {3, 8} (5 = adjudicado),
+    K de C3 {3, 10} (5 = adjudicado) y ventana de B0/C1 {5, 20} (10 =
+    adjudicado), sobre EXACTAMENTE las filas de la población primaria de la
+    etapa centro, contra el MISMO B0 (mediana de 10). Responde la única pregunta
+    que puede responder: ¿algún valor habría cambiado una adjudicación?
+    Ventana 20 con min_periods = 10 (el universo no cambia: declarado).
+    """
+    if not (OUT_DIR / "results_centro.json").exists():
+        raise SystemExit("Falta la etapa CENTRO.")
+    fase0 = json.loads((OUT_DIR / "mde_fase0.json").read_text(encoding="utf-8"))
+    df, games, _, _ = load_frame()
+    sel = reconstruct_selector(df, games)
+    played = df[df["minutes"] > 0].copy()
+    base = add_center_arms(played)
+    cols = [f"B0_{st}" for st in STATS] + [f"C1_{st}" for st in STATS]
+    clave = ["game_id", "player_id"]
+    u = base.dropna(subset=cols).copy()
+
+    variantes: dict[str, pd.DataFrame] = {}
+    for h in BARRIDO_HALFLIFE:
+        variantes[f"C2_hl{h}"] = add_center_arms(played, halflife=h)[
+            clave + [f"C2_{st}" for st in STATS]].rename(
+            columns={f"C2_{st}": f"C2_hl{h}_{st}" for st in STATS})
+    for k in BARRIDO_K:
+        variantes[f"C3_k{k}"] = add_center_arms(played, k=k)[
+            clave + [f"C3_{st}" for st in STATS]].rename(
+            columns={f"C3_{st}": f"C3_k{k}_{st}" for st in STATS})
+    orden = played.sort_values(["player_id", "game_date"], kind="stable")
+    g = orden.groupby("player_id", sort=False)
+    for w in BARRIDO_VENTANAS:
+        mp = min(w, MIN_PREV)
+        v = orden[clave].copy()
+        for st in STATS:
+            v[f"B0_w{w}_{st}"] = g[st].transform(
+                lambda x, w=w, mp=mp: x.shift(1).rolling(w, min_periods=mp).median())
+            v[f"C1_w{w}_{st}"] = g[st].transform(
+                lambda x, w=w, mp=mp: x.shift(1).rolling(w, min_periods=mp).mean())
+        variantes[f"w{w}"] = v
+    for v in variantes.values():
+        u = u.merge(v, on=clave, how="left", validate="one_to_one")
+
+    u = u[u["season"].isin(VALID_SEASONS)]
+    idx = pd.MultiIndex.from_frame(sel[clave])
+    prim = u[pd.MultiIndex.from_arrays([u["game_id"], u["player_id"]]).isin(idx)].copy()
+    prim["arranque"] = season_start_flags(prim, games).to_numpy()
+    arr = prim[prim["arranque"]]
+    nombres = ([f"C2_hl{h}" for h in BARRIDO_HALFLIFE] + [f"C3_k{k}" for k in BARRIDO_K]
+               + [f"{b}_w{w}" for w in BARRIDO_VENTANAS for b in ("B0", "C1")])
+    for n in nombres:
+        for st in STATS:
+            assert prim[f"{n}_{st}"].notna().all(), f"NaN en {n}_{st}"
+
+    res: dict[str, Any] = {"generado_utc": datetime.now(timezone.utc).isoformat(),
+                           "exploratorio_no_elegible": True, "n_primaria": int(len(prim)),
+                           "n_arranque": int(len(arr)), "centro": {}, "arranque": {},
+                           "cambiaria_adjudicacion": []}
+    L = ["D-EXP-7 — BARRIDO DE SENSIBILIDAD (exploratorio, NO elegible para promoción)",
+         f"población primaria n={len(prim)} | arranque n={len(arr)}", "",
+         "CENTRO (adjudicado: B0 en los 4 stats). Mejora relativa vs B0, folds, ¿cruza?"]
+    for st in STATS:
+        mde = fase0["celdas"]["primaria_selector"][st]["mde_rel_celda"]
+        fila = f"  {st:<5}"
+        for n in nombres:
+            ev = evaluate_candidate(prim.assign(**{f"X_{st}": prim[f"{n}_{st}"]}), st, "X")
+            gt = center_gate(ev, mde)
+            res["centro"].setdefault(st, {})[n] = {"mejora_rel": ev["mejora_rel"],
+                                                   "folds": ev["folds_con_mejora"], **gt}
+            fila += f"  {n}:{ev['mejora_rel']:+.2%}{'*' if gt['desplegable'] else ''}"
+            if gt["desplegable"]:
+                res["cambiaria_adjudicacion"].append(
+                    f"CENTRO {st}: {n} cruza la puerta ({ev['mejora_rel']:+.2%}) -> el centro "
+                    f"adjudicado (B0) habría cambiado")
+        L.append(fila)
+    L += ["", "ARRANQUE (adjudicado: C3 con K=5 CRUZA en los 4 stats). ¿Cruza con K=3 y K=10?"]
+    for st in STATS:
+        fila = f"  {st:<5}"
+        for k in BARRIDO_K:
+            ev = evaluate_candidate(arr.assign(**{f"X_{st}": arr[f"C3_k{k}_{st}"]}), st, "X")
+            gt = arranque_gate(ev)
+            res["arranque"].setdefault(st, {})[f"K{k}"] = {"mejora_rel": ev["mejora_rel"],
+                                                          "folds": ev["folds_con_mejora"], **gt}
+            fila += f"  K{k}: {ev['mejora_rel']:+.2%} {ev['folds_con_mejora']}/6 "                     f"{'cruza' if gt['cruza'] else 'NO cruza'}"
+            if not gt["cruza"]:
+                res["cambiaria_adjudicacion"].append(
+                    f"ARRANQUE {st}: con K={k} C3 NO cruza ({ev['mejora_rel']:+.2%}) -> la "
+                    f"regla de régimen no se habría adoptado para {st}")
+        L.append(fila)
+    L += ["", "¿ALGÚN VALOR HABRÍA CAMBIADO UNA ADJUDICACIÓN?"]
+    L += [f"  - {x}" for x in res["cambiaria_adjudicacion"]] or ["  NO: ninguna."]
+    (OUT_DIR / "barrido.json").write_text(json.dumps(res, ensure_ascii=False, indent=1,
+                                                     default=str), encoding="utf-8")
+    texto = chr(10).join(L)
+    (OUT_DIR / "tabla_barrido.txt").write_text(texto, encoding="utf-8")
+    print(texto)
+
+
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description="D-EXP-7")
     sub = ap.add_subparsers(dest="etapa", required=True)
     sub.add_parser("centro")
+    sub.add_parser("barrido")
     pr = sub.add_parser("rango")
     pr.add_argument("--centro", required=True, help="pts=B0,reb=C1,ast=B0,fg3m=B0")
     args = ap.parse_args()
     if args.etapa == "centro":
         etapa_centro()
+    elif args.etapa == "barrido":
+        etapa_barrido()
     else:
         centro = dict(kv.split("=") for kv in args.centro.split(","))
         assert set(centro) == set(STATS), "falta un stat en --centro"

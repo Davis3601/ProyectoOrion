@@ -86,3 +86,10 @@ def test_monitor_r1_alerta_bajo_72():
     assert seg.monitor_r1(ok, ini)["veredicto"] == "ok"
     m = seg.monitor_r1(mal, ini)
     assert m["veredicto"] == "ALERTA" and m["cobertura_ultimos_100"] == 0.70
+
+
+def test_sin_rango_publicado_se_evalua_solo_el_centro():
+    e = seg.classify_row(_fila(pts_min=None, pts_max=None, games_in_window=6))
+    assert e["veredicto"] == "evaluado" and e["pts_en_rango"] is None
+    s = seg.summarize([e, seg.classify_row(_fila())])
+    assert s["sin_rango"] == 1 and s["cobertura_pts"] == 1.0

@@ -68,8 +68,10 @@ class PlayerHighlight:
     player_name: str
     team: str                       # "home" | "away"
     pts_median: float
-    pts_min: float
-    pts_max: float
+    pts_min: float | None
+    pts_max: float | None
+    # None = sin rango publicado (modo R1 con ventana corta, regla del
+    # 2026-10-26): la línea lleva solo el centro y el sufijo "(últimos n)".
     reb_median: float
     ast_median: float
     games_in_window: int            # partidos jugados que alimentan la ventana
@@ -678,8 +680,9 @@ def _format_player(p: "PlayerHighlight", tricode: str) -> str:
     """
     marca = f"{p.player_name} ({tricode}) (Q)" if p.status else f"{p.player_name} ({tricode})"
     partes = [
-        f"• {marca}: {_round_half_up(p.pts_median)} pts "
-        f"({_round_half_up(p.pts_min)}-{_round_half_up(p.pts_max)})",
+        f"• {marca}: {_round_half_up(p.pts_median)} pts"
+        + ("" if p.pts_min is None or p.pts_max is None else
+           f" ({_round_half_up(p.pts_min)}-{_round_half_up(p.pts_max)})"),
         f"{_round_half_up(p.reb_median)} reb",
         f"{_round_half_up(p.ast_median)} ast",
     ]

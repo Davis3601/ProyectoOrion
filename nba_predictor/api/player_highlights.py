@@ -370,6 +370,13 @@ def rank_team_candidates(
             r1 = r1_pts_range(filas, window)
             if r1 is not None:
                 stats.update(r1)
+            else:
+                # Regla adjudicada (2026-10-26): rango de puntos solo con ventana
+                # completa de 10; con 3-9 jugados, centro y sufijo, sin rango. Un
+                # [mín, máx] de 6 partidos bajo un título que dice "80%" sería la
+                # promesa sin medición que D-EXP-4 prohíbe.
+                stats["pts_min"] = None
+                stats["pts_max"] = None
         candidatos.append({"player_id": int(pid), "status": estatus, **stats})
 
     # Desempate por player_id: el orden tiene que ser determinista o dos

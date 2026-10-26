@@ -95,8 +95,8 @@ def build_player_log_rows(
                 "team_tricode": tricode,
                 "status_flag": p.status,
                 "pts_median": float(p.pts_median),
-                "pts_min": float(p.pts_min),
-                "pts_max": float(p.pts_max),
+                "pts_min": None if p.pts_min is None else float(p.pts_min),
+                "pts_max": None if p.pts_max is None else float(p.pts_max),
                 "reb_median": float(p.reb_median),
                 "ast_median": float(p.ast_median),
                 "fg3m_median": (

@@ -5242,3 +5242,91 @@ del criterio sigue sin mercado.
   - Invariante que no cambia: cero filas con capture_ts >= commence_time.
 
 SELLADO: 2026-10-27, 14:09 CDMX, ANTES de tocar código o esquema.
+
+## D-ODDS-7 RESULTADO (2026-10-27): h2h,spreads,totals EN PRODUCCIÓN
+
+PROCESO (regla de v22 en adelante, cumplida): commit e916c71 de Antonio ->
+verificado HEAD = e916c71 con el árbol limpio -> build -> jobs update ->
+ejecución manual. Imagen us-south1-docker.pkg.dev/predictorsnonprod/
+nba-predictor/ingest-job:v15 (build 09b6c958, digest
+sha256:c2fdde5867f9d8baeaa39dbc31980e03297b690e91f6292937a01cbdac9fb438),
+nba-odds-capture en la GENERACIÓN 6. Argumentos del job sin cambios (publish
+por defecto; los tres Scheduler siguen igual). nba-ingest-job sigue en v14
+(generación 11), sin tocar.
+
+ESQUEMA: ALTER TABLE con las 7 columnas FLOAT64 nullable (spread_home,
+spread_home_price, spread_away, spread_away_price, total_line, over_price,
+under_price), verificado con bq show ANTES del código. 571 filas históricas,
+571 con NULL en las columnas nuevas. ACL de la tabla intacta (etag
+BwZb8wgQmNs= antes y después; única binding nba-odds-capture-sa dataEditor).
+ESPEJO SQLITE: NO EXISTE para market_odds (el job escribe solo a BigQuery;
+data/nba.sqlite no tiene la tabla). No se creó: habría sido inventar una
+tabla. Desviación del paso 2 declarada.
+
+CRÉDITOS GASTADOS EN LA TAREA: 6 (x-requests-used 81 -> 87). 3 por la
+llamada del fixture y 3 por la ejecución manual válida. La primera ejecución
+manual (nba-odds-capture-dnm5r, 20:42:37Z) falló con exit 2 ANTES de que
+Python arrancara (0 créditos, 2 intentos por maxRetries=1). Causa: en
+PowerShell, --args=a,b,c sin comillas se convierte en un array y llega a
+gcloud como UN solo argumento unido por espacios ("can't open file
+'/app/scripts/odds_capture_job.py --snapshot-label manual'"). Receta:
+"--args=scripts/odds_capture_job.py,--snapshot-label,manual" con la
+asignación completa entre comillas dobles. La consulta de cuota a /sports es
+gratuita (x-requests-last 0, verificado dos veces).
+
+EJECUCIÓN MANUAL VÁLIDA (nba-odds-capture-68tqj, 2026-10-27T20:44:15Z,
+label 'manual', exit 0; disparo manual registrado, fuera de 12:50-13:30):
+  Creditos (antes de la captura): x-requests-used=84 x-requests-remaining=416
+  GET ... (markets=h2h,spreads,totals, bookmakers=draftkings,fanduel,betmgm)
+  Creditos (tras la captura): x-requests-used=87 x-requests-remaining=413
+  9 eventos devueltos por la API; 1148 partidos en el índice
+  Eventos iniciados omitidos: 0 de 9
+  MERGE completado: 19 filas, 9 eventos emparejados, 0 sin match,
+    0 iniciados omitidos.
+  Cobertura D-ODDS-7 (filas emparejadas): 19 con spread, 19 con total, de 19.
+BigQuery (por snapshot_label):
+  label    filas  emparejadas  con_spread  con_total  spread asim.  post-tipoff
+  evening    158          158           0          0             0            0
+  late       205          205           0          0             0            0
+  manual      19           19          19         19             0            0
+  publish    208          208           0          0             0            0
+Total de la tabla 590 = 571 + 19: las filas manuales viven en su propia fila
+por clave y NO tocaron ningún snapshot programado (última captura publish
+19:00:15Z de hoy, anterior al deploy).
+
+CONTRA LA EXPECTATIVA PRE-REGISTRADA: spreads y totals poblados en el 100% de
+los eventos emparejados (9 de 9, 19 de 19 filas), contra >= 90%: SE CUMPLE.
+Ningún bookmaker sin mercado en esta captura. Invariante de tipoff: 0 filas
+con capture_ts >= commence_time en TODA la tabla: SE CUMPLE. spread_home ==
+-spread_away en las 19 filas.
+
+DECISIONES DE IMPLEMENTACIÓN DECLARADAS (aceptadas con el commit):
+(a) label 'manual' admitido como constante aparte (MANUAL_LABEL); los tres
+    labels programados siguen cerrados. Existe para que una verificación jamás
+    pise por MERGE una fila programada.
+(b) el consumo se lee ANTES de capturar con la llamada gratuita a /sports, y
+    se loggea también el de la respuesta de la captura. Consumo desconocido
+    (fallo de /sports) => solo h2h, declarado con "DEGRADACION DECLARADA".
+(c) las 7 columnas son FLOAT64 (líneas fraccionarias; precios americanos como
+    float). market sigue valiendo 'h2h' y el h2h sigue siendo obligatorio
+    para que exista la fila. Totals con Over/Under de líneas distintas ->
+    NULL con WARNING; spread asimétrico -> se archiva tal cual con WARNING.
+(d) test existente editado: la guarda del esquema pasó de 17 a 24 campos.
+Suite: 1174 passed, 15 deselected (1147 + 27 de tests/test_odds_mercados.py).
+
+REGLAS AÑADIDAS (Antonio, 2026-10-27):
+(1) Toda consulta de CLV o benchmark filtra snapshot_label IN
+    ('publish','evening','late'). Una fila 'manual' dentro del análisis
+    sería error nuestro, no del dato.
+(2) La degradación a h2h por fallo de /sports queda contada en el log
+    ("DEGRADACION DECLARADA"); si ocurre más de dos veces en una semana, es
+    hallazgo a revisar.
+
+VERIFICACIÓN PRE-REGISTRADA de las capturas automáticas de HOY (primeras con
+v15): evening 17:45 CDMX (23:45Z) y late 21:15 CDMX (03:15Z del 28). Cada
+una: los tres mercados poblados en >= 90% de sus filas emparejadas (línea
+"Cobertura D-ODDS-7" del log), 0 filas con capture_ts >= commence_time, y 3
+créditos por captura (x-requests-used esperado 90 tras evening y 93 tras
+late; cualquier otro salto es hallazgo). Si la captura de las 17:45 falla, el
+sospechoso es este cambio. Rollback: jobs update a ingest-job:v13, que
+funciona con la tabla ampliada (no escribe las columnas nuevas).

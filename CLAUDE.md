@@ -5129,3 +5129,47 @@ propuesta: pre-registro nuevo (D-EXP-7b) con vida media FIJADA en 8 antes de
 mirar y evaluación sobre datos que ningún análisis ha tocado (2026-27 a medida
 que se juega, vía el instrumento de seguimiento). El arranque de rebotes queda
 ADOPTADO por la regla, anotado como frágil ante K.
+
+## D-PRE-11b RESULTADO (2026-10-26): v21 EN PRODUCCIÓN. Congelamiento
+reiniciado desde v21.
+
+ALCANCE DE (b) CONFIRMADO (Antonio, 2026-10-26): solo en modo R1. En el
+régimen de arranque las líneas de ventana corta conservan [mín, máx] con su
+sufijo, porque ese título no promete cobertura.
+REVISIÓN DEL CRON PREVIA AL DEPLOY (de solo lectura): nba-warmup-daily a las
+18:58:05Z y nba-publish-daily a las 19:00:02Z con status {}; servida de record
+del 26 a las 19:01:14Z (13:01:14 CDMX): 9 filas en predictions_log y 36 en
+player_predictions_log, todas de predictions-api-00020-99m, model_version
+poblado y rank en todas. LATENCIA de predictions-api en el cron NO MEDIDA:
+Cloud Logging respondió 500 INTERNAL a cuatro consultas entre 19:55Z y 20:01Z
+(fallo del servicio de Google). Queda como deuda de medición de ese día; el
+200 del Scheduler y las filas del log son la evidencia disponible.
+DEPLOY: predictions-api:v21 (la imagen construida el 2026-10-26T06:28Z),
+revisión predictions-api-00021-vd8 al 100%, configuración heredada (1Gi).
+Desplegada a las 19:56:58Z (13:56 CDMX), fuera de 12:50-13:30, con el
+adelante de Antonio en el chat.
+DRY-RUN (disparo manual de la ventana, registrado):
+  2026-10-26T19:57:14Z  ?date=2026-12-23  200 en 89.2 s  15 partidos, modo
+      r1, 60 destacados (30 rank 1 + 30 rank 2), 3 733 caracteres, sin
+      recorte, cero "#", model_version poblado.
+  Regla (b) verificada: las 5 líneas con ventana corta (novatos de 2026-27
+  con 3 jugados: Caleb Wilson, Darryn Peterson, Cameron Boozer, Darius Acuff
+  Jr., Yaxel Lendeborg) salen sin rango, p. ej. "• Caleb Wilson (CHI): 21 pts
+  · 6 reb · 1 ast (últimos 3)"; las de ventana completa llevan R1, p. ej.
+  "• Jalen Johnson (ATL): 20 pts (15-24) · 11 reb · 6 ast". En
+  player_predictions_log hay 60 filas de 00021-vd8: 5 con pts_min NULL, las 5
+  de ventana corta y ninguna de ventana completa; además 15 filas en
+  predictions_log (fechadas el 10-26, así que la regla de record las excluye).
+  WARNINGs de la revisión 00021-vd8 sin consultar por la misma caída de Cloud
+  Logging.
+NOTA DEL TAG api-v21 (Antonio): "construida antes del commit, árbol idéntico
+en código". Verificado: 0b275c6..5acaac6 en nba_predictor/ es exactamente el
+cambio (b); la última edición de código fue a las 00:16:04 CDMX y el build a
+las 00:28:31; la imagen solo copia requirements.lock y nba_predictor/.
+REGLA NUEVA (Antonio): a partir de v22, el orden es commit -> build ->
+deploy -> tag, SIN EXCEPCIONES. Una imagen construida desde un árbol sin
+commitear (v19, v21) deja la equivalencia entre imagen y código en una
+verificación a posteriori en lugar de garantizarla por construcción.
+
+CONGELAMIENTO: reiniciado desde predictions-api v21 (predictions-api-00021-vd8)
+/ ingest-job v14 (generación 11, sin cambios).

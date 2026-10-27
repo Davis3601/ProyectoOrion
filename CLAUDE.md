@@ -5173,3 +5173,32 @@ verificación a posteriori en lugar de garantizarla por construcción.
 
 CONGELAMIENTO: reiniciado desde predictions-api v21 (predictions-api-00021-vd8)
 / ingest-job v14 (generación 11, sin cambios).
+
+## ADJUDICACIONES DE PENDIENTES (2026-10-26)
+
+1. GATE OPERATIVO (b) Y LOS DESTACADOS DE D-PRE-10 (Antonio): "no cuenta
+   como corrupto, ya que no es propio del modelo sino de los destacados.
+   Eso se añadió después". Lectura registrada: el criterio de
+   comercialización (13e-2.4) se congeló el 2026-08-25, antes de que
+   existiera el mensaje 2 (D-PROD-1, 2026-09-22), así que la condición (b)
+   se refiere a la publicación que el criterio conocía: el mensaje 1, las
+   predicciones. Las publicaciones del 21, 23 y 25 de octubre con
+   jugadores fuera de la NBA en el mensaje 2 NO computan para (b).
+   CONSECUENCIA (derivada por Code al registrar, pendiente de que Antonio
+   la confirme): el mensaje 2 queda entero fuera de (b), también para bugs
+   futuros. Sus bugs se siguen corrigiendo de inmediato con post-mortem
+   (discriminante de 13e-2.4), pero no gradúan el gate. La exención del
+   punto 3 de D-PRE-6b queda contenida en esta regla.
+2. KONCHAR (UTA) Y WESTBROOK (SAC): Antonio confirma que no están en esas
+   plantillas. Los 5 de 28 destacados del 25-oct sin observación de
+   2026-27 quedan confirmados como el bug de D-PRE-10, corregido en v19.
+3. MEM@UTA, LOS 4 QUE ENTRARON CON v19: cerrado con datos (BigQuery, solo
+   lectura, 2026-10-26). Ace Bailey y Lauri Markkanen en UTA, Jahmai
+   Mashack y Jerami Grant en MEM: cada uno con 4 señales de pretemporada
+   (última 2026-10-16) y 3 partidos de temporada regular 2026-27 con ese
+   equipo (último 2026-10-25). Tener boxscores de esta temporada con el
+   equipo publicado es evidencia más fuerte que el cotejo manual que se
+   había pedido.
+4. ENTREGA EN EL CANAL (D-PRE-5): Antonio confirma que hubo mensaje en el
+   canal todos los días, del 2026-10-20 al 2026-10-26. Gate operativo (a)
+   en lo que va de la ventana (desde el 21): 6 de 6.

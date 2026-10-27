@@ -1,0 +1,403 @@
+[
+ {
+  "id": "9ad8cc650802c0c5c3c23a1f32c3e0f6",
+  "sport_key": "basketball_nba",
+  "sport_title": "NBA",
+  "commence_time": "2026-10-27T23:40:00Z",
+  "home_team": "Boston Celtics",
+  "away_team": "Brooklyn Nets",
+  "bookmakers": [
+   {
+    "key": "fanduel",
+    "title": "FanDuel",
+    "last_update": "2026-10-27T20:10:48Z",
+    "markets": [
+     {
+      "key": "h2h",
+      "last_update": "2026-10-27T20:10:47Z",
+      "outcomes": [
+       {
+        "name": "Boston Celtics",
+        "price": -620
+       },
+       {
+        "name": "Brooklyn Nets",
+        "price": 460
+       }
+      ]
+     },
+     {
+      "key": "spreads",
+      "last_update": "2026-10-27T20:10:47Z",
+      "outcomes": [
+       {
+        "name": "Boston Celtics",
+        "price": -114,
+        "point": -12.5
+       },
+       {
+        "name": "Brooklyn Nets",
+        "price": -106,
+        "point": 12.5
+       }
+      ]
+     },
+     {
+      "key": "totals",
+      "last_update": "2026-10-27T20:10:47Z",
+      "outcomes": [
+       {
+        "name": "Over",
+        "price": -114,
+        "point": 222.5
+       },
+       {
+        "name": "Under",
+        "price": -106,
+        "point": 222.5
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "draftkings",
+    "title": "DraftKings",
+    "last_update": "2026-10-27T20:10:44Z",
+    "markets": [
+     {
+      "key": "h2h",
+      "last_update": "2026-10-27T20:10:44Z",
+      "outcomes": [
+       {
+        "name": "Boston Celtics",
+        "price": -625
+       },
+       {
+        "name": "Brooklyn Nets",
+        "price": 455
+       }
+      ]
+     },
+     {
+      "key": "spreads",
+      "last_update": "2026-10-27T20:10:44Z",
+      "outcomes": [
+       {
+        "name": "Boston Celtics",
+        "price": -110,
+        "point": -12.5
+       },
+       {
+        "name": "Brooklyn Nets",
+        "price": -110,
+        "point": 12.5
+       }
+      ]
+     },
+     {
+      "key": "totals",
+      "last_update": "2026-10-27T20:10:44Z",
+      "outcomes": [
+       {
+        "name": "Over",
+        "price": -110,
+        "point": 222.5
+       },
+       {
+        "name": "Under",
+        "price": -110,
+        "point": 222.5
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "betmgm",
+    "title": "BetMGM",
+    "last_update": "2026-10-27T20:09:56Z",
+    "markets": [
+     {
+      "key": "h2h",
+      "last_update": "2026-10-27T20:09:56Z",
+      "outcomes": [
+       {
+        "name": "Boston Celtics",
+        "price": -625
+       },
+       {
+        "name": "Brooklyn Nets",
+        "price": 450
+       }
+      ]
+     },
+     {
+      "key": "spreads",
+      "last_update": "2026-10-27T20:09:56Z",
+      "outcomes": [
+       {
+        "name": "Boston Celtics",
+        "price": -110,
+        "point": -12.5
+       },
+       {
+        "name": "Brooklyn Nets",
+        "price": -110,
+        "point": 12.5
+       }
+      ]
+     },
+     {
+      "key": "totals",
+      "last_update": "2026-10-27T20:09:56Z",
+      "outcomes": [
+       {
+        "name": "Over",
+        "price": -110,
+        "point": 222.5
+       },
+       {
+        "name": "Under",
+        "price": -110,
+        "point": 222.5
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "82afe4e028b0fbbd9f6cf92697bec6fc",
+  "sport_key": "basketball_nba",
+  "sport_title": "NBA",
+  "commence_time": "2026-10-28T03:10:00Z",
+  "home_team": "Los Angeles Lakers",
+  "away_team": "Portland Trail Blazers",
+  "bookmakers": [
+   {
+    "key": "fanduel",
+    "title": "FanDuel",
+    "last_update": "2026-10-27T20:10:48Z",
+    "markets": [
+     {
+      "key": "h2h",
+      "last_update": "2026-10-27T20:10:47Z",
+      "outcomes": [
+       {
+        "name": "Los Angeles Lakers",
+        "price": -126
+       },
+       {
+        "name": "Portland Trail Blazers",
+        "price": 108
+       }
+      ]
+     },
+     {
+      "key": "spreads",
+      "last_update": "2026-10-27T20:10:47Z",
+      "outcomes": [
+       {
+        "name": "Los Angeles Lakers",
+        "price": -104,
+        "point": -2.5
+       },
+       {
+        "name": "Portland Trail Blazers",
+        "price": -118,
+        "point": 2.5
+       }
+      ]
+     },
+     {
+      "key": "totals",
+      "last_update": "2026-10-27T20:10:47Z",
+      "outcomes": [
+       {
+        "name": "Over",
+        "price": -105,
+        "point": 234.5
+       },
+       {
+        "name": "Under",
+        "price": -115,
+        "point": 234.5
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "betmgm",
+    "title": "BetMGM",
+    "last_update": "2026-10-27T20:09:56Z",
+    "markets": [
+     {
+      "key": "h2h",
+      "last_update": "2026-10-27T20:09:56Z",
+      "outcomes": [
+       {
+        "name": "Los Angeles Lakers",
+        "price": -130
+       },
+       {
+        "name": "Portland Trail Blazers",
+        "price": 105
+       }
+      ]
+     },
+     {
+      "key": "spreads",
+      "last_update": "2026-10-27T20:09:56Z",
+      "outcomes": [
+       {
+        "name": "Los Angeles Lakers",
+        "price": -115,
+        "point": -1.5
+       },
+       {
+        "name": "Portland Trail Blazers",
+        "price": -105,
+        "point": 1.5
+       }
+      ]
+     },
+     {
+      "key": "totals",
+      "last_update": "2026-10-27T20:09:56Z",
+      "outcomes": [
+       {
+        "name": "Over",
+        "price": -110,
+        "point": 233.5
+       },
+       {
+        "name": "Under",
+        "price": -110,
+        "point": 233.5
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "draftkings",
+    "title": "DraftKings",
+    "last_update": "2026-10-27T20:10:44Z",
+    "markets": [
+     {
+      "key": "h2h",
+      "last_update": "2026-10-27T20:10:44Z",
+      "outcomes": [
+       {
+        "name": "Los Angeles Lakers",
+        "price": -125
+       },
+       {
+        "name": "Portland Trail Blazers",
+        "price": 105
+       }
+      ]
+     },
+     {
+      "key": "spreads",
+      "last_update": "2026-10-27T20:10:44Z",
+      "outcomes": [
+       {
+        "name": "Los Angeles Lakers",
+        "price": -115,
+        "point": -1.5
+       },
+       {
+        "name": "Portland Trail Blazers",
+        "price": -105,
+        "point": 1.5
+       }
+      ]
+     },
+     {
+      "key": "totals",
+      "last_update": "2026-10-27T20:10:44Z",
+      "outcomes": [
+       {
+        "name": "Over",
+        "price": -108,
+        "point": 233.5
+       },
+       {
+        "name": "Under",
+        "price": -112,
+        "point": 233.5
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "a6555e8b7252dfb32f1817fc8c59ad83",
+  "sport_key": "basketball_nba",
+  "sport_title": "NBA",
+  "commence_time": "2026-12-25T17:10:00Z",
+  "home_team": "New York Knicks",
+  "away_team": "San Antonio Spurs",
+  "bookmakers": [
+   {
+    "key": "draftkings",
+    "title": "DraftKings",
+    "last_update": "2026-10-27T20:10:44Z",
+    "markets": [
+     {
+      "key": "h2h",
+      "last_update": "2026-10-27T20:10:44Z",
+      "outcomes": [
+       {
+        "name": "New York Knicks",
+        "price": -105
+       },
+       {
+        "name": "San Antonio Spurs",
+        "price": -115
+       }
+      ]
+     },
+     {
+      "key": "spreads",
+      "last_update": "2026-10-27T20:10:44Z",
+      "outcomes": [
+       {
+        "name": "New York Knicks",
+        "price": -115,
+        "point": 1.5
+       },
+       {
+        "name": "San Antonio Spurs",
+        "price": -105,
+        "point": -1.5
+       }
+      ]
+     },
+     {
+      "key": "totals",
+      "last_update": "2026-10-27T20:10:44Z",
+      "outcomes": [
+       {
+        "name": "Over",
+        "price": -105,
+        "point": 225.5
+       },
+       {
+        "name": "Under",
+        "price": -115,
+        "point": 225.5
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+]

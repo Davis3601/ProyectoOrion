@@ -5202,3 +5202,43 @@ CONGELAMIENTO: reiniciado desde predictions-api v21 (predictions-api-00021-vd8)
 4. ENTREGA EN EL CANAL (D-PRE-5): Antonio confirma que hubo mensaje en el
    canal todos los días, del 2026-10-20 al 2026-10-26. Gate operativo (a)
    en lo que va de la ventana (desde el 21): 6 de 6.
+
+[COMPLEMENTO D-PRE-11b (2026-10-27, 12:20 CDMX), de Code. El encargo del
+chat de diseño de hoy pedía este deploy con el planeador desactualizado; su
+paso 0 preveía este caso ("si ya sirve v21, salta al paso 3"). Verificación
+de solo lectura: predictions-api-00021-vd8 sirve el 100% con la imagen
+predictions-api:v21; el tag api-v21 apunta a 5acaac6; HEAD es 6f4adb5 y
+entre 5acaac6 y HEAD solo cambió CLAUDE.md (bbcb0fd y 6f4adb5), así que el
+código desplegado es el del tag; árbol limpio. No se redesplegó nada.
+REGLA DE PROCESO desde v22, en la redacción completa del encargo: "commit ->
+build -> deploy -> tag, sin excepciones; el hash del commit va en cada
+RESULTADO; ninguna imagen se construye desde un árbol con cambios sin
+commitear". Para v21: commit 5acaac6, tag api-v21.
+NO EJECUTADO: el dry-run (b) del encargo (?date=2026-10-28, régimen, líneas
+de ventana corta con [mín, máx]). Su paso 2 queda fuera por la rama del paso
+0. Ese comportamiento está fijado en tests/test_regime_r1.py; se corre en
+vivo solo si Antonio lo pide.]
+
+## D-ODDS-7 (PRE-REGISTRO 2026-10-27)
+
+Ampliación de la captura de The Odds API de h2h a h2h,spreads,totals.
+Ingesta solamente: nada se publica, nada toca el modelo ni los mensajes; B0
+del criterio sigue sin mercado.
+  - Mercados: h2h, spreads, totals; misma región y bookmakers actuales.
+  - Créditos: una llamada = mercados x regiones = 3. Tres snapshots
+    diarios x ~31 días = ~279/mes de 500. Umbrales: 400 consumidos en el
+    mes = WARNING; 450 = el job captura solo h2h y lo declara en el log
+    (h2h es la evidencia del CLV y tiene prioridad). El consumo se lee de
+    los headers x-requests-used / x-requests-remaining de cada respuesta
+    y se loggea en cada captura.
+  - Esquema: columnas nuevas en market_odds, todas nullable:
+    spread_home, spread_home_price, spread_away, spread_away_price,
+    total_line, over_price, under_price. Clave de idempotencia SIN
+    cambio: (game_date, api_event_id, bookmaker, snapshot_label). Filas
+    históricas quedan NULL en las columnas nuevas.
+  - Expectativa: primera captura con spreads y totals poblados en >= 90%
+    de los eventos emparejados; ausencia en algún bookmaker menor es
+    normal y se registra. Desviación = hallazgo.
+  - Invariante que no cambia: cero filas con capture_ts >= commence_time.
+
+SELLADO: 2026-10-27, 14:09 CDMX, ANTES de tocar código o esquema.

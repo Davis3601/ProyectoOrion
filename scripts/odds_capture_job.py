@@ -36,28 +36,38 @@ import requests
 
 from nba_predictor.config import settings
 from nba_predictor.jobs.odds_logic import (
+    CREDITS_DEGRADE_USED,
+    CREDITS_WARN_USED,
+    MANUAL_LABEL,
     SNAPSHOT_LABELS,
     SPORT_KEY,
     MERGE_KEYS,
+    SPREAD_TOTAL_COLUMNS,
     build_schedule_index,
+    choose_markets,
     exclude_started,
     match_events,
+    parse_quota,
     validate_snapshot_label,
 )
 
 log = logging.getLogger("odds_capture")
 
 ODDS_API_URL = f"https://api.the-odds-api.com/v4/sports/{SPORT_KEY}/odds"
+# Lista de deportes: NO consume creditos (verificado 2026-10-27:
+# x-requests-last = 0 y x-requests-used sin moverse) y devuelve las mismas
+# cabeceras de cuota. Es la forma de saber el consumo ANTES de decidir cuantos
+# mercados pedir.
+SPORTS_URL = "https://api.the-odds-api.com/v4/sports"
 TIMEOUT = 20
 
 TABLE = "market_odds"
 DATASET = "nba_predictor"
 
-# Coste de la llamada = markets x regions (verificado 2026-09-20 en la doc de
-# la API). Con h2h y una sola region: 1 credito. 3 capturas/dia x 31 dias = 93
-# creditos/mes contra 500 del tier gratuito. Pedir bookmakers concretos en vez
-# de la region entera NO encarece: cada grupo de 10 bookmakers equivale a 1
-# region.
+# Coste de la llamada = markets x regions. D-ODDS-7: h2h,spreads,totals con una
+# region = 3 creditos; 3 capturas/dia x 31 dias = ~279/mes contra 500. Pedir
+# bookmakers concretos en vez de la region entera NO encarece: cada grupo de 10
+# bookmakers equivale a 1 region. Umbrales de consumo en odds_logic.
 BOOKMAKERS: tuple[str, ...] = ("draftkings", "fanduel", "betmgm")
 
 # Margen HACIA ATRAS del indice de emparejamiento. Cubre el desfase UTC/ET y
@@ -76,7 +86,53 @@ def _api_key() -> str:
     return settings.odds_api_key.get_secret_value()
 
 
-def fetch_odds() -> tuple[list[dict], dict[str, str]]:
+def _quota_headers(resp) -> dict[str, str]:
+    return {k: v for k, v in resp.headers.items() if k.lower().startswith("x-requests-")}
+
+
+def _log_consumo(momento: str, cuota: dict[str, str]) -> None:
+    """Loggea el consumo leido de las cabeceras y avisa si pasa los umbrales."""
+    used, remaining = parse_quota(cuota)
+    log.info("Creditos (%s): x-requests-used=%s x-requests-remaining=%s",
+             momento, used, remaining)
+    if used is not None and used >= CREDITS_WARN_USED:
+        log.warning(
+            "Consumo de creditos %d >= %d (umbral pre-registrado D-ODDS-7). "
+            "A partir de %d se captura solo h2h.", used, CREDITS_WARN_USED,
+            CREDITS_DEGRADE_USED,
+        )
+
+
+def choose_markets_from_api() -> tuple[str, ...]:
+    """Lee el consumo del mes con la llamada GRATUITA a /sports y elige mercados.
+
+    Si la consulta falla, el consumo es desconocido y choose_markets degrada a
+    solo h2h: un fallo de red en la pre-consulta no debe gastar 3 creditos a
+    ciegas. La degradacion se DECLARA en el log, nunca en silencio.
+    """
+    cuota: dict[str, str] = {}
+    try:
+        resp = requests.get(SPORTS_URL, params={"apiKey": _api_key()}, timeout=TIMEOUT)
+        resp.raise_for_status()
+        cuota = _quota_headers(resp)
+    except requests.RequestException as exc:
+        # El mensaje de requests puede incluir la URL con la clave: solo el tipo.
+        log.warning("Consulta de cuota fallida (%s): consumo desconocido.",
+                    type(exc).__name__)
+    _log_consumo("antes de la captura", cuota)
+    used, _ = parse_quota(cuota)
+    mercados, nivel = choose_markets(used)
+    if nivel == "degradado":
+        log.warning(
+            "DEGRADACION DECLARADA (D-ODDS-7): se captura solo h2h — consumo %s "
+            "(umbral %d; desconocido tambien degrada). h2h es la evidencia del CLV "
+            "y tiene prioridad; spreads y totals quedan NULL en esta captura.",
+            used if used is not None else "desconocido", CREDITS_DEGRADE_USED,
+        )
+    return mercados
+
+
+def fetch_odds(markets: tuple[str, ...]) -> tuple[list[dict], dict[str, str]]:
     """Llama a la API. Devuelve (eventos, cabeceras de cuota).
 
     La URL se loggea SIN la clave: la API la pasa por query string, que es
@@ -85,18 +141,16 @@ def fetch_odds() -> tuple[list[dict], dict[str, str]]:
     params = {
         "apiKey": _api_key(),
         "regions": "us",
-        "markets": "h2h",
+        "markets": ",".join(markets),
         "oddsFormat": "american",
         "bookmakers": ",".join(BOOKMAKERS),
     }
-    log.info("GET %s (markets=h2h, bookmakers=%s)", ODDS_API_URL, ",".join(BOOKMAKERS))
+    log.info("GET %s (markets=%s, bookmakers=%s)", ODDS_API_URL,
+             params["markets"], ",".join(BOOKMAKERS))
     resp = requests.get(ODDS_API_URL, params=params, timeout=TIMEOUT)
     resp.raise_for_status()
-
-    cuota = {
-        k: v for k, v in resp.headers.items()
-        if k.lower().startswith("x-requests-")
-    }
+    cuota = _quota_headers(resp)
+    _log_consumo("tras la captura", cuota)
     return resp.json(), cuota
 
 
@@ -201,6 +255,7 @@ def merge_rows(store, rows: list[dict]) -> int:
         "home_price_decimal", "away_price_decimal",
         "snapshot_label", "capture_ts", "source", "ingested_at",
         "commence_time",
+        *SPREAD_TOTAL_COLUMNS,
     ]
     tipos = {
         "game_date": "DATE", "matched": "BOOL", "home_price_american": "INT64",
@@ -208,6 +263,8 @@ def merge_rows(store, rows: list[dict]) -> int:
         "away_price_decimal": "FLOAT64", "capture_ts": "TIMESTAMP",
         "ingested_at": "TIMESTAMP",
         "commence_time": "TIMESTAMP",
+        # D-ODDS-7: lineas y precios de spreads/totals, FLOAT64 nullable.
+        **{c: "FLOAT64" for c in SPREAD_TOTAL_COLUMNS},
     }
     struct_type = bigquery.StructQueryParameterType(
         *[bigquery.ScalarQueryParameterType(tipos.get(c, "STRING"), name=c)
@@ -243,7 +300,9 @@ def merge_rows(store, rows: list[dict]) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--snapshot-label", required=True, choices=list(SNAPSHOT_LABELS))
+    parser.add_argument(
+        "--snapshot-label", required=True, choices=[*SNAPSHOT_LABELS, MANUAL_LABEL]
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -260,9 +319,7 @@ def main() -> None:
         bucket_name=settings.gcs_bucket,
     )
 
-    eventos, cuota = fetch_odds()
-    if cuota:
-        log.info("Cuota de la API: %s", cuota)
+    eventos, _ = fetch_odds(choose_markets_from_api())
 
     if not eventos:
         log.info(
@@ -329,6 +386,15 @@ def main() -> None:
         "MERGE completado: %d filas, %d eventos emparejados, %d sin match, "
         "%d iniciados omitidos.",
         escritas, len(pendientes) - len(sin_match), len(sin_match), len(iniciados),
+    )
+    # D-ODDS-7: cobertura de spreads/totals sobre filas emparejadas, para que la
+    # expectativa pre-registrada (>= 90%) se lea en el log de cada captura.
+    emparejadas = [f for f in filas if f["matched"]]
+    log.info(
+        "Cobertura D-ODDS-7 (filas emparejadas): %d con spread, %d con total, de %d.",
+        sum(f["spread_home"] is not None for f in emparejadas),
+        sum(f["total_line"] is not None for f in emparejadas),
+        len(emparejadas),
     )
 
 

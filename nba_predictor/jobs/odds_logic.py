@@ -26,29 +26,86 @@ _log = logging.getLogger(__name__)
 
 SOURCE = "the-odds-api"
 MARKET_H2H = "h2h"
+MARKET_SPREADS = "spreads"
+MARKET_TOTALS = "totals"
 
 SNAPSHOT_LABELS: tuple[str, ...] = ("publish", "evening", "late")
+
+# D-ODDS-7: label de las ejecuciones MANUALES. No es un cuarto snapshot diario
+# (los tres de arriba siguen cerrados): existe para que una captura de
+# verificacion jamas pise por MERGE la fila de un snapshot programado — la
+# clave incluye snapshot_label, asi que 'manual' vive en su propia fila y el
+# analisis de CLV, que agrupa por los tres labels, no la ve.
+MANUAL_LABEL = "manual"
 
 # Clave del deporte en The Odds API (verificada en el paso 0 de la tarea).
 SPORT_KEY = "basketball_nba"
 
+# ---------------------------------------------------------------------------
+# Mercados y presupuesto de creditos (D-ODDS-7)
+# ---------------------------------------------------------------------------
+# Coste de una llamada = mercados x regiones. Con los tres mercados y una
+# region: 3 creditos (verificado 2026-10-27: x-requests-last = 3). Tres
+# snapshots diarios x ~31 dias = ~279 de 500 al mes.
+MARKETS_FULL: tuple[str, ...] = (MARKET_H2H, MARKET_SPREADS, MARKET_TOTALS)
+MARKETS_H2H_ONLY: tuple[str, ...] = (MARKET_H2H,)
+
+# Umbrales PRE-REGISTRADOS sobre x-requests-used (creditos consumidos en el
+# periodo de la API). 400 = WARNING; 450 = se captura solo h2h, porque h2h es
+# la evidencia del CLV y tiene prioridad sobre spreads/totals.
+CREDITS_WARN_USED = 400
+CREDITS_DEGRADE_USED = 450
+
 
 class UnknownSnapshotLabel(ValueError):
-    """El label no es uno de los tres pre-registrados."""
+    """El label no es uno de los pre-registrados."""
 
 
 def validate_snapshot_label(label: str) -> str:
-    """Los tres labels estan CERRADOS (D-ODDS-2): publish, evening, late.
+    """Los tres labels programados estan CERRADOS (D-ODDS-2): publish, evening,
+    late. Se admite ademas MANUAL_LABEL (D-ODDS-7) para ejecuciones manuales.
 
     Se valida en la frontera y no mas adentro: un label libre acabaria como
     basura en una columna que luego el analisis agrupa, y nadie lo notaria
     hasta el analisis.
     """
-    if label not in SNAPSHOT_LABELS:
+    if label not in SNAPSHOT_LABELS and label != MANUAL_LABEL:
         raise UnknownSnapshotLabel(
-            f"snapshot_label invalido: {label!r}. Validos: {list(SNAPSHOT_LABELS)}"
+            f"snapshot_label invalido: {label!r}. Validos: "
+            f"{list(SNAPSHOT_LABELS) + [MANUAL_LABEL]}"
         )
     return label
+
+
+def parse_quota(headers: dict[str, str] | None) -> tuple[int | None, int | None]:
+    """Cabeceras de la API -> (x-requests-used, x-requests-remaining), o None.
+
+    Las cabeceras HTTP no distinguen mayusculas; un valor ilegible es None, no
+    cero: cero creditos usados es un dato, "no se sabe" es otro.
+    """
+    norm = {k.lower(): v for k, v in (headers or {}).items()}
+
+    def _int(nombre: str) -> int | None:
+        try:
+            return int(float(norm[nombre]))
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    return _int("x-requests-used"), _int("x-requests-remaining")
+
+
+def choose_markets(used: int | None) -> tuple[tuple[str, ...], str]:
+    """Consumo del mes -> (mercados a pedir, nivel: 'ok' | 'warning' | 'degradado').
+
+    Consumo DESCONOCIDO -> solo h2h (nivel 'degradado'): sin saber cuanto queda,
+    se protege la evidencia del CLV antes que spreads/totals. Gastar 3 creditos
+    a ciegas podria dejar sin cuota a los h2h de los dias siguientes.
+    """
+    if used is None or used >= CREDITS_DEGRADE_USED:
+        return MARKETS_H2H_ONLY, "degradado"
+    if used >= CREDITS_WARN_USED:
+        return MARKETS_FULL, "warning"
+    return MARKETS_FULL, "ok"
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +254,91 @@ def _et_game_date(commence_time: str) -> date | None:
     return utc
 
 
+SPREAD_TOTAL_COLUMNS: tuple[str, ...] = (
+    "spread_home", "spread_home_price", "spread_away", "spread_away_price",
+    "total_line", "over_price", "under_price",
+)
+
+
+def _num(valor: Any) -> float | None:
+    """int/float de la API -> float. bool no es numero (True == 1 en Python)."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return None
+    return float(valor)
+
+
+def _market(bm: dict[str, Any], key: str) -> dict[str, Any] | None:
+    return next((m for m in bm.get("markets", []) or [] if m.get("key") == key), None)
+
+
+def extract_spreads(
+    bm: dict[str, Any], home_key: str, away_key: str, contexto: str
+) -> dict[str, float | None]:
+    """Mercado spreads de UN bookmaker -> las cuatro columnas de spread.
+
+    Mercado ausente = las cuatro en None, sin aviso (un bookmaker menor puede
+    no publicarlo; el pre-registro lo admite). Mercado presente pero sin los
+    dos lados completos (linea y precio numericos) = las cuatro en None CON
+    WARNING: medio spread no es dato parcial util, es ruido.
+
+    La linea se archiva tal cual la publica el bookmaker, con su signo. Que
+    spread_home == -spread_away es lo esperado y lo fija un test sobre el
+    payload real; si algun dia no se cumple se AVISA y se archiva igual — las
+    dos columnas existen justo para no tener que elegir.
+    """
+    vacio: dict[str, float | None] = {
+        "spread_home": None, "spread_home_price": None,
+        "spread_away": None, "spread_away_price": None,
+    }
+    mercado = _market(bm, MARKET_SPREADS)
+    if mercado is None:
+        return vacio
+    lados: dict[str, tuple[float | None, float | None]] = {}
+    for out in mercado.get("outcomes", []) or []:
+        lados[normalize_team(out.get("name", ""))] = (
+            _num(out.get("point")), _num(out.get("price"))
+        )
+    casa, fuera = lados.get(home_key), lados.get(away_key)
+    if casa is None or fuera is None or None in casa or None in fuera:
+        _log.warning("Bookmaker %s con spreads incompleto para %s — spreads en NULL",
+                     bm.get("key"), contexto)
+        return vacio
+    if casa[0] != -fuera[0]:
+        _log.warning("Bookmaker %s con spreads asimetrico para %s (%s / %s) — archivado tal cual",
+                     bm.get("key"), contexto, casa[0], fuera[0])
+    return {
+        "spread_home": casa[0], "spread_home_price": casa[1],
+        "spread_away": fuera[0], "spread_away_price": fuera[1],
+    }
+
+
+def extract_totals(bm: dict[str, Any], contexto: str) -> dict[str, float | None]:
+    """Mercado totals de UN bookmaker -> total_line, over_price, under_price.
+
+    Misma regla que spreads: ausente = None sin aviso; incompleto = None con
+    WARNING. Over y Under con lineas DISTINTAS tampoco caben en una sola
+    columna total_line: None con WARNING en vez de elegir una en silencio.
+    """
+    vacio: dict[str, float | None] = {"total_line": None, "over_price": None, "under_price": None}
+    mercado = _market(bm, MARKET_TOTALS)
+    if mercado is None:
+        return vacio
+    lados = {
+        str(out.get("name", "")).strip().lower(): (_num(out.get("point")), _num(out.get("price")))
+        for out in mercado.get("outcomes", []) or []
+    }
+    over, under = lados.get("over"), lados.get("under")
+    if over is None or under is None or None in over or None in under:
+        _log.warning("Bookmaker %s con totals incompleto para %s — totals en NULL",
+                     bm.get("key"), contexto)
+        return vacio
+    if over[0] != under[0]:
+        _log.warning("Bookmaker %s con lineas Over/Under distintas para %s (%s / %s) — "
+                     "totals en NULL", bm.get("key"), contexto, over[0], under[0])
+        return vacio
+    return {"total_line": over[0], "over_price": over[1], "under_price": under[1]}
+
+
 def extract_h2h_rows(
     event: dict[str, Any],
     game_id: str | None,
@@ -205,7 +347,14 @@ def extract_h2h_rows(
     capture_ts: datetime,
     matched: bool,
 ) -> list[dict[str, Any]]:
-    """Una fila por bookmaker del evento. Solo mercado h2h.
+    """Una fila por bookmaker del evento: h2h OBLIGATORIO, spreads y totals
+    en la misma fila cuando existen (D-ODDS-7).
+
+    La fila sigue anclada al h2h: es la evidencia del CLV y la que define la
+    clave. Un bookmaker con spreads pero SIN h2h se omite igual que antes, y
+    `market` sigue valiendo 'h2h' porque nombra el mercado de las columnas de
+    precio home/away_price_*; las columnas de spread y total se describen solas
+    y quedan en NULL cuando el mercado no vino (o no se pidio).
 
     game_id puede ser None: una fila sin match SE ARCHIVA igual (matched=false).
     Filosofia RAW — la odd capturada es evidencia IRRECUPERABLE (la API cobra
@@ -264,6 +413,9 @@ def extract_h2h_rows(
             # D-PRE-1 / bug 4: el tipoff de la propia API, persistido para que
             # el análisis pueda verificar capture_ts < commence_time fila a fila.
             "commence_time": parse_commence(event.get("commence_time")),
+            # D-ODDS-7: spreads y totals del MISMO bookmaker, NULL si no vinieron.
+            **extract_spreads(bm, home_key, away_key, f"{away} @ {home}"),
+            **extract_totals(bm, f"{away} @ {home}"),
         })
     return filas
 

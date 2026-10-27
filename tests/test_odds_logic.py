@@ -143,9 +143,10 @@ class TestExtraccionDeFilas:
         assert filas[0]["home_price_american"] == -165
         assert filas[0]["home_price_decimal"] == pytest.approx(1.606061, abs=1e-6)
 
-    def test_los_diecisiete_campos_del_schema(self):
+    def test_los_veinticuatro_campos_del_schema(self):
         # 16 -> 17 el 2026-10-11 (D-PRE-1 / bug 4): commence_time añadido al
-        # schema de market_odds. Esta guarda EXISTE para moverse con el schema.
+        # schema de market_odds. 17 -> 24 el 2026-10-27 (D-ODDS-7): spreads y
+        # totals. Esta guarda EXISTE para moverse con el schema.
         (fila,) = extract_h2h_rows(
             _evento(), "0022600005", date(2026, 10, 21), "publish", CAPTURA, matched=True
         )
@@ -155,6 +156,8 @@ class TestExtraccionDeFilas:
             "home_price_american", "away_price_american",
             "home_price_decimal", "away_price_decimal", "snapshot_label",
             "capture_ts", "source", "ingested_at", "commence_time",
+            "spread_home", "spread_home_price", "spread_away", "spread_away_price",
+            "total_line", "over_price", "under_price",
         }
         assert fila["market"] == "h2h"
         assert fila["source"] == "the-odds-api"

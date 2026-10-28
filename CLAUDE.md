@@ -6113,3 +6113,325 @@ queda resuelta por la métrica que decide):
     01:40:00Z, el minuto exacto de la captura late, y saldrá como
     iniciado. Cuál de las dos fracciones decide la verificación es
     adjudicación de Antonio.
+
+## D-PO-0 (2026-10-28): inventario para playoffs en sombra
+
+Inventario de solo lectura (15:14-15:25 CDMX) para preparar D-PO-1
+(playoffs 2027 en modo sombra, D-ODDS-6). Sin propuesta de diseño.
+
+1. RAW. JSON de boxscore con prefijo 004 (playoffs) o 005 (play-in): 0 en
+   gs://.../raw/boxscores/ (14 429 objetos, todos 002), 0 en
+   raw/boxscores_live/ (56 objetos, 2026-27), 0 en raw/boxscores_preseason/,
+   y 0 en data/raw/ local (14 429 de 002 + 67 de 001 en
+   boxscores_preseason/). Es 0 en todas las temporadas 2016-17..2025-26:
+   el histórico no trae playoffs.
+2. BigQuery. Filas por prefijo de game_id: games 002 = 14 485; team_game_stats
+   002 = 28 970; player_game_stats 002 = 372 789. Ninguna fila 004 ni 005
+   en las tres tablas: se cumple la expectativa (universo regular por
+   decisión cerrada).
+3. Calendario. scheduleLeagueV2_2026-10-28.json (el archivado más
+   reciente), seasonYear 2026-27: 001 = 67, 002 = 1 206, 006 = 1. Lista 0
+   partidos 004 y 0 partidos 005, ni siquiera como TBD. El 006 único no se
+   inspeccionó.
+4. market_odds. Filas emparejadas por prefijo: todas 002 (691); 0 con
+   game_id 004/005. Filas matched=false: 0 en toda la tabla, y 0 filas de
+   cualquier tipo con game_date entre 2026-04-01 y 2026-06-30. El job de
+   captura no existía en abril-junio de 2026: opera desde el 2026-09-21. La
+   captura más antigua que queda es del 2026-10-04 porque el MERGE pisa.
+5. Injury reports (raw/injury_reports/, 2 449 objetos, 2018-12-17 ->
+   2026-10-28). Fechas entre el 14-abr y el 30-jun:
+     2024: 2 PDFs, ambos del 2024-04-14 (último día de la temporada
+           regular 2023-24, no playoffs)
+     2025: 0 (último archivado del semestre: 2025-04-13)
+     2026: 0 (último archivado del semestre: 2026-04-12)
+   No hay ningún PDF de playoffs ni de play-in archivado. El backfill de
+   D-RES-2 tomó solo fechas de temporada regular, y el archivo diario del
+   job empieza con la temporada 2026-27 (primer PDF posterior a julio:
+   2026-10-19). La retención de ak-static para PDFs de playoffs no se
+   sondeó.
+   Desliz de instrumento, declarado: el primer conteo dio 0 en los tres
+   años porque buscaba el patrón "Injury-Report_", y el archivo guarda los
+   objetos como {fecha}_{sufijo}.pdf. Recontado con el patrón correcto.
+6. Código: puntos donde se fija el tipo de partido por prefijo o constante
+   (lista, sin cambios):
+     nba_predictor/ingestion/cdn_client.py:60   _REGULAR_SEASON_PREFIX = "002"
+     nba_predictor/ingestion/cdn_client.py:276  filtro de _normalize_cdn_schedule
+                                                (ingest_job paso 1)
+     nba_predictor/ingestion/cdn_client.py:67   _GAME_TYPE_MAP (gameType de
+                                                boxscores; 2 = "Regular Season")
+     nba_predictor/ingestion/cdn_client.py:303  season_type constante
+                                                "Regular Season"
+     nba_predictor/ingestion/future_schedule.py:114  startswith("002")
+                                                (endpoint y, por import,
+                                                odds-capture)
+     nba_predictor/api/daily_predictions.py:977 startswith("002") (inicio de
+                                                temporada para el régimen)
+     nba_predictor/jobs/roster_signals.py:35    PRESEASON_PREFIX = "001"
+     nba_predictor/ingestion/schedule.py:84     season_type = "Regular Season"
+                                                (legacy)
+     nba_predictor/ingestion/nba_client.py:58   season_type_nullable =
+                                                "Regular Season" (legacy
+                                                stats.nba.com)
+   odds_logic.py no tiene prefijo propio: su índice sale de
+   future_schedule, así que hereda el "002", y los eventos que no casan se
+   archivan con matched=false. ingest_logic.py tampoco tiene prefijo
+   propio: depende del normalizador de cdn_client. En scripts/ (ingest_job,
+   odds_capture_job, rebuild_cloud, backfill_*) no hay ningún filtro de
+   prefijo.
+
+## D-EXP-12: umbrales binarios con nivel declarado ("X+ (80%)" y línea 50/50)
+(PRE-REGISTRO SELLADO; borrador del chat de diseño + las 10 lecturas de la
+revisión de Code, adjudicadas por Antonio el 2026-10-28)
+
+PREGUNTA. ¿Puede el mensaje 2 publicar afirmaciones binarias del tipo
+"20+ pts (80%)" y "28+ pts (50%)" cuyo acierto real coincida con el nivel
+declarado, para los cuatro stats?
+
+ANTECEDENTE Y DIFERENCIAS CON D-EXP-11. D-EXP-11 probó pisos al 90%
+calibrados sobre el universo y cerró sin adopción: cobertura 85.9-87.5% en
+destacados (no se transfirió) e informatividad 0.596. Aquí cambian dos cosas,
+fijadas de antemano: nivel 80% (más informativo; falla 1 de cada 5 y lo
+declara) y calibración sobre la población del selector (lección de D-EXP-11).
+No es una repetición: es un pre-registro nuevo con parámetros distintos,
+fijados antes de correr.
+
+UNIVERSO Y POBLACIÓN. Los de D-EXP-7: jugados, >= 10 previos, shift 1, folds
+de validación 2020-21 a 2025-26. Población primaria: el selector exacto
+reconstruido, CON el filtro de producción Out/Doubtful donde hay PDF publish
+(GemBox 2023-24..2025-26, instancias de D-EXP-1; legacy desde el 2018-12-18
+hasta 2022-23, instancias de D-EXP-5). El puesto pasa al siguiente por
+minutos, como en D-EXP-9. Las fechas sin PDF (antes del 2018-12-18, las 32
+fechas de D-RES-3d y las fechas sin corte publish) quedan SIN filtro,
+contadas y declaradas. Restringida a >= 10 previos y sin filas de arranque.
+Se excluyen y cuentan los jugador-partidos cuyo equipo o rival está NYS en el
+corte publish, como en D-EXP-9. Calibración y evaluación sobre la misma
+población. Secundarias: titulares y universo (sin arranque), descriptivas,
+con los mismos umbrales.
+
+CENTRO. B0 (mediana de 10), el adjudicado. En el régimen de arranque no se
+publica (el centro es C3 y no está calibrado; declarado). Si un experimento
+posterior pre-registrado cambia el centro (p. ej. D-EXP-7b), los umbrales se
+recalibran mediante una enmienda pre-registrada, como en D-EXP-11.
+
+STATS. pts, reb, ast, fg3m.
+
+BRAZOS (conformal de un lado, residuo con signo centro - real,
+conformal_q_lower de D-EXP-11):
+  U80: umbral = centro - q80 * dispersión_10, con q80 = cuantil 0.80 del
+       residuo escalado en el train del fold. Publicado como "X+": X
+       redondeado hacia arriba al entero, acotado en 0.
+  U50: igual con el cuantil 0.50. Es la línea 50/50. Dirección esperada:
+       umbral POR DEBAJO del centro (umbral/centro < 1), porque la selección
+       por minutos regresa a la media (residuo medio de minutos -0.49 en
+       D-EXP-9).
+  U70: igual con el cuantil 0.70. DESCRIPTIVO, NO ELEGIBLE: se reporta su
+       acierto e informatividad para informar un pre-registro futuro.
+  Con dispersión_10 = 0: variante absoluta al mismo nivel, como en D-EXP-11.
+  CALIBRACIÓN: el train del fold es la población primaria SIN arranque de las
+  temporadas anteriores a la validada (misma población que la puerta).
+
+MÉTRICAS. Acierto = fracción con real >= umbral publicado. Informatividad =
+suma de umbrales / suma de centros (cociente de medias). Fracción de umbral 0.
+
+FASE 0. El n se computa y se escribe aquí antes de cualquier métrica:
+población de la puerta (seis folds, sin arranque, con filtro de estatus donde
+hay PDF), estimada en ~23 000. Error estándar de una proporción por nivel,
+agregado y por fold; es una cota optimista por dependencia entre filas del
+mismo jugador. También se cuentan las filas sin filtro (fecha sin PDF) en el
+train y en la puerta, y las exclusiones por NYS.
+
+PUERTAS (sin lectura alternativa):
+  - U80 calibra en un stat si el acierto agregado está en [78%, 82%] Y todos
+    los folds en [75%, 85%]. La banda es de dos lados a propósito: aquí
+    pasarse sí importa, porque un "80%" que acierta el 90% no dice nada.
+  - U50 calibra si el agregado está en [48%, 52%] Y por fold en [45%, 55%].
+  - Informatividad, SOLO para U80: publicable solo si umbral/centro >= 0.70
+    en el stat. La puerta SE MANTIENE en 0.70.
+  - Umbral publicado = 0 en más del 30% de la población de la puerta: "sin
+    umbral útil" para ese par, en los DOS niveles.
+  - Cada par (stat, nivel) se publica solo si cruzó todas sus puertas. La
+    línea 50/50 se publica solo en puntos.
+
+CUENTA PREVIA (regla de D-PROD-1b y D-RES-3e: magnitud computada antes de
+prometer). Interpolando linealmente entre P80 y P90 de D-EXP-11 al 80% de
+acierto: pts (76.0% / 0.740 y 85.9% / 0.596) da ~0.68; reb (77.1% / 0.724 y
+87.5% / 0.547) ~0.67; ast (76.0% / 0.746 y 86.1% / 0.572) ~0.68. Calibrar
+sobre la primaria lleva el acierto al 80% bajando el umbral, y eso baja la
+informatividad hacia ~0.68.
+
+EXPECTATIVAS. CENTRAL: U80 calibra en banda en pts, reb y ast y NO cruza la
+informatividad (~0.68 < 0.70). fg3m sin umbral útil. U50 en banda, con
+umbral/centro entre 0.95 y 1.0 y dirección < 1. U70 (descriptivo):
+informatividad mayor que la de U80, sin expectativa numérica.
+
+CONSECUENCIA ESCALONADA (en puntos, que decide el formato):
+  (a) U80 de pts cruza acierto e informatividad -> formato completo: el
+      mensaje 2 en modo R1 pasa a umbrales binarios, con cada par (stat,
+      nivel) solo si cruzó y la línea 50/50 solo en puntos:
+      "• Jokić (DEN): 20+ pts (80%) · 28+ (50%) · 10+ reb (80%) · 7+ ast
+      (80%)". R1 se retira del mensaje y queda en el log.
+  (b) U80 de pts calibra pero no cruza la informatividad -> se publica solo
+      U50 en pts (si cruzó su puerta) junto al rango R1 vigente; U80 queda
+      cerrado.
+  (c) U80 de pts no calibra -> nada cambia.
+En (a) y (b): presupuesto de longitud recomputado en el diseño (D-PROD-1b).
+Monitor vivo: acierto de cada nivel publicado sobre los últimos 100; U80
+fuera de [72%, 88%] o U50 fuera de [40%, 60%] durante 14 evaluaciones
+diarias consecutivas = reversión declarada al formato vigente. El marcador
+semanal en el canal queda FUERA de este pre-registro: va a D-PROD-2.
+
+CONTROL DESCRIPTIVO. Acierto por subgrupos fijados de antemano: titulares y
+banca, local y visitante, y arranque (con el umbral B0 que tendría; ahí no
+se publicaría). Desvío > 5 puntos respecto al agregado del stat = hallazgo.
+
+MUESTRA DE AUDITORÍA. 30 filas de la población de la puerta (seed 42), con
+umbral U80 y U50, centro y real, escritas ANTES de cualquier métrica.
+
+LEAKAGE. El de D-EXP-7: q solo del train, dispersión solo del pasado,
+selector sin filas del día, estatus solo del corte publish.
+
+ORDEN. Corre ahora (offline). Adopción, si algo cruza, como D-PROD-2 después
+del 10 de noviembre, nunca el mismo día que el estreno de R1.
+
+LO QUE NO HACE. No toca el mensaje 1, el modelo ni las features. No compara
+contra líneas de casas (D-EXP-8). No publica umbrales sin nivel. No modifica
+la etapa "pisos" de D-EXP-11.
+
+RESULTADO: pendiente de fase 0 y ejecución.
+
+SELLADO: 2026-10-28T21:38:50Z, ANTES de escribir código.
+
+## D-EXP-12 RESULTADO (2026-10-28): EXPECTATIVA CENTRAL CUMPLIDA. U80
+calibra en los cuatro stats y no cruza la informatividad (0.65-0.69).
+Escalonada (b): solo U50 en puntos es publicable
+
+CORRIDA ÚNICA: scripts/experiment_destacados_d12.py, un script aparte (no una
+etapa de d7): la etapa "pisos" y las funciones protegidas de d7 solo se
+importan, sin tocarlas. 2026-10-28T21:48:48Z -> 21:49:56Z, exit 0, a la
+primera. Orden verificado por timestamps: pre-registro sellado 21:38:50Z;
+fase0.json 21:49:55.953Z; audit_sample.json 21:49:55.988Z; results.json
+21:49:56.36Z. Tests: 30 nuevos (tests/test_experiment_destacados_d12.py:
+puerta de dos lados en los cuatro bordes de U80 y U50, calibración sobre la
+primaria contra cálculo directo, filtro de estatus con fixture GemBox y
+legacy, redondeo hacia arriba, regla del 30%, unión de estatus sin
+duplicados y con conflicto ruidoso, escalonada). Suite 1238 passed, 15
+deselected (1208 + 30). Ruff limpio.
+
+INSTRUMENTO Y CONTEOS:
+- Estatus: GemBox 35 607 incluidas (483 fechas), legacy 41 608 (693
+  fechas); unidos 77 215 sin un solo par (game_id, player_id) duplicado ni
+  en conflicto. Sufijo publish idéntico al de D-EXP-2b en las 483 + 693
+  fechas (assert pasado). PDF del 2018-12-18 al 2026-04-12 (1 177 fechas);
+  NYS 1 309 pares.
+- Control: sin filtro, el selector reproduce EXACTO a D-EXP-7/11
+  (primaria 22 745, puerta 19 793). Ese selector traía entre sus top 2 a
+  4 556 Out y 253 Doubtful.
+- Puerta (primaria con filtro, sin arranque, sin NYS): 20 505 = 2 921 /
+  3 483 / 3 552 / 3 564 / 3 448 / 3 537. DESVIACIÓN de la estimación
+  (~23 000): el +17% de D-EXP-9 no se trasladaba a seis folds sin
+  arranque y sin NYS.
+- Excluidas por NYS en validación: 2 714. Puerta sin filtro por falta de
+  PDF: 0.
+- Train por fold (primaria sin arranque, temporadas anteriores): 21 746 ->
+  38 714. De él, 16 823 filas SIN filtro (anteriores al 2018-12-18), las
+  mismas en todos los folds: 77% del train de 2020-21 y 43% del de 2025-26.
+  Declarado como lo exige la lectura 2.
+- FASE 0: error estándar agregado 0.28 pp (U80), 0.35 (U50) y 0.32 (U70);
+  cota optimista.
+
+TABLA — población de la puerta (acierto = real >= umbral publicado):
+  stat nivel acierto  por fold (2020-21 .. 2025-26)   umbral centro inform umbral0  veredicto
+  pts  U80   80.5%   80.2 81.4 81.6 80.4 79.8 79.6   13.86  20.22  0.686   0.3%  calibra, NO informa
+  pts  U50   50.9%   51.4 52.3 50.5 50.7 51.2 49.3   20.30  20.22  1.004   0.0%  CRUZA, publicable
+  pts  U70   70.3%   70.0 71.2 70.6 70.4 69.9 69.8   16.36  20.22  0.809   0.0%  descriptivo
+  reb  U80   80.2%   79.7 80.1 79.8 80.4 81.6 79.6    3.95   5.79  0.683   1.3%  calibra, NO informa
+  reb  U50   52.9%   54.3 52.1 52.8 51.9 53.6 52.9    6.00   5.79  1.037   0.0%  NO calibra (alto)
+  reb  U70   70.3%   70.2 69.8 70.1 70.2 70.8 70.5    4.77   5.79  0.823   0.1%  descriptivo
+  ast  U80   79.5%   79.9 79.6 79.6 79.8 80.2 78.3    3.24   4.68  0.693   4.3%  calibra, NO informa
+  ast  U50   55.3%   56.1 55.5 55.7 55.6 55.4 53.6    4.87   4.68  1.042   0.2%  NO calibra (alto)
+  ast  U70   69.7%   70.5 69.7 70.3 69.8 70.2 67.7    3.94   4.68  0.843   1.0%  descriptivo
+  fg3m U80   80.1%   79.7 79.9 80.6 80.6 79.2 80.3    1.26   1.94  0.649  23.1%  calibra, NO informa
+  fg3m U50   60.4%   61.5 60.0 61.0 61.2 59.1 59.5    2.10   1.94  1.080   9.3%  NO calibra (alto)
+  fg3m U70   70.2%   70.3 70.0 70.7 70.1 69.9 70.2    1.68   1.94  0.866  12.6%  descriptivo
+Secundarias con los mismos umbrales (U80, sin arranque): titulares
+80.0-80.7%; universo 82.9-85.9%, porque calibrar sobre la primaria deja
+holgado al universo, la imagen espejo de D-EXP-11.
+
+VEREDICTO POR PAR (stat, nivel):
+- U80: CALIBRA en los cuatro stats (agregado y los seis folds en banda) y
+  NO cruza la informatividad en ninguno (pts 0.686, reb 0.683, ast 0.693,
+  fg3m 0.649 < 0.70). Ninguno es publicable.
+- U50: CRUZA solo en pts (50.9%, folds 49.3-52.3) y es publicable. En reb,
+  ast y fg3m no calibra: el acierto queda POR ENCIMA de la banda (52.9 /
+  55.3 / 60.4%). Además, por la regla de la línea 50/50, solo puntos
+  podía publicarse.
+- U70 (descriptivo, no elegible): acierto 69.7-70.3%, informatividad
+  0.809 (pts), 0.823 (reb), 0.843 (ast), 0.866 (fg3m).
+- Regla del 30% de umbral 0: no se activó en ningún par (máximo: fg3m U80
+  con 23.1%).
+
+CONSECUENCIA ESCALONADA QUE APLICA: (b). U80 de puntos calibra (80.5%) pero
+no cruza la informatividad (0.686). Por la regla pre-registrada se publica
+solo U50 en puntos, junto al rango R1 vigente, y U80 queda CERRADO.
+OBSERVACIÓN PARA LA ADJUDICACIÓN DE PRODUCTO (es un hecho, no una
+recomendación): U50 de puntos es B0 - 0.07 * dispersión, redondeado hacia
+arriba (q50 escalado entre 0.07 y 0.08 según el fold), con umbral/centro
+1.004. En la práctica es la mediana publicada redondeada hacia arriba, con
+"(50%)" al lado.
+
+CONTRA LAS EXPECTATIVAS:
+- CENTRAL ("U80 calibra en banda en pts, reb y ast y NO cruza la
+  informatividad, ~0.68"): CUMPLIDA. La cuenta previa interpolada desde
+  D-EXP-11 acertó: 0.686 / 0.683 / 0.693 contra ~0.68 / 0.67 / 0.68.
+- "fg3m sin umbral útil": FALLIDA. Umbral 0 en el 23.1%, por debajo del 30%;
+  fg3m calibra en U80 con informatividad 0.649.
+- "U50 en banda": CUMPLIDA solo en pts; FALLIDA en reb, ast y fg3m (por
+  arriba).
+- "U50 umbral/centro 0.95-1.0 con dirección < 1": FALLIDA en los cuatro;
+  sale > 1 (1.004 / 1.037 / 1.042 / 1.080). Hallazgo declarado. Hecho
+  medido que lo acompaña: el q50 escalado es exactamente 0.0 en reb, ast y
+  fg3m, así que U50 = B0 redondeado hacia arriba. HIPÓTESIS POST-HOC, no
+  probada: empates en stats discretos con mucha masa en real == B0 (el
+  cuantil cae en 0 y la fracción con real >= umbral pasa del 50%), más el
+  redondeo hacia arriba sobre centros pequeños.
+- Pesimista ("U80 en banda pero umbral/centro < 0.70 en pts"): REALIZADO,
+  tal como se esperaba de antemano.
+
+CONTROL DESCRIPTIVO: la BANCA (n = 471 en la puerta; con el filtro de
+estatus entran más no titulares que en D-EXP-11, donde eran 40) se desvía
+más de 5 pp en todos los pares: +5.4 a +14.1 pp por encima del agregado.
+Hallazgo por la regla. Local y visitante dentro de ±1.6 pp; arranque dentro
+de ±2.4 pp.
+
+ARCHIVOS: data/experiment_destacados_d12/fase0.json, audit_sample.json,
+auditoria_muestra.txt (30 filas con centro, dispersión, U80, U50 y real por
+stat), results.json (marca de una sola corrida) y tabla.txt.
+
+PENDIENTE: auditoría humana de Antonio y adjudicación de producto.
+[Adjudicación de producto RESUELTA, ver abajo; la auditoría humana sigue
+pendiente.]
+
+## D-EXP-12 ADJUDICACIÓN (Antonio, 2026-10-28)
+
+- U80: CERRADO. Calibra (confirma la lección de D-EXP-11: calibrar y evaluar
+  sobre la misma población) pero no cruza la informatividad de 0.70. No se
+  reabre.
+- U50 en pts: PUBLICABLE por la rama (b), como "línea". Pasa a D-PROD-2 con
+  dos condiciones pre-registradas:
+  (1) Línea en .5, sin empates. El hallazgo de q50 = 0 y acierto por encima
+      de la banda en reb, ast y fg3m se atribuye a empates del ">=", como
+      HIPÓTESIS NO PROBADA. Antes de publicar, verificación histórica de que
+      el acierto de la línea en .5 cae en [48%, 52%].
+  (2) Marcador semanal de acierto en el canal, OBLIGATORIO.
+- U70: candidato prospectivo D-EXP-12b. No es elegible aquí porque se eligió
+  tras ver los resultados. Puerta: acierto en [68%, 72%] Y informatividad
+  >= 0.75, sobre destacados publicados de 2026-27 posteriores al sello, con
+  los mismos cortes y el mismo script que D-EXP-7b. Adopción en 2027-28 si
+  cruza. Lleva pre-registro propio, sellado antes de su primer dato.
+- HALLAZGOS REGISTRADOS SIN ACCIÓN: n de la puerta 20 505 (estimado
+  ~23 000); fg3m con umbral útil (23.1% de umbral 0, contra la expectativa
+  de "sin umbral útil"); banca con n 471, solo descriptiva; train sin filtro
+  de estatus antes del 2018-12-18.
+- PENDIENTE: auditoría humana de Antonio sobre la muestra de 30
+  (data/experiment_destacados_d12/auditoria_muestra.txt: umbral U80, U50,
+  centro y real). Se marcará "[RESUELTO]" cuando llegue.

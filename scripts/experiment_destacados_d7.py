@@ -21,9 +21,14 @@ UNIVERSO: el de D-EXP-3/4, importado de su script (una reimplementación sería
 una segunda verdad): filas JUGADAS (minutes > 0) con >= 10 jugados previos,
 shift(1), cruzando temporadas; folds = temporadas de validación 2020-21..2025-26.
 
+TERCERA ETAPA (D-EXP-11, pre-registro propio sellado 2026-10-27T22:02:17Z):
+  pisos  : pisos "X+" de un solo lado (P90 publicable, P80 referencia) con
+           centro B0; corre UNA sola vez.
+
 Uso:
     python scripts/experiment_destacados_d7.py centro
     python scripts/experiment_destacados_d7.py rango --centro pts=B0,reb=B0,ast=B0,fg3m=B0
+    python scripts/experiment_destacados_d7.py pisos
 """
 from __future__ import annotations
 
@@ -819,12 +824,263 @@ def etapa_barrido() -> None:
     print(texto)
 
 
+# ---------------------------------------------------------------------------
+# Etapa PISOS (D-EXP-11, sellado 2026-10-27T22:02:17Z; una sola vez)
+# ---------------------------------------------------------------------------
+
+PISO_NIVELES: dict[str, float] = {"P90": 0.90, "P80": 0.80}
+# Banda SOLO INFERIOR: (agregada mínima, mínima en cada fold).
+PISO_BANDAS: dict[str, tuple[float, float]] = {"P90": (0.88, 0.85), "P80": (0.78, 0.75)}
+PISO_PUBLICADO = "P90"                 # el único nivel publicable, elegido antes de medir
+PISO_POCO_INFORMATIVO = 0.95           # agregada por encima = hallazgo, no veto
+PISO_CERO_MAX = 0.30                   # más de esto con piso 0 = "sin piso útil"
+SUBGRUPO_DESVIO = 0.05                 # control descriptivo: desvío vs la agregada
+
+
+def conformal_q_lower(y: Any, centro: Any, escala: Any | None, nivel: float) -> float:
+    """Cuantil `nivel` del residuo CON SIGNO (centro - real), / escala si se da.
+
+    Es la versión de un solo lado de conformal_q, que se deja intacta: el piso
+    centro - q * escala cubre la fracción `nivel` de las filas porque
+    real >= piso  <=>  (centro - real) / escala <= q. Con escala, las filas de
+    escala 0 se excluyen (igual que conformal_q); su piso sale del respaldo
+    absoluto (escala None).
+    """
+    r = np.asarray(centro, float) - np.asarray(y, float)
+    if escala is not None:
+        e = np.asarray(escala, float)
+        ok = e > 0
+        r = r[ok] / e[ok]
+    return float(np.quantile(r, nivel))
+
+
+def floor_values(centro: Any, disp: Any, q_scaled: float, q_abs: float) -> np.ndarray:
+    """Piso PUBLICADO: centro - q * dispersión (respaldo centro - q_abs si la
+    dispersión es 0), redondeado HACIA ARRIBA al entero y acotado en 0.
+
+    Hacia arriba porque los stats son enteros: "real >= 17.3" deja pasar 18 en
+    adelante, igual que "real >= 18"; redondear hacia abajo añadiría el 17 y
+    cambiaría la cobertura (misma regla que el extremo inferior de R1).
+    """
+    c = np.asarray(centro, float)
+    d = np.asarray(disp, float)
+    lo = np.where(d > 0, c - q_scaled * d, c - q_abs)
+    return np.maximum(np.ceil(lo), 0.0)
+
+
+def floor_coverage(y: Any, piso: Any) -> float:
+    """Fracción con real >= piso publicado."""
+    y, piso = np.asarray(y, float), np.asarray(piso, float)
+    return float(np.mean(y >= piso)) if len(y) else float("nan")
+
+
+def informativeness(piso: Any, centro: Any) -> float | None:
+    """Cociente de medias: suma de pisos / suma de centros. No divide fila a
+    fila, así que un centro 0 (fg3m con diez ceros) no rompe nada; None solo si
+    TODOS los centros suman 0."""
+    s = float(np.sum(np.asarray(centro, float)))
+    return float(np.sum(np.asarray(piso, float)) / s) if s > 0 else None
+
+
+def floor_gate(cob_agg: float, cob_folds: list[float], banda: tuple[float, float],
+               frac_cero: float) -> dict[str, Any]:
+    """Puerta de PISO (banda solo inferior): cruza si la cobertura agregada es
+    >= banda[0] Y cada fold >= banda[1]. Agregada > 95% = hallazgo "piso poco
+    informativo", no veto. Piso 0 en más del 30% = "sin piso útil": no se
+    publica aunque cruce cobertura."""
+    a = bool(cob_agg >= banda[0] and all(c >= banda[1] for c in cob_folds))
+    sin_util = bool(frac_cero > PISO_CERO_MAX)
+    return {"cruza_cobertura": a, "sin_piso_util": sin_util,
+            "poco_informativo_hallazgo": bool(cob_agg > PISO_POCO_INFORMATIVO),
+            "cruza": bool(a and not sin_util)}
+
+
+def etapa_pisos() -> None:
+    """D-EXP-11: pisos P90 y P80 (conformal de UN lado), centro B0.
+
+    Calibración: universo del train de cada fold (temporadas anteriores a la
+    validada), como R1. Puerta: primaria SIN arranque (ahí el piso no se
+    publica). DECLARADO: las poblaciones secundarias (titulares, universo) se
+    reportan también sin arranque, para que se comparen con la de la puerta; el
+    arranque se reporta aparte con el piso B0 que tendría (descriptivo: en
+    producción ese día el centro es C3 y no hay piso).
+    """
+    marca = OUT_DIR / "results_pisos.json"
+    if marca.exists():
+        raise SystemExit("La etapa PISOS ya corrió: el pre-registro la permite UNA vez.")
+    rango_path = OUT_DIR / "results_rango.json"
+    if not rango_path.exists():
+        raise SystemExit("Falta results_rango.json: es el control del q de R1.")
+    rango = json.loads(rango_path.read_text(encoding="utf-8"))
+
+    df, games, _, _ = load_frame()
+    sel = reconstruct_selector(df, games)
+    played = df[df["minutes"] > 0].copy()
+    arms = add_center_arms(played)
+    cols = [f"B0_{s}" for s in STATS] + [f"C1_{s}" for s in STATS]
+    u = arms.dropna(subset=cols).copy()
+    u = u.merge(range_series(played), on=["game_id", "player_id"], how="left",
+                validate="one_to_one")
+    for s in STATS:
+        assert u[f"disp_{s}"].notna().all(), f"dispersión NaN en {s}"
+    assert "is_home" in u, "falta is_home para el control local/visitante"
+    sel_idx = pd.MultiIndex.from_frame(sel[["game_id", "player_id"]])
+    u["seleccionado"] = pd.MultiIndex.from_arrays([u["game_id"], u["player_id"]]).isin(sel_idx)
+    u["arranque"] = season_start_flags(u, games).to_numpy()
+    u["titular"] = u["roll_min"] >= CORTE_TITULAR_MIN
+    u["local"] = u["is_home"].astype(bool)
+
+    v = u[u["season"].isin(VALID_SEASONS)]
+    poblaciones = {
+        "puerta": v["seleccionado"] & ~v["arranque"],
+        "arranque_primaria": v["seleccionado"] & v["arranque"],
+        "titulares_sin_arranque": v["titular"] & ~v["arranque"],
+        "universo_sin_arranque": ~v["arranque"],
+    }
+    puerta = poblaciones["puerta"]
+    subgrupos = {
+        "titulares": puerta & v["titular"], "banca": puerta & ~v["titular"],
+        "local": puerta & v["local"], "visitante": puerta & ~v["local"],
+        "arranque": poblaciones["arranque_primaria"],
+    }
+    n_prim = int(v["seleccionado"].sum())
+    print(f"  primaria {n_prim} (D-EXP-7: 22 745) | puerta {int(puerta.sum())} | "
+          f"arranque de la primaria {int(poblaciones['arranque_primaria'].sum())}", flush=True)
+
+    # ── FASE 0 (se escribe ANTES que los resultados) ──
+    n_p = int(puerta.sum())
+    fase0: dict[str, Any] = {
+        "generado_utc": datetime.now(timezone.utc).isoformat(),
+        "n_puerta": n_p, "n_primaria": n_prim,
+        "n_por_fold": {s: int((puerta & (v["season"] == s)).sum()) for s in VALID_SEASONS},
+        "nota": "error estándar binomial = COTA OPTIMISTA: las filas de un mismo "
+                "jugador no son independientes",
+        "niveles": {}}
+    for nivel, p in PISO_NIVELES.items():
+        se = float(np.sqrt(p * (1 - p) / n_p))
+        fase0["niveles"][nivel] = {
+            "se_agregada_pp": round(100 * se, 3),
+            "distancia_a_banda_pp": round(100 * (p - PISO_BANDAS[nivel][0]), 3),
+            "distancia_en_se": round((p - PISO_BANDAS[nivel][0]) / se, 2),
+            "se_por_fold_pp": {s: round(100 * float(np.sqrt(p * (1 - p) / max(n, 1))), 3)
+                               for s, n in fase0["n_por_fold"].items()}}
+    (OUT_DIR / "pisos_fase0.json").write_text(json.dumps(fase0, ensure_ascii=False, indent=1),
+                                              encoding="utf-8")
+    print("FASE 0 escrita.", flush=True)
+
+    # ── Control: el q de R1 (conformal_q intacta) se reproduce sobre estos datos ──
+    control_r1 = {}
+    for s in STATS:
+        esperado = rango["por_stat"][s]["R1"]["q_por_fold"]
+        dif = []
+        for season in VALID_SEASONS:
+            tr = u[u["season"] < season]
+            q = conformal_q(tr[s], tr[f"B0_{s}"], tr[f"disp_{s}"])
+            dif.append(abs(q - float(esperado[season])))
+        control_r1[s] = {"max_dif_abs": float(max(dif)), "reproduce": bool(max(dif) < 1e-9)}
+
+    res: dict[str, Any] = {
+        "generado_utc": datetime.now(timezone.utc).isoformat(),
+        "sellado": "2026-10-27T22:02:17Z", "centro": "B0", "nivel_publicable": PISO_PUBLICADO,
+        "conteos": {"primaria": n_prim, **{k: int(m.sum()) for k, m in poblaciones.items()}},
+        "control_q_R1": control_r1, "por_stat": {}}
+    for s in STATS:
+        res["por_stat"][s] = {}
+        for nivel, p in PISO_NIVELES.items():
+            piso = pd.Series(np.nan, index=v.index)
+            qs = {}
+            for season in VALID_SEASONS:
+                tr = u[u["season"] < season]
+                q_sc = conformal_q_lower(tr[s], tr[f"B0_{s}"], tr[f"disp_{s}"], p)
+                q_ab = conformal_q_lower(tr[s], tr[f"B0_{s}"], None, p)
+                m = v["season"] == season
+                piso[m] = floor_values(v.loc[m, f"B0_{s}"], v.loc[m, f"disp_{s}"], q_sc, q_ab)
+                qs[season] = {"q_escalado": round(q_sc, 6), "q_abs": round(q_ab, 6)}
+            assert piso.notna().all(), f"piso NaN en {s} {nivel}"
+
+            def resumen(mask: pd.Series, s=s, piso=piso) -> dict[str, Any]:
+                y, c, f = v.loc[mask, s], v.loc[mask, f"B0_{s}"], piso[mask]
+                return {"n": int(mask.sum()), "cobertura": floor_coverage(y, f),
+                        "piso_medio": float(f.mean()), "centro_medio": float(c.mean()),
+                        "informatividad": informativeness(f, c),
+                        "frac_piso_cero": float((f == 0).mean()),
+                        "frac_disp_cero": float((v.loc[mask, f"disp_{s}"] == 0).mean())}
+
+            gate_pop = resumen(puerta)
+            cob_folds = {season: floor_coverage(v.loc[puerta & (v["season"] == season), s],
+                                                piso[puerta & (v["season"] == season)])
+                         for season in VALID_SEASONS}
+            gate = floor_gate(gate_pop["cobertura"], list(cob_folds.values()),
+                              PISO_BANDAS[nivel], gate_pop["frac_piso_cero"])
+            sub = {}
+            for k, m in subgrupos.items():
+                r = resumen(m)
+                r["desvio_pp"] = round(100 * (r["cobertura"] - gate_pop["cobertura"]), 3)
+                r["hallazgo"] = bool(abs(r["cobertura"] - gate_pop["cobertura"])
+                                     > SUBGRUPO_DESVIO)
+                sub[k] = r
+            res["por_stat"][s][nivel] = {
+                "q_por_fold": qs, "puerta_poblacion": gate_pop,
+                "cobertura_por_fold": cob_folds, "puerta": gate,
+                "publicable": bool(gate["cruza"] and nivel == PISO_PUBLICADO),
+                "secundarias": {k: resumen(poblaciones[k]) for k in
+                                ("titulares_sin_arranque", "universo_sin_arranque")},
+                "subgrupos": sub}
+    marca.write_text(json.dumps(res, ensure_ascii=False, indent=1, default=str),
+                     encoding="utf-8")
+    texto = render_pisos(res)
+    (OUT_DIR / "tabla_pisos.txt").write_text(texto, encoding="utf-8")
+    print(texto)
+
+
+def render_pisos(res: dict[str, Any]) -> str:
+    c = res["conteos"]
+    L = ["D-EXP-11 — PISOS (centro B0; puerta = primaria sin arranque)",
+         f"primaria {c['primaria']} | puerta {c['puerta']} | arranque "
+         f"{c['arranque_primaria']} | titulares s/arr {c['titulares_sin_arranque']} | "
+         f"universo s/arr {c['universo_sin_arranque']}",
+         "control q R1 (conformal_q intacta): " + ", ".join(
+             f"{s} {'OK' if r['reproduce'] else 'DIFIERE'} (max {r['max_dif_abs']:.2e})"
+             for s, r in res["control_q_R1"].items()), ""]
+    L.append(f"  {'stat':<5}{'nivel':<5}{'cob':>7}  {'por fold':<41}{'piso':>6}{'centro':>7}"
+             f"{'inform':>7}{'piso0':>7}  puerta")
+    for s, niveles in res["por_stat"].items():
+        for nivel, r in niveles.items():
+            g, pp = r["puerta"], r["puerta_poblacion"]
+            folds = " ".join(f"{x:.1%}" for x in r["cobertura_por_fold"].values())
+            inf = pp["informatividad"]
+            marca = ("CRUZA" if g["cruza"] else
+                     "sin piso útil" if g["cruza_cobertura"] else "no cruza")
+            if g["poco_informativo_hallazgo"]:
+                marca += " + poco informativo"
+            if r["publicable"]:
+                marca += " [PUBLICABLE]"
+            L.append(f"  {s:<5}{nivel:<5}{pp['cobertura']:>7.1%}  {folds:<41}"
+                     f"{pp['piso_medio']:>6.2f}{pp['centro_medio']:>7.2f}"
+                     f"{(inf if inf is not None else float('nan')):>7.3f}"
+                     f"{pp['frac_piso_cero']:>7.1%}  {marca}")
+    L += ["", "CONTROL DE ESPECIFICIDAD (desvío en pp vs la agregada; * = > 5 pp)"]
+    for s, niveles in res["por_stat"].items():
+        for nivel, r in niveles.items():
+            L.append(f"  {s:<5}{nivel:<5}" + "  ".join(
+                f"{k} {x['cobertura']:.1%} ({x['desvio_pp']:+.1f}){'*' if x['hallazgo'] else ''}"
+                for k, x in r["subgrupos"].items()))
+    L += ["", "SECUNDARIAS (sin arranque): cobertura / informatividad"]
+    for s, niveles in res["por_stat"].items():
+        for nivel, r in niveles.items():
+            L.append(f"  {s:<5}{nivel:<5}" + "  ".join(
+                f"{k} {x['cobertura']:.1%} / {x['informatividad'] or float('nan'):.3f}"
+                for k, x in r["secundarias"].items()))
+    return "\n".join(L)
+
+
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description="D-EXP-7")
     sub = ap.add_subparsers(dest="etapa", required=True)
     sub.add_parser("centro")
     sub.add_parser("barrido")
+    sub.add_parser("pisos")
     pr = sub.add_parser("rango")
     pr.add_argument("--centro", required=True, help="pts=B0,reb=C1,ast=B0,fg3m=B0")
     args = ap.parse_args()
@@ -832,6 +1088,8 @@ def main() -> None:
         etapa_centro()
     elif args.etapa == "barrido":
         etapa_barrido()
+    elif args.etapa == "pisos":
+        etapa_pisos()
     else:
         centro = dict(kv.split("=") for kv in args.centro.split(","))
         assert set(centro) == set(STATS), "falta un stat en --centro"

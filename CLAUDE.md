@@ -5330,3 +5330,238 @@ créditos por captura (x-requests-used esperado 90 tras evening y 93 tras
 late; cualquier otro salto es hallazgo). Si la captura de las 17:45 falla, el
 sospechoso es este cambio. Rollback: jobs update a ingest-job:v13, que
 funciona con la tabla ampliada (no escribe las columnas nuevas).
+
+## D-EXP-11: pisos calibrados ("X+") con cobertura medida
+(PRE-REGISTRO SELLADO 2026-10-27; borrador del chat de diseño + las 15
+lecturas de la revisión de Code, todas adjudicadas por Antonio el
+2026-10-27)
+
+PREGUNTA. ¿Puede el mensaje 2 publicar umbrales del tipo "18+ pts" con una
+probabilidad medida, en el formato de los props de las casas, sin prometer
+nada que no se haya verificado?
+
+UNIVERSO Y POBLACIÓN. Los de D-EXP-7 sin cambio: jugados, >= 10 previos,
+shift 1, folds 2020-21 a 2025-26. Población primaria: selector exacto
+reconstruido restringido a >= 10 previos. Secundarias: titulares y
+universo. POBLACIÓN DE LA PUERTA = primaria SIN las filas de arranque
+(primeros 21 días de cada temporada): ahí el piso no se publica. El
+arranque entra solo en el control descriptivo.
+
+CENTRO. El adjudicado en D-EXP-7: B0 (mediana de 10) fuera del régimen de
+arranque. En régimen el piso NO se publica (el centro es C3 y no se
+calibró; declarado). Si un experimento posterior pre-registrado cambia el
+centro, el piso se recalibra mediante amendment pre-registrado.
+
+STATS. pts, reb, ast, fg3m, mismo método.
+
+BRAZOS (conformal de UN solo lado):
+  P90: piso = centro - q90 * dispersión_10, con q90 = cuantil 0.90 de
+       (centro - real) / dispersión_10. Es R1 a un lado, mismo escalado
+       (dispersión_10 = desviación absoluta media de los últimos 10).
+  P80: igual con cuantil 0.80.
+  CALIBRACIÓN: el cuantil se calcula sobre el UNIVERSO del train de cada
+  fold (temporadas anteriores a la validada), como R1; la puerta se evalúa
+  sobre la población de la puerta.
+  FUNCIÓN: conformal_q_lower, NUEVA (residuo con signo, centro - real);
+  conformal_q queda intacta, con test de que el q de R1 no cambia.
+  RESPALDO: con dispersión_10 = 0 (medido: 0% en pts/reb/ast de la
+  primaria, 2.4% en fg3m, todas ventanas de diez ceros) se usa la variante
+  ABSOLUTA, piso = centro - q_abs, con q_abs = cuantil del residuo sin
+  escalar (centro - real) AL MISMO NIVEL DEL BRAZO, sobre TODO el train.
+  Las filas de fg3m con diez ceros tienen centro 0, quedan con piso 0 y
+  cobertura del 100% por construcción, y CUENTAN hacia la regla del 30%.
+  Piso acotado en 0.
+  PUBLICACIÓN: piso redondeado HACIA ARRIBA al entero (misma regla que el
+  extremo inferior de R1 en D-PRE-11, decisión a). La cobertura se mide
+  sobre el ENTERO PUBLICADO, con real >= piso.
+  VENTANA CORTA (3-9 jugados, solo producción): sin piso; centro y sufijo,
+  igual que D-PRE-11b. En el experimento no aparece (la población exige
+  >= 10 previos).
+  Etapa nueva en experiment_destacados_d7.py ("pisos"), con marca propia
+  de una sola corrida y bandas de puerta parametrizadas; range_series,
+  range_gate y conformal_q no se modifican.
+
+MÉTRICAS. Cobertura del piso = fracción con real >= piso publicado.
+Informatividad = cociente de medias: suma de pisos / suma de centros (sin
+división por cero cuando un centro es 0). Decide la cobertura; la
+informatividad compara niveles.
+
+FASE 0. MDE de cobertura: con n ~ 22 745, el error estándar de una
+proporción al 90% es ~0.2 puntos; la banda inferior de 2 puntos tiene
+resolución. Se escribe igual, antes de los resultados. ANOTACIÓN: ese error
+estándar es una COTA OPTIMISTA, porque las filas de un mismo jugador no son
+independientes.
+
+PUERTAS (sin lectura alternativa; banda SOLO INFERIOR):
+  - P90 cruza en un stat si cobertura agregada >= 88% Y en todos los folds
+    >= 85%.
+  - P80 cruza si agregada >= 78% Y por fold >= 75%.
+  - Cobertura agregada > 95% = hallazgo "piso poco informativo", NO veto.
+  - Se publica UN nivel, elegido ahora: P90. P80 se corre y se reporta
+    como referencia de informatividad; no se publica aunque cruce.
+  - Un stat con piso publicado (redondeado y acotado) igual a 0 en más del
+    30% de la población de la puerta se declara "sin piso útil" y no se
+    publica para ese stat aunque cruce cobertura.
+
+EXPECTATIVAS. P90 cumple cobertura por construcción en pts y reb (+-1
+punto). ast y fg3m: dentro de banda, piso 0 frecuente; fg3m probablemente
+"sin piso útil". Informatividad en pts (cociente de medias): 0.65-0.75
+(24 pts -> piso 16-18). Pesimista: cociente < 0.55 en pts, lo que diría
+que al 90% casi no se puede afirmar nada de un partido NBA.
+
+CONTROL DE ESPECIFICIDAD (descriptivo, no veto): cobertura por titulares
+vs banca, arranque vs resto, local vs visitante. Desviación > 5 puntos
+respecto a la cobertura agregada del mismo stat = hallazgo.
+
+LEAKAGE. El de D-EXP-7: q solo del train, dispersión solo del pasado,
+selector sin filas del día.
+
+CONSECUENCIA DE PRODUCTO (pre-registrada). Si P90 cruza en pts: en modo
+R1 el piso SUSTITUYE al rango R1. El "90%" va UNA vez en el título ("pisos
+al 90%" en modo R1) y la línea queda "• Nombre (TRI): 23 pts · 18+". Si
+cruza en reb y hay presupuesto: "15 reb · 11+". ast y fg3m solo si
+cruzan y tienen piso útil. PRESUPUESTO COMPUTADO EN EL DISEÑO (regla de
+D-PROD-1b): " · 18+" mide 6 caracteres contra 8 de " (15-24)", y " · 8+"
+5 contra 7 de " (8-24)": la línea con piso pesa 2 caracteres MENOS que la
+vigente con R1. El título "(últimos 10 partidos · pisos al 90%)" mide 36
+contra 46 del vigente: 10 menos. Sobre el dry-run del 12-23 (3 733
+caracteres, 55 líneas con R1) el mismo día mediría ~3 613. El peor caso de
+15 partidos se RECOMPUTA antes de cualquier deploy. Constante de
+producción: como PTS_R1_Q_SCALED, calibrada sobre toda la historia hasta
+2025-26, versionada en config con fecha y n. Monitor vivo: evaluación
+diaria sobre los últimos 100 pisos publicados con resultado; 14
+evaluaciones consecutivas < 84% = reversión declarada al formato R1
+vigente. Mientras el piso esté activo, el monitor del 72% de R1 queda
+suspendido. Ninguna palabra de recomendación.
+
+ORDEN. Antes de cualquier experimento posterior que cambie el centro.
+
+LO QUE NO HACE. No toca mensaje 1, modelo ni features. No compara contra
+líneas de casas (D-EXP-8).
+
+RESULTADO: pendiente de fase 0 y ejecución.
+
+SELLADO: 2026-10-27T22:02:17Z, ANTES de escribir la etapa "pisos".
+
+## D-EXP-11 RESULTADO (2026-10-27): NINGÚN PISO CRUZA. P90 cubre 86-88%
+en la población de la puerta contra el 88% exigido; el cuantil calibrado en
+el universo no se transfiere a los destacados
+
+CORRIDA ÚNICA: scripts/experiment_destacados_d7.py pisos, 2026-10-27
+16:12:26 -> 16:13:39 CDMX, exit 0, a la primera (sin corrida inválida).
+Orden verificado por timestamps: pisos_fase0.json 16:13:34.72,
+results_pisos.json 16:13:39.54, tabla_pisos.txt 16:13:39.54. Pre-registro
+sellado antes (22:02:17Z = 16:02:17 CDMX). Código de la etapa: solo
+adiciones a experiment_destacados_d7.py (range_series, range_gate y
+conformal_q sin tocar). Tests: 11 nuevos en
+tests/test_experiment_destacados_d7.py; suite 1185 passed, 15 deselected
+(1174 + 11).
+
+CONTROLES DEL INSTRUMENTO:
+- Primaria = 22 745 filas, idéntica a D-EXP-7. Puerta (primaria sin
+  arranque) = 19 793; arranque de la primaria = 2 952.
+- q de R1 reproducido: conformal_q sobre estos datos da EXACTAMENTE los
+  q por fold de results_rango.json en los cuatro stats (diferencia máxima
+  0.0). La función intacta calcula lo mismo que calibró R1.
+- FASE 0: error estándar agregado 0.21 pp (P90) y 0.28 pp (P80); por fold
+  0.50-0.74 pp. La banda inferior queda a 9.4 y 7.0 errores estándar del
+  nominal. COTA OPTIMISTA (filas de un mismo jugador no independientes),
+  como se anotó al sellar.
+
+TABLA — población de la puerta (cobertura del piso publicado, real >= piso):
+  stat nivel  agregada  por fold (2020-21 .. 2025-26)            piso  centro  inform  piso0  puerta
+  pts  P90     85.9%   85.6 86.3 86.7 85.5 85.8 85.5          12.60   21.16   0.596   0.8%  no cruza
+  pts  P80     76.0%   75.5 76.6 76.4 76.0 76.1 75.0          15.66   21.16   0.740   0.0%  no cruza
+  reb  P90     87.5%   87.0 88.3 86.9 88.3 87.7 86.7           3.23    5.92   0.547   5.8%  no cruza
+  reb  P80     77.1%   76.8 77.1 76.8 77.6 77.9 76.3           4.29    5.92   0.724   0.7%  no cruza
+  ast  P90     86.1%   86.8 86.0 86.2 86.5 86.0 85.0           2.81    4.92   0.572   9.1%  no cruza
+  ast  P80     76.0%   76.3 75.6 76.2 76.7 76.2 74.7           3.67    4.92   0.746   1.9%  no cruza
+  fg3m P90     86.3%   86.6 85.7 86.9 86.8 85.7 86.1           0.98    2.01   0.490  34.5%  no cruza
+  fg3m P80     73.9%   73.9 73.2 74.1 74.7 73.4 74.0           1.56    2.01   0.778  15.6%  no cruza
+(inform = cociente de medias, suma de pisos / suma de centros; piso0 = piso
+publicado igual a 0)
+
+VEREDICTO POR STAT CONTRA LA PUERTA:
+- pts P90: NO cruza. Agregada 85.9% < 88%. Los folds sí pasan su piso
+  (mínimo 85.5% >= 85%); falla solo la condición agregada.
+- reb P90: NO cruza (87.5% < 88%; un fold en 86.7%, también por encima de
+  85%). Es el que queda más cerca, a 0.5 pp.
+- ast P90: NO cruza (86.1%).
+- fg3m P90: NO cruza (86.3%) y además "sin piso útil" (34.5% de pisos en 0
+  > 30%).
+- P80 (referencia, no publicable): no cruza en ninguno (73.9-77.1% < 78%).
+- Ningún stat con cobertura > 95%: el hallazgo "poco informativo" no se
+  activó.
+CONSECUENCIA: por la regla pre-registrada, no hay piso publicable. El
+formato vigente (R1 en puntos fuera del régimen) no cambia.
+
+EL MECANISMO, a la vista en las secundarias (sin arranque):
+  stat  universo P90  titulares P90  puerta P90
+  pts      90.5%        87.0%          85.9%
+  reb      90.2%        87.8%          87.5%
+  ast      90.3%        87.2%          86.1%
+  fg3m     90.7%        87.2%          86.3%
+El cuantil se calibró en el universo del train y en el universo cubre el
+90% por construcción (90.2-90.7%). La cobertura cae al pasar a titulares y
+de nuevo a los destacados. Es la misma familia que R2 en D-EXP-7: lo
+calibrado sobre todo el universo se queda corto con los destacados. R1, de
+dos lados y escalado, sí se transfirió (79.3% contra 80%); el lado de
+ABAJO, a solas, no. HIPÓTESIS POST-HOC, no conclusión: el residuo
+negativo de un jugador de muchos minutos (salida por lesión, minutos
+recortados en paliza, falta temprana) es más largo, en unidades de su
+dispersión, que el del jugador promedio; la cola de abajo de los
+destacados es más pesada que la del universo.
+
+CONTRA LAS EXPECTATIVAS:
+- "P90 cumple cobertura por construcción en pts y reb (±1 punto)":
+  FALLIDA, 85.9% y 87.5%. La construcción vale en la población donde se
+  calibra, no en la puerta.
+- "ast y fg3m dentro de banda": FALLIDA, 86.1% y 86.3%.
+- "fg3m probablemente sin piso útil": CUMPLIDA (34.5% de pisos en 0).
+- "Informatividad en pts 0.65-0.75": FALLIDA, 0.596 (piso medio 12.6
+  sobre centro 21.2).
+- Pesimista ("cociente < 0.55 en pts"): NO realizado en pts (0.596), pero
+  rozado. El nivel que sí cubre lo que promete (el universo) es aún menos
+  informativo: 0.435 en pts.
+Otra expectativa propia fallida de la serie, y de nuevo en dirección
+optimista.
+
+CONTROL DE ESPECIFICIDAD (descriptivo, desvío vs la agregada del mismo
+stat): local/visitante dentro de ±1.1 pp en todo; arranque dentro de
+±1.6 pp (ese día el piso no se publicaría). Los cinco "hallazgos" > 5 pp
+son todos de la BANCA, que en la población de la puerta tiene n = 40 (el
+selector elige a quien más minutos juega, así que casi no hay banca). Con
+n = 40 un desvío de 5 pp son dos filas: no se adjudica nada sobre ellos.
+Titulares = 19 753 de 19 793, la población entera.
+
+ARCHIVOS: data/experiment_destacados_d7/pisos_fase0.json,
+results_pisos.json y tabla_pisos.txt. La marca de una sola corrida es
+results_pisos.json.
+
+PENDIENTE DE ADJUDICACIÓN de Antonio: adopción en producción como tarea
+aparte con adelante. Por la puerta pre-registrada no hay nada que adoptar.
+Si se quisiera seguir, la vía limpia es un pre-registro NUEVO, no una
+segunda corrida de este: por ejemplo calibrar el cuantil sobre la población
+primaria del train (lo que el mecanismo de arriba sugiere), con su propia
+expectativa y su propia puerta.
+
+## D-EXP-11 ADJUDICACIÓN (Antonio, 2026-10-27): CERRADO SIN ADOPCIÓN
+
+- VEREDICTO: ningún piso cruza la puerta pre-registrada; el rango R1 de
+  puntos sigue vigente en el mensaje 2, sin cambios.
+- NO se abre D-EXP-11b. Recalibrar el cuantil sobre la población primaria
+  recuperaría cobertura a costa de informatividad: hoy 0.596 al 86% de
+  cobertura; al 90% quedaría cerca o por debajo del 0.55 pesimista (el
+  universo, que sí cubre el 90%, da 0.435 en pts). CONCLUSIÓN REGISTRADA:
+  pisos de un solo lado al 90% no son informativos para destacados NBA.
+- HIPÓTESIS NO PROBADA, registrada: cola inferior más pesada en jugadores
+  de muchos minutos (salidas por lesión, minutos recortados en palizas).
+  Si algún día se reabre, la vía es modelar minutos (D-EXP-9), no otro
+  cuantil.
+- LECCIÓN: lo calibrado en una población y evaluado en otra exige la misma
+  forma de distribución; el conformal de dos lados (R1) se transfirió del
+  universo a los destacados, el de un lado no. REGLA para próximos
+  pre-registros: calibrar y evaluar sobre la misma población, salvo razón
+  explícita escrita en el propio pre-registro.
+- Cuarta expectativa fallida hacia el optimismo en la serie D-EXP-7/11
+  (conteo de Antonio).

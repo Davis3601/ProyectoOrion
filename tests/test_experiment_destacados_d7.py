@@ -228,3 +228,82 @@ def test_r0_sin_nan_con_10_previos_y_no_ve_su_partido():
     fila = rs.loc["2025-26-0"]                      # previos: 2..11
     assert (fila["min_pts"], fila["max_pts"]) == (2.0, 11.0)
     assert fila["disp_pts"] == pytest.approx(np.mean(np.abs(np.arange(2, 12) - 6.5)))
+
+
+# ── D-EXP-11: pisos de un solo lado ──────────────────────────────────────────
+
+_Y = np.array([10.0, 14.0, 20.0, 25.0, 31.0, 18.0, 22.0, 9.0, 27.0, 16.0])
+_C = np.array([18.0, 18.0, 20.0, 21.0, 24.0, 19.0, 20.0, 15.0, 23.0, 17.0])
+_E = np.array([4.0, 2.0, 0.0, 5.0, 3.0, 2.5, 4.0, 3.0, 6.0, 1.0])
+
+
+def test_conformal_q_lower_contra_calculo_directo():
+    ok = _E > 0
+    for nivel in (0.80, 0.90):
+        esperado = np.quantile((_C[ok] - _Y[ok]) / _E[ok], nivel)
+        assert d7.conformal_q_lower(_Y, _C, _E, nivel) == pytest.approx(esperado)
+        assert d7.conformal_q_lower(_Y, _C, None, nivel) == pytest.approx(
+            np.quantile(_C - _Y, nivel))
+
+
+def test_conformal_q_de_r1_sin_cambio():
+    """conformal_q sigue siendo el cuantil del residuo ABSOLUTO (lo que calibró R1),
+    con su valor fijado; el de un lado es otro número sobre los mismos datos."""
+    ok = _E > 0
+    q_r1 = d7.conformal_q(_Y, _C, _E)
+    assert q_r1 == pytest.approx(np.quantile(np.abs(_Y[ok] - _C[ok]) / _E[ok], 0.80))
+    assert q_r1 == pytest.approx(2.0)
+    # Espejo del real respecto al centro: el residuo absoluto (R1) no cambia;
+    # el de un lado sí. Si conformal_q perdiera el valor absoluto, esto caería.
+    espejo = 2 * _C - _Y
+    assert d7.conformal_q(espejo, _C, _E) == pytest.approx(q_r1)
+    assert d7.conformal_q_lower(espejo, _C, _E, 0.80) != pytest.approx(q_r1)
+
+
+def test_piso_redondea_hacia_arriba_y_acota_en_cero():
+    # 20 - 1.0 * 2.7 = 17.3 -> 18 (hacia ARRIBA); 20 - 4 = 16 exacto -> 16
+    assert list(d7.floor_values([20.0, 20.0], [2.7, 4.0], 1.0, 99.0)) == [18.0, 16.0]
+    # dispersión 0 -> respaldo absoluto; negativo -> 0
+    assert list(d7.floor_values([5.0, 1.0], [0.0, 3.0], 2.0, 2.5)) == [3.0, 0.0]
+    # fg3m con diez ceros: centro 0 -> piso 0, cobertura 100% por construcción
+    piso = d7.floor_values([0.0, 0.0], [0.0, 0.0], 1.0, 1.0)
+    assert list(piso) == [0.0, 0.0]
+    assert d7.floor_coverage([0.0, 3.0], piso) == 1.0
+
+
+def test_redondear_hacia_arriba_no_cambia_la_cobertura_continua():
+    """Con stats enteros, real >= ceil(lo) <=> real >= lo; floor(lo) cubriría más."""
+    rng = np.random.default_rng(0)
+    y = rng.integers(0, 40, 500).astype(float)
+    lo = rng.uniform(-5, 35, 500)
+    piso = d7.floor_values(lo, np.zeros(500), 0.0, 0.0)
+    assert d7.floor_coverage(y, piso) == pytest.approx(np.mean(y >= np.maximum(lo, 0)))
+    assert np.mean(y >= np.floor(np.maximum(lo, 0))) > d7.floor_coverage(y, piso)
+
+
+def test_cobertura_es_mayor_o_igual():
+    assert d7.floor_coverage([18.0, 17.0, 30.0], [18.0, 18.0, 18.0]) == pytest.approx(2 / 3)
+
+
+@pytest.mark.parametrize("agg,folds,cruza", [
+    (0.97, [0.96, 0.98], True),     # por encima de la banda: cruza (no hay techo)
+    (0.88, [0.85, 0.90], True),     # en los bordes exactos
+    (0.879, [0.90, 0.90], False),   # agregada bajo 88%
+    (0.90, [0.849, 0.95], False),   # un fold bajo 85%
+])
+def test_banda_solo_inferior_p90(agg, folds, cruza):
+    g = d7.floor_gate(agg, folds, d7.PISO_BANDAS["P90"], frac_cero=0.0)
+    assert g["cruza"] is cruza
+    assert g["poco_informativo_hallazgo"] is (agg > 0.95)
+
+
+def test_regla_del_30_por_ciento():
+    g = d7.floor_gate(0.92, [0.9], d7.PISO_BANDAS["P90"], frac_cero=0.31)
+    assert g["cruza_cobertura"] and g["sin_piso_util"] and not g["cruza"]
+    g = d7.floor_gate(0.92, [0.9], d7.PISO_BANDAS["P90"], frac_cero=0.30)
+    assert not g["sin_piso_util"] and g["cruza"]
+
+
+def test_informatividad_cociente_de_medias_con_centro_cero():
+    assert d7.informativeness([0.0, 10.0], [0.0, 20.0]) == pytest.approx(0.5)
+    assert d7.informativeness([0.0, 0.0], [0.0, 0.0]) is None

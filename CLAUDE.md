@@ -5887,3 +5887,52 @@ no una segunda corrida de este.
   30, declarado; auditoría humana de la muestra: PENDIENTE (el encargo traía
   el marcador "[resultado de Antonio]" sin rellenar; se registrará cuando
   Antonio lo comunique).
+
+## D-EXP-7b (PRE-REGISTRO SELLADO, 2026-10-28T03:50:36Z): C2 con vida media 8, evaluación prospectiva sobre 2026-27
+
+HIPÓTESIS ÚNICA: C2 (media exponencial por partido del stat, vida
+media 8, adjust=True, shift 1, como en D-EXP-7) mejora el MAE de puntos
+sobre B0 (mediana de 10, lo publicado) en >= 3% en la población de
+destacados PUBLICADOS (servida de record de player_predictions_log),
+sobre partidos de 2026-27 con game_date posterior a este sello y fuera
+del régimen de arranque. Un brazo. Sin barrido. Nada que elegir
+después.
+ORIGEN DECLARADO: el valor 8 se eligió viendo el barrido de D-EXP-7
+(2026-10-26); por eso la evaluación es solo prospectiva. Tres
+observaciones previas no independientes de la misma señal: D-EXP-7 C2
+(2.5-2.9%), barrido hl8 (3.2-3.6%), D-EXP-9 tasa x M0 (2.2%).
+DATOS: destacados publicados cruzados con el resultado real (script de
+seguimiento); C2 recalculado offline con el histórico as-of de cada
+fecha, con test de que ningún valor usa el partido predicho.
+MÉTRICA: MAE pareado por jugador-partido, IC95; reb, ast, fg3m solo
+descriptivos.
+FASE 0: MDE con la sd pareada de C2 vs B0 en la primaria de D-EXP-7,
+extrapolada al n esperado (~3 800 destacados fuera de arranque en
+2026-27); cota optimista por dependencia entre filas del mismo jugador.
+CORTES: 2026-12-31, lectura intermedia que NO adjudica; fin de
+temporada regular 2026-27, lectura que adjudica. No se mira antes.
+PUERTA: IC95 excluye cero a favor de C2 Y mejora relativa >= max(3%,
+MDE). Sin lectura alternativa.
+EXPECTATIVA: 2.5-3.5%; cruzar es incierto. Pesimista: < 2%, y entonces
+el patrón de las tres observaciones era selección.
+CONSECUENCIA: si cruza, C2 vida media 8 sustituye a B0 como centro
+desde 2027-28 con pre-registro de producto propio; nunca durante
+2026-27. Si no, cerrado.
+LEAKAGE: los partidos anteriores al sello quedan fuera; el régimen de
+arranque queda fuera; C2 solo con partidos anteriores a cada fecha.
+
+RESULTADO: pendiente de fase 0 y de los cortes.
+
+ENMIENDA D-EXP-7b (Antonio, 2026-10-27), append bajo el bloque sellado,
+antes del primer dato válido (2026-11-10):
+  1. Ventana corta (3-9 jugados): FUERA del contraste; se cuentan y
+     reportan. B0 = mediana de 10 y universo >= 10 previos, heredados de
+     D-EXP-7 (misma regla que D-PRE-11b para el rango).
+  2. Destacados sin resultado evaluable: FUERA, contados aparte en tres
+     categorías (no jugó, equipo distinto, evaluado), como el script de
+     seguimiento; solo "evaluado" entra al MAE. Si los no evaluados
+     superan el 15% en un corte, hallazgo sobre el selector, no sobre C2.
+  3. "No se mira antes": el seguimiento diario de B0 sigue (instrumento
+     operativo, no calcula C2). C2 no se calcula para ningún partido de
+     2026-27 antes del 2026-12-31; esa fecha produce la lectura
+     intermedia completa, que no adjudica.

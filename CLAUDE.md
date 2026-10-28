@@ -5565,3 +5565,325 @@ expectativa y su propia puerta.
   explícita escrita en el propio pre-registro.
 - Cuarta expectativa fallida hacia el optimismo en la serie D-EXP-7/11
   (conteo de Antonio).
+
+## D-EXP-9: minutos proyectados con redistribución por bajas
+(PRE-REGISTRO SELLADO 2026-10-27; borrador del chat de diseño + las 14
+lecturas de la revisión de Code, todas adjudicadas por Antonio el
+2026-10-27)
+
+PASO 0 — HUECO DEL 2025-02-13, CAUSA BENIGNA. El PDF publish archivado
+(Injury-Report_2025-02-13_01PM.pdf, GemBox, /CreationDate 13:30:12 ET =
+12:30 CDMX) existe y es legible: una página con los 5 partidos del día y los
+10 equipos en NOT YET SUBMITTED, cero filas de jugador. parse_pdf lo lee
+bien (0 filas, 10 NysEntry con fecha 02/13/2025; el conteo independiente
+también da 0 líneas con nombre). D-EXP-1 cuenta solo filas de jugador, así
+que no hay instancias. El corte late del mismo día (09PM) sí trae 58 filas.
+No es fallo del parser ni de D-EXP-1: es el caso NYS de 13e-2.5 a escala de
+un día completo. Fecha EXCLUIDA de D-EXP-9 por esa causa (2024-25, fuera
+del arranque; sus 5 partidos se cuentan aparte).
+
+PREGUNTA. ¿Mejora el valor central de los destacados si los minutos se
+proyectan condicionados a los compañeros Out en el corte publish, en vez
+del rolling propio? Es la capa que las casas de apuestas hacen mejor y la
+única señal nueva disponible a las 13:00 que el sistema aún no usa para
+esto.
+
+UNIVERSO. El de D-EXP-7 (jugados, >= 10 previos, shift 1), restringido al
+corpus GemBox con injury report parseado y auditado: 2023-24, 2024-25 y
+2025-26. Folds walk-forward: train 2023-24 -> valida 2024-25; train
+2023-24 + 2024-25 -> valida 2025-26. Dos folds, declarado como límite de
+resolución.
+FUENTE DE ESTATUS: las instancias publish OFICIALES de D-EXP-1
+(data/experiment_pjuega/instancias.json, veredicto 'incluida', con game_id,
+team_id y player_id), sin re-parsear; NYS a fecha objetivo desde
+data/experiment_v2b/nys.parquet (corte publish, mismo parser). Se verifica
+por assert que ambos usan el mismo sufijo publish por fecha.
+EXCLUSIONES, contadas aparte: (i) fecha sin PDF publish (2023-10-24, sin
+corte anterior a las 13:00); (ii) jugador-partido cuyo equipo O cuyo rival
+está NYS en el corte publish (estatus desconocido: ni el filtro del
+selector ni el tratamiento son calculables, y "sin bajas" sería la mentira
+silenciosa que 13e-2.5 prohíbe). El 2025-02-13 cae entero en (ii).
+
+POBLACIÓN PRIMARIA. Selector reconstruido (regla D-PRE-6 sin señales: top 2
+por minutos rolling por equipo y partido) CON EL FILTRO DE PRODUCCIÓN: Out y
+Doubtful del PDF publish excluidos, el puesto pasa al siguiente por minutos.
+Restringido a >= 10 previos. DIFERENCIA DECLARADA con D-EXP-7, que no podía
+aplicar el filtro: la primaria GemBox pasa de ~11 625 a ~13 555 filas
+(medido en la revisión). Implementación: reconstruct_selector con top alto,
+filtro y re-ranking posteriores; la función no se toca. Secundarias:
+titulares (rolling >= 28) y universo.
+
+VARIABLE DE TRATAMIENTO. min_perdidos = suma, sobre los compañeros Out en el
+corte publish con rolling >= 25, de (rolling del compañero x fracción de los
+últimos 10 partidos jugados del destacado en que ese compañero jugó con el
+mismo equipo que el destacado). Una baja ya absorbida en el rolling del
+destacado pesa 0; un compañero que jugó 10 de 10 aporta su rolling completo.
+Compañero = team_id del PDF publish igual al equipo del destacado en ese
+partido. Rolling del compañero = media de minutos de sus últimos 10 jugados
+antes de la fecha, mínimo 3 (como el selector). Subconjunto A:
+min_perdidos > 0. Subconjunto B: = 0 (solo descriptivo). Definición "nueva"
+(al menos un compañero fuerte Out que jugó el partido anterior del equipo):
+solo descriptiva.
+
+BRAZOS DE MINUTOS (tope [0, 44] en M1 y M2):
+  M0: rolling de 10 (roll_min de D-EXP-3, min_periods 10).
+  M1: M0 + beta * min_perdidos, beta por OLS SIN INTERCEPTO sobre el
+      residuo (minutos reales - M0), ajustado en la población PRIMARIA SIN
+      ARRANQUE del train de cada fold (lección de D-EXP-11: calibrar y
+      evaluar en la misma población). Un coeficiente. Sin intercepto, M1 es
+      idéntico a M0 en B por construcción.
+  M2: M0 + b1 * perdidos_mismo_grupo + b2 * perdidos_otro_grupo, sin
+      intercepto, misma población de ajuste. Grupo = perímetro/interior
+      según rebotes por minuto de su rolling hasta la fecha (promedio de
+      razones de los últimos 10 jugados, mínimo 3) contra la mediana de la
+      liga en el train (filas del universo del train). Grupo del compañero
+      relativo al del destacado.
+  fit_ols de D-EXP-3 (con intercepto) queda intacto: variante nueva
+  fit_ols_sin_intercepto, con test contra cálculo directo.
+
+VALOR CENTRAL. Tasa por minuto suavizada exponencialmente (vida media 5, la
+de D-EXP-7) como PROMEDIO DE RAZONES (media exponencial de stat/minutos por
+partido, sobre todos los jugados previos; convención de D-EXP-3, declarado)
+x minutos del brazo. Mismo centro con M0, M1 y M2.
+
+CONTRASTES Y PUERTAS (pts decide; reb, ast y fg3m se reportan SIN puerta y,
+si se adopta, el cambio toca solo puntos). Población de la puerta =
+primaria sin arranque, temporadas de validación, subconjunto A. Métrica:
+MAE pareado (paired_mae_diff de D-EXP-3), IC95 agregado y por fold.
+  - M1 gana a M0 si: (a) IC95 del MAE pareado excluye cero a su favor,
+    (b) mejora en los 2 folds, (c) mejora relativa >= max(5%, MDE
+    relativo).
+  - M2 gana a M1 con (a)-(c) contra M1 en A, umbral 3%. Si no, M2 se
+    descarta y la posición no se usa.
+  - PLACEBO (control de especificidad): el mismo beta de M1 aplicado a las
+    bajas fuertes del RIVAL, minutos_placebo = M0 + beta *
+    min_perdidos_rival, tope [0, 44]. Para el rival no hay destacado propio,
+    así que la fracción de absorción se mide sobre los últimos 10 partidos
+    del EQUIPO RIVAL (interpretación declarada). Se evalúa contra M0 en las
+    filas de la población de la puerta con min_perdidos_rival > 0. Si mejora
+    más que el MDE de esa celda, la ganancia de M1 no es redistribución y el
+    resultado se marca "no interpretable, auditar".
+  - PUERTA DE PRODUCTO: tasa x M1 debe ganar a B0 (mediana de 10, lo
+    publicado) DENTRO de A con los mismos (a)-(c) y umbral 5%. Sin esto no
+    hay cambio de producto aunque M1 gane a M0. El agregado contra B0 queda
+    descriptivo.
+  - Arranque, B y la definición "nueva": descriptivos.
+
+FASE 0. n = A ∩ primaria ∩ temporadas de validación ∩ sin arranque
+(estimado en la revisión ~3 900). MDE con la sd pareada M1 vs M0 del primer
+fold de validación (2024-25), extrapolada al n de ambos. n < 2 000 = SIN
+RESOLUCIÓN (descriptivo, no se adjudica). MDE relativo > 3% del MAE de M0 en
+A = sin resolución. Se escribe ANTES de cualquier métrica. El MDE del
+placebo se calcula igual sobre su propia celda.
+
+MUESTRA DE AUDITORÍA: 30 filas de A (población de la puerta), seed 42,
+congelada ANTES de ajustar nada: 10 al azar y 20 de FRONTERA a propósito
+(regla de D-RES-3e): 5 con fracción estrictamente entre 0 y 1, 5 con un
+compañero de rolling en [25, 27), 5 con un compañero de 3 a 5 jugados en su
+ventana, 5 de destacados que cambiaron de equipo dentro de su ventana.
+Columnas: compañeros Out, sus rolling, fracción jugada, min_perdidos, M0,
+M1, M2, real.
+
+EXPECTATIVAS. A: M1 mejora 4-8% sobre M0 en pts; reb 2-5%; ast 2-5%; fg3m
+~0. Placebo: 0 +- MDE. M2 sobre M1: 0-2%, probablemente no cruza. Puerta de
+producto (tasa x M1 vs B0 en A): 0-4%, cruzar es incierto. Agregado contra
+B0: M1 pierde o empata (D-EXP-3). Pesimista: A por debajo del 3%;
+conclusión, la redistribución no es capturable con el PDF del mediodía y el
+hueco frente a las casas es de información, no de modelo. Mejora > 15% en A
+= auditar leakage.
+
+LEAKAGE. Estatus solo del corte publish, nunca late ni boxscore. Rolling de
+compañeros, fracciones y rebotes por minuto con filas estrictamente
+anteriores a la fecha. Equipo del día por la regla de equipo actual con
+filas anteriores al partido. Minutos reales solo como target del residuo en
+el train. Las temporadas de validación no eligen nada.
+
+CONSECUENCIA DE PRODUCTO (pre-registrada). Si M1 cruza contra M0 en A, el
+placebo pasa Y la puerta de producto cruza: regla condicional en el mensaje
+2, activa solo cuando el equipo del destacado tiene al menos una baja fuerte
+no absorbida en el corte publish; ese día el centro de PUNTOS de ese jugador
+es tasa x M1 con marca declarada, y el rango sigue siendo el vigente (R0 en
+régimen, R1 fuera). Días sin bajas fuertes: sin cambio. Cambio del mensaje
+2, tarea aparte con adelante, reinicio de congelamiento. Si no cruza: nada
+cambia y se registra.
+
+ENTREGABLE PARALELO. El script de seguimiento gana la columna
+bajas_fuertes_equipo por destacado publicado, derivada de absences_applied
+de predictions_log + rolling de compañeros, solo lectura, con la definición
+de min_perdidos de arriba.
+
+LO QUE NO HACE. No toca mensaje 1, modelo ni features. No usa el corte
+late. No usa props ni mercado.
+
+RESULTADO: pendiente de fase 0 y ejecución.
+
+SELLADO: 2026-10-28T01:44:23Z, ANTES de escribir código.
+
+## D-EXP-9 RESULTADO (2026-10-27): NINGUNA PUERTA CRUZA. beta sale NEGATIVA
+y diminuta; el diseño sin intercepto la confunde con la regresión a la media
+del selector (error propio de la revisión de Code)
+
+CORRIDA ÚNICA: scripts/experiment_destacados_d9.py (script aparte; d7 solo
+se importa, sus funciones protegidas y fit_ols de D-EXP-3 sin tocar),
+2026-10-28T01:57:52Z -> 01:58:58Z (19:57-19:58 CDMX del 27), exit 0, a la
+primera. Orden verificado por timestamps: pre-registro sellado 01:44:23Z;
+audit_sample.json 01:58:57.506Z (antes del ajuste), fase0.json
+01:58:57.660Z, results.json 01:58:58.094Z. Tests: 23 nuevos en
+tests/test_experiment_destacados_d9.py (tratamiento ponderado, absorbida =
+0, 10 de 10 = rolling completo, mismo equipo, placebo con ventana del
+rival, OLS sin intercepto contra cálculo directo, fit_ols de D-EXP-3 con
+intercepto intacto, filtro Out/Doubtful con re-ranking, tope [0, 44], y
+ningún brazo ve el partido que predice). Suite 1208 passed, 15 deselected
+(1185 + 23). Ruff limpio.
+
+INSTRUMENTO Y CONTEOS:
+- Estatus: 37 095 instancias publish de D-EXP-1, 35 607 incluidas; NYS 525
+  pares equipo-fecha; sufijo publish idéntico entre D-EXP-1 y D-EXP-2b en
+  las 483 fechas comparables (assert pasado). 24 995 bajas Out, 7 934
+  fuertes (rolling >= 25).
+- Primaria con filtro de producción: 13 555 (4 588 / 4 532 / 4 435), contra
+  11 625 del selector de D-EXP-7: la estimación de la revisión, exacta. El
+  selector de D-EXP-7 tenía entre sus top 2 a 1 988 Out y 107 Doubtful.
+- Excluidas de la primaria: NYS propio o rival 515 / 555 / 411; sin PDF 8
+  (2023-10-24). El 2025-02-13 aporta 15 de las NYS de 2024-25.
+- Población de la puerta (validación, sin arranque): 6 985 (3 448 /
+  3 537); A = 3 738 (1 771 / 1 967); B = 3 247; A con baja "nueva" 1 114;
+  celda del placebo 3 680.
+
+FASE 0: n_A = 3 738 >= 2 000. MDE relativo en pts 0.09% (abs 0.0056), en
+reb, ast y fg3m 0.06-0.09%: CON RESOLUCIÓN en todo. Placebo: MDE abs
+0.0058. NOTA DE LECTURA: el MDE sale minúsculo porque beta es casi cero y
+M1 casi coincide con M0, así que la sd de la diferencia pareada es pequeña
+por construcción. La resolución es real para detectar el 5% pre-registrado,
+pero no dice nada sobre la señal.
+
+COEFICIENTES (minutos ganados por minuto perdido no absorbido):
+  fold 2024-25: beta_M1 -0.0066 | M2 mismo -0.0057, otro -0.0073 |
+                mediana reb/min del train 0.158 | n_train 3 564 (A 1 468)
+  fold 2025-26: beta_M1 -0.0116 | M2 mismo -0.0115, otro -0.0118 |
+                mediana 0.159 | n_train 7 012 (A 3 239)
+  Tope de 44 minutos: nunca se activó.
+Con min_perdidos medio de 26.5 en A, M1 resta unos 0.2-0.3 minutos.
+
+TABLA — población de la puerta, MAE pareado (positivo = el candidato
+acierta más):
+  stat  contraste                n     mejora    rel      IC95                 2024-25   2025-26
+  pts   M1 vs M0 (A)          3 738   -0.0078  -0.13%  [-0.0134, -0.0022]     -0.07%    -0.19%
+  pts   M2 vs M1 (A)          3 738   -0.0001  -0.00%  [-0.0003, +0.0001]     -0.00%    -0.00%
+  pts   placebo vs M0         3 680   +0.0070  +0.12%  [+0.0012, +0.0129]     +0.12%    +0.12%
+  pts   tasa x M1 vs B0 (A)   3 738   +0.1269  +2.05%  [+0.0734, +0.1805]     +3.19%    +0.97%
+  reb   M1 vs M0 (A)                   +0.0022  +0.10%  [+0.0004, +0.0040]     +0.04%    +0.16%
+  reb   tasa x M1 vs B0 (A)            +0.0538  +2.48%  [+0.0333, +0.0743]     +3.03%    +1.97%
+  ast   M1 vs M0 (A)                   +0.0009  +0.05%  [-0.0005, +0.0023]     +0.04%    +0.05%
+  ast   tasa x M1 vs B0 (A)            +0.0500  +2.65%  [+0.0319, +0.0682]     +1.33%    +3.84%
+  fg3m  M1 vs M0 (A)                   +0.0023  +0.19%  [+0.0016, +0.0030]     +0.14%    +0.25%
+  fg3m  tasa x M1 vs B0 (A)            +0.0282  +2.34%  [+0.0143, +0.0421]     +3.77%    +0.99%
+  (reb, ast, fg3m: M2 vs M1 = 0.00% y placebo +0.08% a +0.14% en los tres;
+  detalle completo en tabla.txt)
+
+VEREDICTO POR PUERTA (pts):
+- M1 vs M0: NO CRUZA. -0.13%, con IC que excluye cero EN CONTRA y pérdida
+  en los dos folds.
+- M2 vs M1: NO CRUZA (0.00%). M2 se descarta y la posición no se usa.
+- PLACEBO: la regla SE ACTIVÓ. Mejora +0.0070 contra un MDE de 0.0058; por
+  la regla pre-registrada, "no interpretable, auditar". La activación es
+  coherente con el mecanismo de abajo: una beta negativa aplicada a
+  CUALQUIER baja recorta minutos, y recortar minutos a un top 2 corrige
+  parte de su sesgo.
+- PRODUCTO (tasa x M1 vs B0 en A): NO CRUZA. Pasa (a) el IC y (b) los dos
+  folds, pero +2.05% < 5%.
+CONSECUENCIA: por la regla pre-registrada, nada cambia en el mensaje 2.
+
+EL MECANISMO, y el error propio que lo explica. Residuo medio (minutos
+reales - M0) en la población de la puerta: A -0.49, B -0.85. Los dos son
+negativos: el selector elige a los dos con más minutos rolling y esos
+jugadores regresan a la media al partido siguiente. Sin intercepto, el
+único modo que tiene el ajuste de absorber el residuo medio negativo de las
+filas de A es una beta negativa: confunde la regresión a la media de la
+selección con la redistribución. La lectura 3 (sin intercepto) la propuso
+Code en su revisión para que el control en B no quedara contaminado, SIN
+medir antes el residuo medio de la población de ajuste, que es distinto de
+cero POR CONSTRUCCIÓN cuando se selecciona por minutos. Es otro error
+propio de la serie, y de nuevo de diseño, no de ejecución. REGLA: antes de
+fijar un ajuste sin intercepto, medir el residuo medio de la población de
+ajuste; si no es ~0, el intercepto (o un control equivalente) es parte del
+diseño. HIPÓTESIS POST-HOC, no probada: la brecha A - B (+0.36 minutos a
+favor de A) es compatible con una redistribución real pero pequeña, del
+orden del 1-2% de los minutos perdidos; medirla exigiría un pre-registro
+nuevo con intercepto y otro control de especificidad.
+
+DESCRIPTIVOS:
+- tasa x M0 vs B0: +2.17% en A y +2.29% en B (pts). La ganancia sobre lo
+  publicado viene de la construcción del centro (tasa exponencial x minutos
+  rolling frente a la mediana de 10), con bajas o sin ellas. Es la familia
+  de C2 de D-EXP-7 (+2.87% en la primaria), ya registrada como "mejora real
+  bajo umbral, no desplegable". No es hallazgo nuevo.
+- tasa x M1 vs B0 en toda la población de la puerta: +2.16% (pts).
+- M1 vs M0 en A: arranque -0.08% (n 536); baja "nueva" -0.20% (n 1 114);
+  titulares -0.05%; universo -0.19%. En ningún subgrupo aparece la señal.
+- En minutos (no en puntos): M1 empeora el MAE de minutos en A en 0.014.
+
+CONTRA LAS EXPECTATIVAS:
+- "A: M1 mejora 4-8% en pts": FALLIDA (-0.13%). reb 2-5%: FALLIDA
+  (+0.10%). ast 2-5%: FALLIDA (+0.05%). fg3m ~0: CUMPLIDA (+0.19%).
+- "Placebo 0 +- MDE": FALLIDA (+0.12%, sobre el MDE).
+- "M2 sobre M1 0-2%, probablemente no cruza": CUMPLIDA.
+- "Puerta de producto 0-4%, cruzar incierto": CUMPLIDA (+2.05%, no cruza).
+- "Agregado contra B0: M1 pierde o empata": FALLIDA en la dirección
+  contraria (+2.16% a favor de M1), por la construcción del centro y no por
+  las bajas.
+- Pesimista ("A por debajo del 3%"): REALIZADO. Con este diseño, la
+  redistribución no se captura con el PDF del mediodía; queda abierto si es
+  el diseño (beta sin intercepto) o la información.
+- Alarma de leakage (> 15%): no se activó.
+Otra expectativa propia fallida hacia el optimismo, y la segunda vez que el
+número sale con el signo contrario.
+
+DESVIACIONES DECLARADAS:
+(1) MUESTRA DE AUDITORÍA: 25 filas, no 30. El estrato "compañero con 3 a 5
+    jugados en su ventana" salió VACÍO en A fuera del arranque: ningún
+    compañero fuerte con tan pocos partidos había jugado con el destacado.
+    No se re-sorteó ni se rellenó. El encabezado del listado dice "30
+    filas" por descuido; la cifra buena es 25 (10 al azar, 5 fracción
+    parcial, 5 rolling en [25, 27), 5 destacados que cambiaron de equipo).
+(2) ENTREGABLE PARALELO (columna bajas_fuertes_equipo del script de
+    seguimiento): NO implementado en esta tarea; el encargo no lo incluía
+    en el paso 2. Queda pendiente.
+(3) El encargo llegó truncado en "PROHIBIDO: ... segunda corrida sin"; se
+    leyó "sin adjudicación", como en los encargos anteriores.
+
+ARCHIVOS: data/experiment_destacados_d9/audit_sample.json, fase0.json,
+results.json, tabla.txt y auditoria_muestra.txt (con las columnas de
+frontera: compañeros Out, rolling, n, fracción, aporte, jugó el partido
+anterior; M0/M1/M2; real; bajas del rival). La marca de una sola corrida es
+results.json.
+
+PENDIENTE DE ADJUDICACIÓN de Antonio (auditoría de la muestra de 30 —25— y
+decisión de producto). Por las puertas pre-registradas no hay nada que
+adoptar. Si se quisiera seguir, la vía limpia es un pre-registro NUEVO con
+intercepto y un control de especificidad que no dependa del signo de beta,
+no una segunda corrida de este.
+
+## D-EXP-9 ADJUDICACIÓN (Antonio, 2026-10-27): CERRADO SIN ADOPCIÓN
+
+- VEREDICTO: ninguna puerta cruza; el mensaje 2 no cambia.
+- ERROR DE DISEÑO COMPARTIDO: la lectura 3 la propuso Code y la adjudicó el
+  chat de diseño. Sin intercepto, beta absorbe la regresión a la media de
+  los top 2 por minutos, no la redistribución. REGLA DERIVADA: antes de
+  fijar la forma de un ajuste, medir el residuo medio de la población donde
+  se ajusta.
+- NO se abre D-EXP-9b: la brecha A - B de +0.36 minutos equivale a menos
+  del 1% del MAE de puntos; ningún diseño la convertiría en producto.
+  CONCLUSIÓN: la redistribución por bajas que se ve en el PDF del mediodía
+  es real y pequeña; el hueco frente a las casas es de información, no de
+  modelo. La definición ponderada de baja (absorbida = 0) se conserva para
+  un futuro con fuente de alineaciones.
+- HALLAZGO ACUMULADO: tasa x M0 (media exponencial) gana a B0 en ~2.2%;
+  es la tercera observación independiente (C2 de D-EXP-7, barrido con vida
+  media 8, D-EXP-9). Ninguna de las tres es desplegable; se adjudica en
+  D-EXP-7b.
+- PENDIENTES MENORES: la columna bajas_fuertes_equipo del seguimiento
+  (lectura 14) se DESCARTA por falta de uso; la muestra tiene 25 filas y no
+  30, declarado; auditoría humana de la muestra: PENDIENTE (el encargo traía
+  el marcador "[resultado de Antonio]" sin rellenar; se registrará cuando
+  Antonio lo comunique).

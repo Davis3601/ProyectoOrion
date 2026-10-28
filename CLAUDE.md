@@ -5331,6 +5331,60 @@ late; cualquier otro salto es hallazgo). Si la captura de las 17:45 falla, el
 sospechoso es este cambio. Rollback: jobs update a ingest-job:v13, que
 funciona con la tabla ampliada (no escribe las columnas nuevas).
 
+VERIFICACIÓN 2026-10-28 (solo lectura, 13:35 CDMX, fuera de la franja
+12:50-13:30): las dos primeras capturas automáticas con tres mercados,
+contra lo pre-registrado arriba.
+
+  dato                      evening                    late
+  ejecución                 nba-odds-capture-tnk6g     nba-odds-capture-77t2x
+  inicio (creación)         2026-10-27T23:45:05Z       2026-10-28T03:15:02Z
+  exit                      0 (exit(0), 1 succeeded)   0 (exit(0), 1 succeeded)
+  generación / imagen       6 / digest c2fdde58...     6 / digest c2fdde58...
+                            (= ingest-job:v15)         (= ingest-job:v15)
+  créditos antes            used=87 remaining=413      used=90 remaining=410
+  créditos después          used=90 remaining=410      used=93 remaining=407
+  eventos de la API         19                         17
+  emparejados / sin match   18 / 0                     16 / 0
+  iniciados omitidos        1 (BKN@BOS, commence       1 (POR@LAL, commence
+                            23:41Z <= captura 23:45Z)  03:13Z <= captura 03:15Z)
+  MERGE (log)               39 filas                   40 filas
+  Cobertura D-ODDS-7 (log)  39 spread, 39 total de 39  40 spread, 40 total de 40
+
+market_odds, filas de cada captura (snapshot_label + capture_ts de esa
+ejecución):
+  label    bookmaker   filas  emparejadas  con_spread  con_total  spread asim.
+  evening  betmgm          8            8           8          8             0
+  evening  draftkings     17           17          17         17             0
+  evening  fanduel        14           14          14         14             0
+  evening  (total)        39           39          39         39             0
+  late     betmgm         12           12          12         12             0
+  late     draftkings     16           16          16         16             0
+  late     fanduel        12           12          12         12             0
+  late     (total)        40           40          40         40             0
+Invariante sobre TODA la tabla: 691 filas, 0 con capture_ts >=
+commence_time. 15 filas con commence_time NULL (no evaluables por el
+invariante): 5 por label publish/evening/late, game_date 2026-12-25, última
+captura 2026-10-04/05; coinciden en fecha y número con los 5 eventos del
+4-oct de la desviación (c) de D-PRE-1. 19 filas 'manual' (las de la
+verificación del 27).
+Rama de degradación: NO se activó en ninguna de las dos. Ninguna línea con
+el WARNING de 400 créditos ni "DEGRADACION DECLARADA"; /sports respondió
+en ambas (línea "Creditos (antes de la captura)").
+
+CONTRA LA EXPECTATIVA:
+- 3 créditos por captura, 90 tras evening y 93 tras late: SE CUMPLE
+  exacto.
+- spread y total poblados en >= 90% de las filas emparejadas: SE CUMPLE,
+  100% en las dos (39/39 y 40/40) y en los tres bookmakers.
+- 0 filas con capture_ts >= commence_time: SE CUMPLE.
+- Generación 6 con ingest-job:v15: SE CUMPLE.
+Sin desviaciones de lo pre-registrado. HALLAZGO REGISTRADO (el
+pre-registro decía "ausencia en algún bookmaker menor es normal y se
+registra"): no todos los bookmakers cotizan todos los eventos emparejados.
+Evening: draftkings 17, fanduel 14, betmgm 8 de 18 eventos; late:
+draftkings 16, fanduel 12, betmgm 12 de 16. Donde un bookmaker cotiza un
+evento, trae los tres mercados.
+
 ## D-EXP-11: pisos calibrados ("X+") con cobertura medida
 (PRE-REGISTRO SELLADO 2026-10-27; borrador del chat de diseño + las 15
 lecturas de la revisión de Code, todas adjudicadas por Antonio el

@@ -5938,9 +5938,22 @@ no una segunda corrida de este.
   D-EXP-7b.
 - PENDIENTES MENORES: la columna bajas_fuertes_equipo del seguimiento
   (lectura 14) se DESCARTA por falta de uso; la muestra tiene 25 filas y no
-  30, declarado; auditoría humana de la muestra: PENDIENTE (el encargo traía
-  el marcador "[resultado de Antonio]" sin rellenar; se registrará cuando
-  Antonio lo comunique).
+  30, declarado; auditoría humana de la muestra: PENDIENTE [RESUELTO, ver
+  abajo] (el encargo traía el marcador "[resultado de Antonio]" sin
+  rellenar; se registrará cuando Antonio lo comunique).
+- [2026-10-28] AUDITORÍA HUMANA DE LA MUESTRA (Antonio, sobre
+  data/experiment_destacados_d9/auditoria_legible.txt, 25 fichas con
+  nombres, reconstruidas con las mismas funciones del experimento y
+  cotejadas sin discrepancias contra auditoria_muestra.txt): OK 25 de 25.
+  Definición 0, Cálculo 0, Dudoso 0. NOTA DE TRANSCRIPCIÓN: el mensaje
+  traía Cálculo y Dudoso sin rellenar (marcadores "([filas y qué falla])"
+  y "[n]"); se registran como 0 porque cada ficha lleva una sola marca y
+  las 25 son OK, no porque viniera escrito. Sin casos de Cálculo ni de
+  Definición: la definición ponderada de baja se conserva sin nota y el
+  script no se toca. Verificaciones automáticas del listado: M1 dentro de
+  [0,44] en las 25, ningún compañero con bandera (fracción > 0.5 y último
+  partido hace más de 30 días). D-EXP-9 queda cerrado también en
+  auditoría.
 
 ## D-EXP-7b (PRE-REGISTRO SELLADO, 2026-10-28T03:50:36Z): C2 con vida media 8, evaluación prospectiva sobre 2026-27
 

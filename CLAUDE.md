@@ -5990,3 +5990,113 @@ antes del primer dato válido (2026-11-10):
      operativo, no calcula C2). C2 no se calcula para ningún partido de
      2026-27 antes del 2026-12-31; esa fecha produce la lectura
      intermedia completa, que no adjudica.
+
+## D-ODDS-8 (2026-10-28): cobertura de snapshots y hora del Este
+
+HALLAZGO (conteo de solo lectura, 2026-10-28): 56 partidos de temporada
+regular 2026-27 ya jugados (2026-10-20 -> 2026-10-27). Snapshot válido =
+fila emparejada de publish/evening/late con capture_ts < commence_time.
+  definición                         1 snap  2 snaps  3 snaps  solo publish
+  cualquier captura previa al tipoff      0       13       43   0 de 56 (0%)
+  solo capturas del mismo día (ET)       27       29        0   27 de 56 (48.2%)
+Por combinación de labels:
+  cualquier captura      mismo día (ET)    partidos  fechas
+  publish+late+evening   publish+evening         29  10-20 -> 10-27
+  publish+late+evening   publish                 14  10-20 -> 10-26
+  publish+late           publish                 13  10-24 -> 10-27
+CAUSA: los tres horarios estaban fijados en America/Mexico_City y los
+tipoffs se programan en America/New_York, que en octubre lleva DST (ET =
+CDMX + 2 h). Evening (17:45 CDMX = 19:45 ET) cae después de los partidos de
+las 19:00 y 19:30 ET, que se omiten por iniciados. Late (21:15 CDMX = 23:15
+ET) cae después de prácticamente todos. La fila late que existe para cada
+partido es la de la NOCHE ANTERIOR (~20 h antes del tipoff, más vieja que
+el publish del propio día), porque el MERGE conserva la última captura
+válida por label.
+
+DECISIONES:
+(1) REGLA PRE-REGISTRADA: proxy de cierre = último snapshot emparejado
+    con capture_ts < commence_time, ordenado por capture_ts, nunca por
+    label. Todo análisis de CLV reporta horas_antes_del_tipoff del
+    snapshot usado, por partido.
+(2) ENMIENDA de horario: nba-odds-evening a 18:40 America/New_York y
+    nba-odds-late a 21:40 America/New_York; publish sin cambio (13:00
+    America/Mexico_City). Declarado: el dataset de CLV tiene cobertura
+    distinta antes y después de esta fecha; el campo de horas lo hace
+    explícito. Créditos sin cambio.
+(3) PENDIENTE: causa de los 13 partidos sin ninguna fila evening.
+    [Resuelto abajo, paso 3.]
+(4) NOTA: el MERGE conserva solo la última captura por label; el
+    movimiento de línea no se guarda, por diseño (D-ODDS). Tabla aparte
+    si algún día se quiere.
+
+APLICACIÓN DE (2) (2026-10-28T20:30Z, 14:30 CDMX, con el encargo de
+Antonio como adelante): gcloud scheduler jobs update http con --schedule y
+--time-zone=America/New_York, solo en los dos jobs. describe después:
+  nba-odds-evening  schedule "40 18 * * *"  America/New_York  ENABLED
+                    próximo disparo 2026-10-28T22:40:00Z (16:40 CDMX)
+  nba-odds-late     schedule "40 21 * * *"  America/New_York  ENABLED
+                    próximo disparo 2026-10-29T01:40:00Z (19:40 CDMX del 28)
+  nba-odds-publish  sin cambio: "0 13 * * *" America/Mexico_City
+Body (args del label), URI, cuenta de servicio, attemptDeadline 320s y
+maxRetryDuration 0s idénticos a antes. Imágenes sin tocar. Ningún
+disparo cae en 12:50-13:30 CDMX, ni con EDT ni con EST.
+CORRECCIÓN DE CONVERSIÓN, declarada: el encargo daba "18:40 ET = 17:40
+CDMX" y "21:40 ET = 20:40 CDMX". Eso vale desde el 2026-11-01 (fin del DST
+en EE. UU., ET = CDMX + 1 h). Hasta el 31 de octubre son 16:40 y 19:40
+CDMX. Los disparos siguen la hora ET, así que la cobertura no cambia
+con el DST; lo que se mueve es la hora CDMX.
+
+PASO 3, CAUSA DE LOS 13 PARTIDOS SIN EVENING (solo lectura): NO es el
+emparejamiento. Desde el 2026-10-20, todas las capturas registran "0 sin
+match", y no hay ninguna fila evening con matched=false. La respuesta cruda
+de la API no se archiva y el MERGE pisa, así que no hay prueba evento por
+evento; la evidencia es de conteo y de horizonte:
+- Los 13 partidos empiezan antes de las 23:45Z de su día, así que la
+  evening del mismo día los omitió por iniciados (o no los tenía).
+- Su fila más antigua que queda es la late de las 03:15Z de su fecha UTC
+  (la noche anterior en ET), la primera captura posterior a la evening del
+  día previo. Una fila evening del día previo, de haber existido, no se
+  habría pisado: la evening del día del partido los omite.
+- Los conteos del log son consistentes con eventos que aparecen en la API
+  entre la evening (23:45Z) y la late (03:15Z): p. ej., la evening del
+  10-23 dejó 11 eventos no iniciados y la late de las 03:15Z del 10-24
+  tenía 13.
+- Comprobación directa hoy: GET /v4/sports/basketball_nba/events
+  (gratuito, x-requests-last 0, x-requests-used 96) a las ~20:28Z lista 17
+  eventos: 12 de 2026-10-28 y 5 de 2026-12-25. NINGÚN partido del 10-29.
+  La API todavía no lista los partidos de mañana a media tarde, ni
+  siquiera sin cuotas.
+CAUSA: el evento no existía todavía en The Odds API a la hora de la
+evening del día anterior. Pasado el arranque de temporada, el horizonte
+de listado es de menos de un día. Contraste: el 10-20 la API listaba 46
+eventos de varios días; desde el 10-23, entre 9 y 19. No es bug; con los
+horarios nuevos, la evening y la late del propio día cubren a estos
+partidos.
+
+PASO 4 — VERIFICACIÓN PRE-REGISTRADA para el 2026-10-29: capturas de hoy
+con el horario nuevo (18:40 ET y 21:40 ET), exit 0, créditos +3 cada una
+(x-requests-used 99 tras evening, 102 tras late).
+MÉTRICA RETIRADA: "fracción de partidos de hoy con snapshot del mismo día
+anterior al tipoff (esperada: > 90%)" — retirada: se cumple con cualquier
+horario (el publish de las 15:00 ET precede a todo tipoff).
+MÉTRICA QUE DECIDE (Antonio, 2026-10-28): fracción de partidos del día con
+snapshot evening o late del mismo día, posterior al publish y anterior al
+tipoff. Expectativa para el 2026-10-28: 12/12 con evening; late solo
+LAL@LAC; OKC@DAL (commence 01:40:00Z) omitido por la regla >=, caso límite
+registrado, no hallazgo.
+NOTAS DE CODE AL PRE-REGISTRO (redactadas antes de la decisión; la (b)
+queda resuelta por la métrica que decide):
+(a) Horas CDMX de hoy: 16:40 (evening, 22:40Z) y 19:40 (late, 01:40Z).
+    Créditos esperados: x-requests-used 96 -> 99 tras evening -> 102 tras
+    late.
+(b) Tal como está escrita, la fracción la cumple ya el publish de las
+    13:00 CDMX (15:00 ET), anterior a todo tipoff: daría 100% con
+    cualquier horario. La que mide la enmienda es la fracción con un
+    snapshot del mismo día POSTERIOR al publish (evening o late) y
+    anterior al tipoff. Esperado calculado con los commence_time de la
+    API para los 12 partidos de hoy: evening (22:40Z) precede a los 12
+    (12/12; con el horario viejo de 23:45Z habrían sido 7/12). Late
+    (01:40Z) precede solo a LAL@LAC (02:40Z). OKC@DAL tiene commence
+    01:40:00Z, el minuto exacto de la captura late, y saldrá como
+    iniciado. Cuál de las dos fracciones decide la verificación es
+    adjudicación de Antonio.

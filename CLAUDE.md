@@ -6921,3 +6921,28 @@ columnas nuevas no estorban a v21.
 CONGELAMIENTO: reiniciado desde predictions-api v22 (predictions-api-00022-mek)
 / ingest-job v14 (generación 11, sin cambios) / odds-capture v15 (generación
 6, sin cambios).
+
+DECISIONES POST-DEPLOY (Antonio, 2026-10-29):
+1. RECETA ADOPTADA para deploys dormidos de predictions-api (la desviación
+   declarada del deploy de v22 pasa a ser el procedimiento):
+   (a) desplegar la revisión nueva SIN tráfico y con etiqueta temporal
+       (gcloud run deploy ... --no-traffic --tag=<etiqueta>);
+   (b) llamar A LA VEZ a la revisión vigente (URL canónica) y a la nueva (URL
+       de la etiqueta) con la MISMA ?date, para que el corte del PDF y el
+       resto del dato sean idénticos y la única variable sea el código;
+   (c) comparar byte a byte los mensajes que deben quedar intactos;
+   (d) SOLO DESPUÉS, el cambio de tráfico (gcloud run services
+       update-traffic predictions-api --to-revisions=<revisión>=100) y el
+       retiro de la etiqueta (--remove-tags=<etiqueta>), con describe al
+       final. Cualquier diferencia en (c) = la revisión nueva no recibe
+       tráfico y se reporta.
+   Todo fuera de la franja 12:50-13:30 CDMX; las llamadas cuentan como
+   disparos manuales y se registran.
+2. FIX PENDIENTE DEL MARCADOR (hallazgo 4): la regla "un lunes sin mensaje 2
+   pasa al siguiente día" se evaluará contra el CALENDARIO de la temporada
+   (días con partidos 002 programados), no contra lo jugado (tabla games).
+   Así se corrigen dos cosas: el artefacto de los dry-runs con fecha futura y
+   la repetición de la cabecera si falla la ingesta de un día. SIN deploy
+   propio: entra en el siguiente deploy de predictions-api que haya, con su
+   test. Hasta entonces, la cabecera "📊 Semana 2-8 nov: muestra
+   insuficiente" sigue siendo ESPERADA en los dry-runs con ?date=2026-11-12.

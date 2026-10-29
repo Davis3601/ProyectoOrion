@@ -6526,3 +6526,273 @@ recibido, verbatim; tres precisiones, sin cambiar las decisiones:
     matched=false del evento de la final". Además, el evento solo
     aparecerá cuando The Odds API lo liste: con equipos definidos y, en
     temporada, con menos de un día de antelación (D-ODDS-8, paso 3).]
+
+## D-PROD-2: línea 50/50 y split con/sin en el mensaje 2
+(DISEÑO SELLADO; borrador del chat de diseño + revisión de Code + adjudicaciones de Antonio del 2026-10-28)
+
+BORRADOR (verbatim, 2026-10-28; las ADJUDICACIONES de abajo prevalecen donde lo contradicen):
+
+  Punto de partida medido. Modo R1, día de 15 partidos, dos destacados por
+  equipo: 3 725 caracteres en el dry-run de v20, 60 líneas de jugador, unos
+  60 caracteres cada una. Umbrales vigentes: 3 800 recorte a uno por equipo,
+  4 000 omisión. Margen real: 75 caracteres. Ninguna pieza cabe añadida a las
+  60 líneas en un día lleno. El diseño parte de eso.
+
+  Las tres piezas, de más barata a más cara
+
+  Línea 50/50 en puntos (de D-EXP-12, rama b). Sustituye a la mediana, no se
+  añade: 28 pts pasa a 27.5 pts. El .5 lleva la semántica; el título la
+  explica. Coste: +2 caracteres por línea, 120 en el día lleno. Verificación
+  pre-registrada antes de publicar: acierto histórico de "real ≥ línea .5" en
+  la primaria sin arranque, en [48%, 52%] agregado y [45%, 55%] por fold. Si
+  no cae en banda, no se publica y se registra.
+  Línea .5 = mediana de 10 redondeada hacia arriba al entero menos 0.5 si la
+  mediana es entera; si la mediana ya es x.5, se queda. Regla única, sin
+  parámetros.
+  Split con/sin compañero. Solo cuando ese día el equipo del destacado tiene
+  una baja fuerte en el corte publish (Out con rolling ≥ 25, la definición
+  auditada 25/25 de D-EXP-9), y solo si el destacado tiene ≥ 5 partidos con y
+  ≥ 5 sin ese compañero en sus últimos 20 jugados. Segunda línea: sin Murray:
+  29.1 pts en 6. Unos 32 caracteres. Solo puntos, solo rank 1. Descriptivo:
+  media simple, sin promesa. Frecuencia esperada: 15-25% de los rank 1, 4 a 8
+  líneas extra en un día lleno, 130-260 caracteres.
+  Frecuencia contra umbral redondo. 25+ en 6/10, con umbral = mayor múltiplo
+  de 5 menor o igual a la mediana (27.5 → 25; 12 → 10; mínimo 5). Solo
+  puntos, solo rank 1. Unos 13 caracteres, 30 líneas, 390 en el día lleno.
+  Descriptivo: es historia, no probabilidad.
+
+  Presupuesto computado, día lleno (15 partidos, 60 líneas):
+    Composición                      Caracteres  Contra 3 800
+    Actual (R1)                           3 725  cabe
+    + línea .5                            3 845  recorte
+    + línea .5 + split (6 líneas)        ~4 040  omisión
+    + las tres                           ~4 430  omisión
+  Conclusión: en días llenos no cabe ni la pieza más barata sin recorte. Hay
+  que cambiar la escalera de degradación, no las piezas.
+
+  Escalera de degradación nueva (sustituye a la actual, pre-registrada):
+  Formato completo. Si > 3 800: quitar frecuencias (pieza 3). Pie: (sin
+  frecuencias hoy por longitud). Si sigue > 3 800: quitar splits (pieza 2).
+  Pie: (sin splits hoy por longitud). Si sigue > 3 800: recorte a uno por
+  equipo (regla actual). Si > 4 000: omisión (regla actual).
+  Con esto, un día de 15 partidos probablemente baja a la etapa 3 o 4; un día
+  de 10 partidos (unas 40 líneas, ~2 500 base) lleva las tres piezas. Code
+  computa la tabla exacta de "hasta cuántos partidos cabe cada etapa" con el
+  calendario real, en el diseño, no en el test.
+
+  Marcador semanal. No es tercer mensaje (eso toca n8n). Los lunes, el
+  mensaje 2 lleva una cabecera extra: 📊 Semana: líneas 50/50 acertaron 52 de
+  101 · rango 80% cubrió 79 de 98. ~90 caracteres, un día a la semana, entra
+  en la escalera como parte del formato completo. Sale del script de
+  seguimiento (ya calcula ambas cosas). Pre-registro: solo se publica con
+  ≥ 50 observaciones evaluables en la semana; si no, 📊 Semana: muestra
+  insuficiente.
+
+  Qué no cambia. Mensaje 1, modelo, features, ausencias. R1 sigue con su
+  monitor del 72%. En régimen de arranque (próximo: octubre 2027) las tres
+  piezas se apagan con el título de régimen, porque dependen de la ventana de
+  10 de la temporada en curso.
+
+  Monitores. Línea .5: acierto sobre los últimos 100 publicados fuera de
+  [40%, 60%] durante 14 evaluaciones seguidas = reversión declarada a
+  mediana. Frecuencia y split no tienen promesa que monitorear; solo un test
+  de no leakage (ningún valor usa el partido del día).
+
+  Calendario. Revisión de Code mañana; sello y verificación de la línea .5 el
+  jueves; implementación jueves y viernes; deploy dormido el 4 o 5 de
+  noviembre (activo solo fuera de régimen, así que dormido por construcción
+  hasta el 10); dry-runs diarios de fecha forzada del 5 al 9; activación
+  automática el 10 junto con R1, un solo formato nuevo ensayado cinco veces.
+
+ADJUDICACIONES (Antonio, 2026-10-28):
+a. FRECUENCIA contra umbral: FUERA, pospuesta sin fecha. Sesgo por
+   construcción (umbral <= mediana <= 5º valor más alto de los 10: siempre
+   da >= 5/10); solo tiene sentido con un umbral externo (D-EXP-8).
+b. ESCALERA: (1) formato completo -> (2) sin splits, con pie único
+   "(sin splits hoy por longitud)" -> (3) top 1 con formato completo (línea,
+   splits y marcador) -> (4) omisión si aun así > 4 000. Umbral de los
+   escalones 1-3: 3 800; omisión: 4 000 (regla vigente).
+c. ACTIVACIÓN 2026-11-12 por constante de fecha en config (respeta D-EXP-12:
+   "nunca el mismo día que el estreno de R1", que es el 10-nov). Un solo
+   deploy dormido. La constante se retira tras esta temporada.
+d. LECTURAS DE LA REVISIÓN DE CODE, tal cual:
+   - Fuente de estatus: los estatus EN MEMORIA del mismo snapshot publish
+     que sustenta el mensaje 1 (regla de D-PROD-1c); jamás absences_applied
+     leído de vuelta de predictions_log (se escribe después; sirve para
+     auditar).
+   - Línea .5 = ceil(mediana) - 0.5 = entero publicado hoy - 0.5 (28 ->
+     27.5; 27 -> 26.5; mediana 27.5 -> 27.5). Se gradúa como real >= entero
+     publicado. pts_median del log sigue guardando B0 (D-EXP-7b intacto).
+   - Ventana corta (3-9 jugados): sin línea; centro entero y sufijo, como
+     D-PRE-11b.
+   - Split: UN compañero por destacado (el de mayor rolling entre las bajas
+     fuertes que cumplan >= 5 con y >= 5 sin; empate por player_id; jamás
+     combinaciones); solo Out (no Doubtful); solo partidos con el EQUIPO
+     ACTUAL del destacado; "sin" cuenta solo desde la llegada del compañero
+     (su primera fila con ese equipo); nombre completo; enteros (redondeo
+     medio-arriba); se muestra también el "con", ambos como media de la
+     misma ventana de 20.
+   - Formato: el split es sublínea bajo el jugador; todo lo de puntos junto:
+       • Nombre (TRI) (Q): 27.5 pts (21-35) · 8 reb · 5 ast · 3 3P
+         ↳ sin Nombre Apellido: 29 pts en 6 · con: 24 en 14
+   - Marcador: los lunes (target_date en lunes, CDMX); semana cerrada lunes
+     a domingo por fecha de partido ET; solo servida de record y jugadores
+     evaluados; la línea cuenta solo las publicadas como .5 y el rango solo
+     los R1; mínimo 50 por métrica, por separado ("muestra insuficiente"
+     para la que no llegue); la escalera NUNCA lo quita (va también en la
+     línea de omisión); un lunes sin mensaje 2 (esta temporada 2026-12-07 y
+     2027-02-22) pasa al siguiente día con mensaje 2, con la misma semana;
+     primer marcador 2026-11-16 [con la activación del 12-nov cubre del 12
+     al 15, nota de Code]; el cálculo vive en el PAQUETE, no en el script de
+     seguimiento, con lector por filas del query result (lección de la capa
+     5, sin to_dataframe).
+   - Pie único: "(sin splits hoy por longitud)".
+e. ALTER AUTORIZADO: columnas nullable en player_predictions_log para la
+   línea publicada y el split publicado, en la secuencia del deploy.
+f. ENSAYO: arnés local con PDF real para splits y marcador (el modo R1 se
+   fuerza en el arnés, jamás con un parámetro del endpoint); dry-runs de
+   fecha forzada para lo demás; cinco antes del 12-nov.
+g. Texto de descanso del mensaje 1: "Sin partidos de temporada regular hoy"
+   (D-PO-0b), en el mismo deploy.
+
+PRESUPUESTO RECOMPUTADO SIN FRECUENCIAS (Code, 2026-10-28). Destacados con
+el código de producción en modo R1, as-of historial hasta el 2026-10-27,
+nombres reales, calendario CDN desde el 2026-11-10 (139 fechas con partidos
+002; 3 de ellas de NBA Cup con equipos TBD, 2 partidos, etapa 1).
+Validación: el formato vigente de un día de 15 mide 3 733, idéntico al
+dry-run de v21 del 12-23. Supuestos: título "(últimos 10 · línea 50/50 y
+rango de puntos al 80%)"; split "  ↳ sin {nombre completo}: NN pts en N ·
+con: NN en NN"; marcador solo los lunes. Escenario esperado: splits en el
+20% de los rank 1, sin Q. Cota pesimista: 50% de splits y todos los rank 1
+con Q más la leyenda.
+  Caracteres (mín-máx), escenario esperado:
+  partidos (días)  vigente      1 completo   2 sin splits  3 top 1       etapa
+  10 (12)          2 499-2 541  2 790-2 903  2 615-2 728   1 598-1 695   1
+  11 (5)           2 726-2 779  3 052-3 101  2 881-2 920   1 734-1 800   1
+  12 (5)           2 974-3 007  3 328-3 356  3 105-3 138   1 905-1 937   1
+  13 (3)           3 238-3 251  3 604-3 620  3 377-3 390   2 059-2 076   1
+  14 (1)           3 485        3 914        3 632         2 248         2
+  15 (2)           3 733        4 162-4 170  3 888         2 378-2 386   3
+  Cota pesimista (completo / sin splits / top 1): 10 -> 3 231-3 357 (1);
+  12 -> 3 833-3 871 / 3 256-3 289 (2); 13 -> 4 175-4 188 / 3 536-3 549
+  (2); 14 -> 4 482 / 3 799 (2, a 1 carácter del umbral); 15 -> 4 794-4 799
+  / 4 063 / 3 010-3 015 (3).
+  Hasta cuántos partidos cabe cada etapa: esperado 1 <= 13, 2 = 14, 3 = 15;
+  pesimista 1 <= 11, 2 = 12-14, 3 = 15. Omisión: nunca.
+  Días de la temporada por etapa (139): esperado 136 / 1 (2027-04-09) / 2
+  (2026-12-23, 2027-04-11) / 0; pesimista 128 / 9 / 2 / 0.
+  Límites declarados: los nombres cambian al rodar la ventana; 5 novatos
+  hoy con ventana corta (sin rango y con sufijo: -4 caracteres netos cada
+  uno al completar 10); la frecuencia real de splits no está medida.
+
+SELLADO: 2026-10-29T02:30:32Z
+
+## D-PROD-2a: verificación histórica de la línea .5 (PRE-REGISTRO SELLADO)
+
+PREGUNTA. ¿La línea .5 de D-PROD-2 (línea = ceil(mediana de 10) - 0.5,
+graduada como real >= ceil(mediana)) acierta el 50% en la población
+histórica de destacados?
+
+NATURALEZA. Medición NUEVA, no segunda corrida de D-EXP-12: su
+results.json queda intacto y sus puertas no se re-evalúan. Una sola
+corrida, con archivo propio (data/experiment_dprod2a/results.json como
+marca de corrida única). Script aparte; d12, d7 y d9 solo se importan,
+sin tocarlos.
+
+POBLACIÓN. La de la puerta de D-EXP-12, reconstruida con construir() de
+d12: primaria con el filtro de producción Out/Doubtful, sin arranque, sin
+NYS, temporadas de validación 2020-21 a 2025-26. CONTROL DE INSTRUMENTO
+(se verifica antes de medir; si falla, se DETIENE sin medir): n = 20 505 y
+por fold 2 921 / 3 483 / 3 552 / 3 564 / 3 448 / 3 537, exactos. Ventana de
+10: por construcción (universo >= 10 previos; B0 = mediana de los 10); se
+afirma con assert.
+
+EVENTO. real >= ceil(B0), en pts, reb, ast y fg3m.
+
+PUERTA (por stat; decide SOLO pts): acierto agregado en [48%, 52%] Y cada
+fold en [45%, 55%]. Sin lectura alternativa.
+
+EXPECTATIVAS.
+- pts: acierto <= 50.9% (el U50 de D-EXP-12). Razón: el evento coincide con
+  U50 salvo en filas de dispersión alta (mediana entera con q·d >= 1;
+  mediana x.5 con q·d >= 0.5), donde la línea pide un punto más.
+- reb, ast y fg3m: reproducción EXACTA del U50 de D-EXP-12 (52.9% / 55.3% /
+  60.4% agregados y los mismos folds), porque ahí q50 = 0 y q_abs = 0 hacen
+  que U50 = ceil(B0) por identidad. Cualquier diferencia = defecto de
+  instrumento, se declara y no se adjudica la puerta de pts hasta
+  explicarla. No cruzan (por arriba), sin consecuencia: solo decide pts.
+
+DESCRIPTIVOS (no deciden): en pts, n y acierto por mediana entera vs x.5;
+n y acierto de las filas donde la línea difiere de U50 (U50 recalculado con
+los q por fold SELLADOS en el results.json de D-EXP-12, sin recalibrar).
+
+CONSECUENCIA. Si pts cruza: D-PROD-2 publica la línea .5 y el marcador
+mide línea y rango. Si no cruza: D-PROD-2 sale SIN línea (la mediana
+entera sigue) y el marcador mide solo el rango R1.
+
+SALIDA. data/experiment_dprod2a/results.json y tabla.txt, con acierto
+agregado y por fold de los cuatro stats.
+
+SELLADO: 2026-10-29T02:30:58Z, ANTES de escribir el script y de correrlo.
+
+## D-PROD-2a RESULTADO (2026-10-28): la línea .5 CRUZA en puntos (50.10%).
+D-PROD-2 sale CON línea
+
+CORRIDA ÚNICA: scripts/experiment_dprod2a.py (script aparte; d12, d7 y d9
+solo se importan, sin tocarlos), 2026-10-29T02:32:08Z -> 02:33:16Z (20:32 a
+20:33 CDMX del 28), exit 0, a la primera. Orden verificado por timestamps:
+pre-registro sellado 02:30:58Z, script escrito después, results.json y
+tabla.txt a las 02:33:16Z. Tests: 10 nuevos (tests/test_experiment_dprod2a.py:
+línea = ceil(mediana) - 0.5 en mediana entera y x.5, evento real >= entero,
+puerta de dos lados en los ocho bordes). Suite 1248 passed, 15 deselected
+(1238 + 10). Ruff limpio.
+
+CONTROL DE INSTRUMENTO (verificado antes de medir): n = 20 505 y por fold
+2 921 / 3 483 / 3 552 / 3 564 / 3 448 / 3 537, exactos. B0 sin NaN en los
+cuatro stats (ventana de 10 por construcción).
+
+TABLA (acierto = real >= ceil(mediana), población de la puerta de D-EXP-12):
+  stat  acierto  por fold (2020-21 .. 2025-26)          U50 D-EXP-12  puerta
+  pts   50.10%   50.46 51.22 49.58 49.97 50.70 48.80     50.85%       CRUZA
+  reb   52.86%   54.30 52.05 52.76 51.85 53.60 52.87     52.86%       no cruza
+  ast   55.27%   56.08 55.47 55.69 55.58 55.37 53.58     55.27%       no cruza
+  fg3m  60.37%   61.52 59.98 61.01 61.22 59.14 59.51     60.37%       no cruza
+
+VEREDICTO (decide solo pts): CRUZA. Agregado 50.10% en [48%, 52%]; los seis
+folds entre 48.80% y 51.22%, dentro de [45%, 55%]. Por la consecuencia
+pre-registrada, D-PROD-2 publica la línea .5 y el marcador mide línea y
+rango. reb, ast y fg3m no cruzan (por arriba), sin consecuencia.
+
+CONTRA LAS EXPECTATIVAS:
+- pts <= 50.9%: CUMPLIDA (50.10%).
+- reb, ast y fg3m reproducen EXACTO el U50 de D-EXP-12: CUMPLIDA, agregado
+  y los seis folds idénticos (diferencia < 1e-12). El instrumento es el
+  mismo.
+
+DESCRIPTIVOS:
+- pts, por mediana: entera n = 10 433, acierto 50.85%; x.5 n = 10 072,
+  acierto 49.33%.
+- pts, filas donde la línea difiere de U50: 3 273; ahí la línea acierta
+  48.64% y U50 53.22%. Es la dispersión alta, donde la línea pide un punto
+  más; por eso el agregado baja de 50.85% a 50.10%, en la dirección
+  pre-registrada.
+- reb / ast / fg3m, por mediana: entera 56.16% / 59.07% / 66.14%; x.5
+  48.41% / 49.34% / 47.52%. Las medianas x.5 aciertan cerca del 50% y las
+  enteras muy por encima: es consistente con la hipótesis de empates del
+  ">=" que D-EXP-12 dejó NO PROBADA (con mediana entera, real == mediana
+  cuenta como acierto). Descriptivo, no pre-registrado como prueba: la
+  hipótesis sigue sin probarse formalmente.
+
+DESVIACIÓN DECLARADA: el U50 de pts recalculado con los q por fold del
+results.json de D-EXP-12 da 50.836%, contra 50.851% sellado (3 filas de
+20 505). Causa probable, no verificada: esos q están guardados redondeados
+a 6 decimales y algunas filas en el borde de ceil cambian. Afecta solo al
+descriptivo "filas donde la línea difiere de U50" (posible error de unas 3
+filas en 3 273), no a la puerta ni al veredicto: el evento de la línea no
+usa q.
+
+ARCHIVOS: data/experiment_dprod2a/results.json (marca de corrida única) y
+tabla.txt.
+
+ESTADO: la implementación de D-PROD-2 NO empieza hasta el adelante de
+Antonio, con este resultado en mano.

@@ -6796,3 +6796,128 @@ tabla.txt.
 
 ESTADO: la implementación de D-PROD-2 NO empieza hasta el adelante de
 Antonio, con este resultado en mano.
+
+## D-PROD-2 RESULTADO (2026-10-28/29): línea 50/50, split y marcador EN PRODUCCIÓN,
+dormidos hasta el 2026-11-12. v22. Congelamiento reiniciado
+
+PROCESO: adelante de Antonio para implementar (2026-10-28) y adelante aparte
+para el deploy con el hash ("commit hecho, despliega esta noche", 2026-10-28).
+Commit 2ad22ad, verificado HEAD == 2ad22ad con el árbol limpio antes del build.
+Tag de imagen v22, el siguiente libre (v16..v21 existentes). Tag del commit:
+api-v22. Todo fuera de la franja 12:50-13:30 CDMX (22:03 a 22:13 CDMX del 28).
+
+SECUENCIA:
+1. ALTER TABLE player_predictions_log ADD COLUMN (7 columnas nullable):
+   pts_line FLOAT64, split_mate_id INT64, split_mate_name STRING, split_n_with
+   INT64, split_pts_with FLOAT64, split_n_without INT64, split_pts_without
+   FLOAT64. bq show: 24 campos, los 7 nuevos al final; 738 filas previas con
+   NULL. ACL de la tabla intacta (etag BwZcMQU3q4M=, única binding
+   predictions-api-sa dataEditor). Hecho ANTES del deploy: el código escribe
+   los 24 campos y contra la tabla vieja la escritura fallaría (best-effort,
+   WARNING, evidencia perdida).
+2. Build predictions-api:v22 desde 2ad22ad (build 84e8cc0b, 1M60S, digest
+   sha256:7d2818ed2ece2055decab0590f8c628a6826a7b3355fc832585e0629f717c5ca).
+3. Deploy: revisión predictions-api-00022-mek. DESVIACIÓN DECLARADA de la
+   secuencia: se desplegó con --no-traffic --tag=dprod2 para llamar a v21 y a
+   v22 A LA VEZ en el dry-run (1) — el 29 ya era "hoy" en ET y el corte del PDF
+   cambia cada 15 minutos, así que dos llamadas separadas podían diferir por el
+   dato y no por el código. Pasados los tres dry-runs: update-traffic 100% a
+   00022-mek y --remove-tags=dprod2 (04:12:04Z). describe: 100% 00022-mek,
+   imagen v22, 1Gi, 1 CPU, predictions-api-sa, NBA_PREDICTOR_MODE=cloud,
+   maxScale 20, startup-cpu-boost (configuración heredada). Sin registros
+   WARNING o peores de la revisión en Cloud Logging.
+
+DRY-RUNS (disparos manuales de la ventana, todos fuera de la franja):
+  2026-10-29T04:04:32Z  v21 ?date=2026-10-29 (línea base): 200 en 42.5 s
+  2026-10-29T04:09:09Z  v21 y v22 a la vez ?date=2026-10-29: 200 en 36.0 / 26.5 s
+  2026-10-29T04:10:05Z  v22 ?date=2026-11-12: 200 en 30.9 s
+  2026-10-29T04:10:36Z  v22 ?date=2026-11-16: 200 en 49.7 s
+  Filas escritas (excluidas por la regla de record: predicted_at del 28 en
+  CDMX): v22 12/16/32 en player_predictions_log y 3/4/8 en predictions_log
+  para 10-29 / 11-12 / 11-16; la línea base y la llamada simultánea de v21
+  escribieron también sus filas de 10-29.
+(1) 2026-10-29, régimen: mensaje 2 de v22 IDÉNTICO byte a byte al de v21 en la
+    llamada simultánea (834 caracteres) y también a la línea base de las
+    04:04Z; mensaje 1 idéntico. highlights_dprod2 False, sin línea ni split
+    en data, scoreboard None. Regla de rollback NO activada.
+(2) 2026-11-12, R1 activo: 4 partidos, modo r1, highlights_dprod2 True, título
+    "(últimos 10 · línea 50/50 y rango de puntos al 80%)", 16 de 16 destacados
+    con línea .5, 0 splits (fecha futura: feed_down "fecha FUTURA ... 0
+    sondas", declarado), 1 115 caracteres, sin recorte, cero "#". HALLAZGO 4
+    (abajo): la cabecera "📊 Semana 2-8 nov: muestra insuficiente" apareció un
+    jueves.
+(3) 2026-11-16, lunes: "📊 Semana 9-15 nov: muestra insuficiente" — NO
+    "marcador no disponible": predictions-api-sa lee player_predictions_log
+    en la nube. 8 partidos, 32 destacados, 29 con línea (3 de ventana corta,
+    sin línea, como manda la regla), 2 096 caracteres.
+
+CAMBIO AL GOLDEN DEL MENSAJE 1: la rama de descanso pasa de "Sin partidos
+hoy." a "Sin partidos de temporada regular hoy." (D-PO-0b). Primer cambio al
+texto del mensaje 1 desde agosto, solo en esa rama; tres tests editados y
+declarados (golden de test_daily_predictions y dos aserciones de servidor).
+
+LOS TRES HALLAZGOS DE LA IMPLEMENTACIÓN:
+1. Borde pesimista del día de 14 partidos sin splits: 3 789 caracteres, no los
+   3 799 del presupuesto sellado. La simulación del presupuesto puso el .5
+   también en las 5 líneas de ventana corta de ese día, que por regla no lo
+   llevan (5 x 2 = 10). El test fija 3 789.
+2. El marcador declara su propio fallo en real: contra BigQuery ANTES del
+   ALTER respondió "400 Unrecognized name: pts_line" y la cabecera salió como
+   "marcador no disponible hoy", sin tumbar el mensaje 2.
+3. Muchos menos splits que los supuestos: en los ensayos con PDF real, 1 de 18
+   rank 1 el 2026-10-26 (Shai Gilgeous-Alexander sin Jalen Williams, 10 con y
+   10 sin) y 0 de 8 el 2026-10-27, contra el 20% del presupuesto. Las bajas
+   fuertes de este arranque son sobre todo jugadores con pocos partidos con
+   su equipo (Drake Powell, Keegan Murray...), que no llegan a 5 con y 5 sin.
+
+HALLAZGO 4 DEL DEPLOY (no bloqueante, adjudicación pendiente): la regla "un
+lunes sin mensaje 2 pasa al siguiente día" se evalúa sobre los partidos YA
+JUGADOS de la semana (tabla games). En un dry-run de fecha FUTURA esos días
+aún no se jugaron, así que el jueves 12-nov forzado lleva la cabecera del
+marcador. En vivo no ocurre: el 12-nov a las 13:00, los partidos del 9 al 11
+ya están ingeridos y el marcador no sale. Límite derivado en vivo: si la
+ingesta de un día falla, la cabecera puede repetirse al día siguiente
+(benigno: es la misma semana, declarada). Fix posible (no aplicado; requiere
+commit y deploy): evaluar la regla contra el calendario de la temporada en
+vez de contra lo jugado.
+
+ARNÉS: scripts/arnes_dprod2.py (solo lectura; PDF publish archivado por el
+propio endpoint, el mismo _fetch_absences, modo R1 y D-PROD-2 forzados en el
+arnés). Ensayos: 2026-10-27 (4 partidos, 22 Out, 0 splits, 1 149 caracteres)
+y 2026-10-26 lunes (9 partidos, 1 split, 2 541 caracteres). Marcador de la
+semana 19-25 oct: el cálculo real del paquete da "muestra insuficiente" (no
+hay líneas ni R1 publicados esa semana); la SIMULACIÓN declarada (línea desde
+pts_median, que en régimen es C3, y [mín, máx] de régimen como R1) dio 32 de
+79 y 59 de 79: ensaya la mecánica, NO es comparable con el 50% esperado.
+
+Suite: 1294 passed, 15 deselected (1248 + 46 de tests/test_dprod2.py). Golden
+v21 del mensaje 2 generado con el código del tag api-v21 sobre días reales de
+13, 14 y 15 partidos (tests/fixtures/dprod2_golden_v21.json).
+
+PLAN DE DRY-RUNS DIARIOS (2026-10-30 -> 2026-11-11), cinco como mínimo antes
+del 12 (adjudicación f): cada día, fuera de 12:50-13:30 CDMX (propuesta: entre
+20:00 y 22:00 CDMX), GET /predictions/today?date=2026-11-12 con el calendario
+real del día. Se registra cada uno aquí como disparo manual (timestamp,
+status, latencia). Verificación por corrida: 200; título nuevo; todas las
+líneas de ventana 10 con .5 y las cortas sin línea; cero "#"; longitud del
+mensaje 2; escalón de la escalera; cabecera "📊 Semana 2-8 nov: muestra
+insuficiente" presente (ESPERADA por el hallazgo 4, artefacto de la fecha
+futura); filas en ambos logs con served_by 00022-mek (excluidas por la regla
+de record). Cualquier "#", un 500, o una línea .5 en ventana corta = hallazgo
+inmediato. El primer split en vivo y el primer marcador real no se ensayan
+así (fecha futura sin PDF ni resultados): llegan con el 12-nov y el 16-nov.
+
+PRE-REGISTRO EN VIVO:
+- 2026-11-10 y 11-11 (R1, antes de la activación): mensaje 2 con el título
+  R1 vigente, sin .5, sin splits ni marcador — byte a byte el formato de v21.
+- 2026-11-12 (activación): título nuevo, líneas .5, splits donde el PDF lo
+  permita, SIN marcador (no es lunes y la semana ya tuvo partidos).
+- 2026-11-16 (primer lunes): marcador de la semana 9-15 nov, con la línea
+  contada solo del 12 al 15 y el rango R1 del 10 al 15.
+
+ROLLBACK disponible: predictions-api:v21 (revisión 00021-vd8). Las 7
+columnas nuevas no estorban a v21.
+
+CONGELAMIENTO: reiniciado desde predictions-api v22 (predictions-api-00022-mek)
+/ ingest-job v14 (generación 11, sin cambios) / odds-capture v15 (generación
+6, sin cambios).

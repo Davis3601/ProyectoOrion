@@ -161,6 +161,14 @@ class DataStore(ABC):
         """
 
     @abstractmethod
+    def load_player_predictions_log(self, start_date: date, end_date: date) -> list[dict]:
+        """Filas del log de destacados con game_date en [start_date, end_date].
+
+        Lector del marcador semanal (D-PROD-2). Devuelve dicts, no un DataFrame:
+        en la nube se itera el query result por filas (capa 5).
+        """
+
+    @abstractmethod
     def save_predictions_log(self, rows: list[dict]) -> None:
         """Anexa filas de evidencia al log de predicciones. APPEND-ONLY.
 

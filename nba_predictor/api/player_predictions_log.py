@@ -29,9 +29,11 @@ if TYPE_CHECKING:
 
 _log = logging.getLogger(__name__)
 
-# Los 17 campos del schema, en orden (rank añadido en D-PRE-9; las filas
-# anteriores lo tienen NULL, que significa 1 implícito). Definición única del contrato: los tests
-# comparan contra esta constante, no contra una lista repetida.
+# Los 24 campos del schema, en orden (rank añadido en D-PRE-9; las filas
+# anteriores lo tienen NULL, que significa 1 implícito; los 7 últimos de
+# D-PROD-2, NULL en las filas anteriores y cuando la pieza no se publicó).
+# Definición única del contrato: los tests comparan contra esta constante, no
+# contra una lista repetida.
 PLAYER_LOG_FIELDS: tuple[str, ...] = (
     "game_id",
     "game_date",
@@ -50,6 +52,17 @@ PLAYER_LOG_FIELDS: tuple[str, ...] = (
     "predicted_at_utc",
     "served_by",
     "rank",
+    # D-PROD-2: la línea 50/50 PUBLICADA (x.5) y el split PUBLICADO. pts_line
+    # es derivable de pts_median (ceil - 0.5), pero se guarda lo publicado:
+    # el marcador semanal gradúa la línea que el lector vio, no una que se
+    # reconstruye.
+    "pts_line",
+    "split_mate_id",
+    "split_mate_name",
+    "split_n_with",
+    "split_pts_with",
+    "split_n_without",
+    "split_pts_without",
 )
 
 
@@ -81,6 +94,9 @@ def build_player_log_rows(
         # publicó ningún destacado y el log registra lo PUBLICADO.
         return []
 
+    # D-PROD-2, escalón 2: los splits calculados que no se publicaron por
+    # longitud no entran al log (registra lo PUBLICADO).
+    splits_publicados = not getattr(result, "splits_dropped", False)
     filas: list[dict[str, Any]] = []
     for gp in result.games:
         if not gp.players_data_available:
@@ -107,8 +123,25 @@ def build_player_log_rows(
                 "predicted_at_utc": stamp,
                 "served_by": served_by,
                 "rank": 1 if p.rank is None else int(p.rank),
+                **_dprod2_fields(p, splits_publicados),
             })
     return filas
+
+
+def _dprod2_fields(p: Any, splits_publicados: bool) -> dict[str, Any]:
+    """Las 7 columnas de D-PROD-2 de una fila: lo publicado, o NULL."""
+    linea = getattr(p, "pts_line", None)
+    s = getattr(p, "split", None) if splits_publicados else None
+    return {
+        "pts_line": None if linea is None else float(linea),
+        "split_mate_id": None if s is None else int(s.mate_id),
+        "split_mate_name": None if s is None else s.mate_name,
+        "split_n_with": None if s is None else int(s.n_with),
+        "split_pts_with": None if s is None or s.pts_with is None else float(s.pts_with),
+        "split_n_without": None if s is None else int(s.n_without),
+        "split_pts_without": (None if s is None or s.pts_without is None
+                              else float(s.pts_without)),
+    }
 
 
 def write_player_predictions_log(store: "DataStore", rows: list[dict[str, Any]]) -> bool:

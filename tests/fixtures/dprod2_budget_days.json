@@ -1,0 +1,2489 @@
+{
+ "_origen": "D-PROD-2 (2026-10-29): destacados reales en modo R1, as-of historial hasta 2026-10-27, calendario CDN 2026-27; solo nombres y números publicados",
+ "dias": {
+  "2026-12-16": [
+   {
+    "game_id": "0022600368",
+    "home": "BOS",
+    "away": "WAS",
+    "players": [
+     {
+      "player_name": "Jayson Tatum",
+      "pts_median": 23.5,
+      "pts_min": 13.0,
+      "pts_max": 34.0,
+      "reb_median": 8.0,
+      "ast_median": 8.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Derrick White",
+      "pts_median": 11.0,
+      "pts_min": 5.0,
+      "pts_max": 17.0,
+      "reb_median": 3.5,
+      "ast_median": 5.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Anthony Davis",
+      "pts_median": 20.0,
+      "pts_min": 6.0,
+      "pts_max": 34.0,
+      "reb_median": 9.5,
+      "ast_median": 2.5,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Anthony Gill",
+      "pts_median": 10.5,
+      "pts_min": 2.0,
+      "pts_max": 19.0,
+      "reb_median": 4.0,
+      "ast_median": 1.0,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600369",
+    "home": "CHA",
+    "away": "LAC",
+    "players": [
+     {
+      "player_name": "Kon Knueppel",
+      "pts_median": 13.0,
+      "pts_min": 5.0,
+      "pts_max": 21.0,
+      "reb_median": 4.5,
+      "ast_median": 2.5,
+      "games_in_window": 10,
+      "fg3m_median": 3.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Brandon Miller",
+      "pts_median": 19.5,
+      "pts_min": 7.0,
+      "pts_max": 32.0,
+      "reb_median": 3.5,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 3.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Brandon Ingram",
+      "pts_median": 17.5,
+      "pts_min": 6.0,
+      "pts_max": 29.0,
+      "reb_median": 6.0,
+      "ast_median": 3.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Darius Garland",
+      "pts_median": 16.5,
+      "pts_min": 8.0,
+      "pts_max": 25.0,
+      "reb_median": 2.0,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600370",
+    "home": "DET",
+    "away": "PHX",
+    "players": [
+     {
+      "player_name": "Elijah Harkless",
+      "pts_median": 10.0,
+      "pts_min": 3.0,
+      "pts_max": 17.0,
+      "reb_median": 3.5,
+      "ast_median": 4.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Cade Cunningham",
+      "pts_median": 16.5,
+      "pts_min": 5.0,
+      "pts_max": 28.0,
+      "reb_median": 4.5,
+      "ast_median": 8.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Devin Booker",
+      "pts_median": 30.5,
+      "pts_min": 16.0,
+      "pts_max": 45.0,
+      "reb_median": 3.5,
+      "ast_median": 7.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Kennedy Chandler",
+      "pts_median": 13.5,
+      "pts_min": 2.0,
+      "pts_max": 25.0,
+      "reb_median": 3.5,
+      "ast_median": 7.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600371",
+    "home": "IND",
+    "away": "GSW",
+    "players": [
+     {
+      "player_name": "Tyrese Haliburton",
+      "pts_median": 22.0,
+      "pts_min": 16.0,
+      "pts_max": 28.0,
+      "reb_median": 3.5,
+      "ast_median": 10.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Andrew Nembhard",
+      "pts_median": 14.5,
+      "pts_min": 8.0,
+      "pts_max": 21.0,
+      "reb_median": 2.0,
+      "ast_median": 8.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Yaxel Lendeborg",
+      "pts_median": 22.0,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 10.5,
+      "ast_median": 5.5,
+      "games_in_window": 4,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Moses Moody",
+      "pts_median": 16.0,
+      "pts_min": 7.0,
+      "pts_max": 25.0,
+      "reb_median": 3.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 3.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600372",
+    "home": "ORL",
+    "away": "CLE",
+    "players": [
+     {
+      "player_name": "Paolo Banchero",
+      "pts_median": 19.5,
+      "pts_min": 8.0,
+      "pts_max": 31.0,
+      "reb_median": 8.0,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Jalen Suggs",
+      "pts_median": 11.5,
+      "pts_min": 4.0,
+      "pts_max": 19.0,
+      "reb_median": 4.5,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Donovan Mitchell",
+      "pts_median": 27.0,
+      "pts_min": 13.0,
+      "pts_max": 41.0,
+      "reb_median": 5.5,
+      "ast_median": 4.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "James Harden",
+      "pts_median": 18.0,
+      "pts_min": 12.0,
+      "pts_max": 24.0,
+      "reb_median": 4.5,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600373",
+    "home": "BKN",
+    "away": "DAL",
+    "players": [
+     {
+      "player_name": "Julius Randle",
+      "pts_median": 23.5,
+      "pts_min": 14.0,
+      "pts_max": 33.0,
+      "reb_median": 7.0,
+      "ast_median": 4.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Michael Porter Jr.",
+      "pts_median": 26.0,
+      "pts_min": 14.0,
+      "pts_max": 38.0,
+      "reb_median": 6.0,
+      "ast_median": 1.0,
+      "games_in_window": 10,
+      "fg3m_median": 3.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "P.J. Washington",
+      "pts_median": 17.0,
+      "pts_min": 8.0,
+      "pts_max": 26.0,
+      "reb_median": 6.0,
+      "ast_median": 1.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Kyrie Irving",
+      "pts_median": 24.5,
+      "pts_min": 8.0,
+      "pts_max": 41.0,
+      "reb_median": 5.0,
+      "ast_median": 3.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600374",
+    "home": "TOR",
+    "away": "SAS",
+    "players": [
+     {
+      "player_name": "RJ Barrett",
+      "pts_median": 21.0,
+      "pts_min": 16.0,
+      "pts_max": 26.0,
+      "reb_median": 5.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Kawhi Leonard",
+      "pts_median": 23.5,
+      "pts_min": 18.0,
+      "pts_max": 29.0,
+      "reb_median": 8.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Stephon Castle",
+      "pts_median": 19.0,
+      "pts_min": 13.0,
+      "pts_max": 25.0,
+      "reb_median": 7.0,
+      "ast_median": 8.5,
+      "games_in_window": 10,
+      "fg3m_median": 3.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Devin Vassell",
+      "pts_median": 12.5,
+      "pts_min": 6.0,
+      "pts_max": 19.0,
+      "reb_median": 4.0,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600375",
+    "home": "CHI",
+    "away": "UTA",
+    "players": [
+     {
+      "player_name": "Caleb Wilson",
+      "pts_median": 19.0,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 5.5,
+      "ast_median": 2.0,
+      "games_in_window": 4,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Josh Giddey",
+      "pts_median": 9.0,
+      "pts_min": 0.0,
+      "pts_max": 18.0,
+      "reb_median": 7.0,
+      "ast_median": 10.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Ace Bailey",
+      "pts_median": 16.0,
+      "pts_min": 9.0,
+      "pts_max": 23.0,
+      "reb_median": 5.5,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Darryn Peterson",
+      "pts_median": 11.5,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 3.5,
+      "ast_median": 2.5,
+      "games_in_window": 4,
+      "fg3m_median": 0.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600376",
+    "home": "MEM",
+    "away": "MIA",
+    "players": [
+     {
+      "player_name": "Cameron Boozer",
+      "pts_median": 14.5,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 11.0,
+      "ast_median": 4.5,
+      "games_in_window": 4,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Jahmai Mashack",
+      "pts_median": 8.5,
+      "pts_min": 1.0,
+      "pts_max": 16.0,
+      "reb_median": 3.0,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Bam Adebayo",
+      "pts_median": 17.5,
+      "pts_min": 5.0,
+      "pts_max": 30.0,
+      "reb_median": 9.0,
+      "ast_median": 3.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Bez Mbeng",
+      "pts_median": 6.0,
+      "pts_min": 0.0,
+      "pts_max": 20.0,
+      "reb_median": 3.0,
+      "ast_median": 2.5,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600377",
+    "home": "NOP",
+    "away": "NYK",
+    "players": [
+     {
+      "player_name": "Trey Murphy III",
+      "pts_median": 16.5,
+      "pts_min": 7.0,
+      "pts_max": 26.0,
+      "reb_median": 6.0,
+      "ast_median": 2.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Jeremiah Fears",
+      "pts_median": 20.0,
+      "pts_min": 0.0,
+      "pts_max": 40.0,
+      "reb_median": 3.0,
+      "ast_median": 5.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Jalen Brunson",
+      "pts_median": 24.0,
+      "pts_min": 15.0,
+      "pts_max": 33.0,
+      "reb_median": 3.0,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "OG Anunoby",
+      "pts_median": 16.5,
+      "pts_min": 3.0,
+      "pts_max": 30.0,
+      "reb_median": 5.5,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600378",
+    "home": "OKC",
+    "away": "SAC",
+    "players": [
+     {
+      "player_name": "Shai Gilgeous-Alexander",
+      "pts_median": 27.0,
+      "pts_min": 16.0,
+      "pts_max": 38.0,
+      "reb_median": 3.5,
+      "ast_median": 4.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Jalen Williams",
+      "pts_median": 16.5,
+      "pts_min": 8.0,
+      "pts_max": 25.0,
+      "reb_median": 4.5,
+      "ast_median": 5.5,
+      "games_in_window": 10,
+      "fg3m_median": 0.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Darius Acuff Jr.",
+      "pts_median": 20.5,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 3.0,
+      "ast_median": 4.5,
+      "games_in_window": 4,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Maxime Raynaud",
+      "pts_median": 16.5,
+      "pts_min": 7.0,
+      "pts_max": 26.0,
+      "reb_median": 8.5,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600379",
+    "home": "HOU",
+    "away": "MIL",
+    "players": [
+     {
+      "player_name": "Amen Thompson",
+      "pts_median": 18.5,
+      "pts_min": 11.0,
+      "pts_max": 26.0,
+      "reb_median": 8.5,
+      "ast_median": 5.0,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Kevin Durant",
+      "pts_median": 24.5,
+      "pts_min": 17.0,
+      "pts_max": 32.0,
+      "reb_median": 6.5,
+      "ast_median": 5.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Tyler Herro",
+      "pts_median": 20.5,
+      "pts_min": 6.0,
+      "pts_max": 35.0,
+      "reb_median": 4.5,
+      "ast_median": 5.0,
+      "games_in_window": 10,
+      "fg3m_median": 3.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Kevin Porter Jr.",
+      "pts_median": 19.0,
+      "pts_min": 6.0,
+      "pts_max": 32.0,
+      "reb_median": 6.0,
+      "ast_median": 7.0,
+      "games_in_window": 10,
+      "fg3m_median": 0.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600380",
+    "home": "MIN",
+    "away": "LAL",
+    "players": [
+     {
+      "player_name": "Anthony Edwards",
+      "pts_median": 24.0,
+      "pts_min": 2.0,
+      "pts_max": 46.0,
+      "reb_median": 3.0,
+      "ast_median": 4.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Jaden McDaniels",
+      "pts_median": 16.5,
+      "pts_min": 13.0,
+      "pts_max": 20.0,
+      "reb_median": 6.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Luka Dončić",
+      "pts_median": 37.0,
+      "pts_min": 20.0,
+      "pts_max": 54.0,
+      "reb_median": 6.0,
+      "ast_median": 7.0,
+      "games_in_window": 10,
+      "fg3m_median": 4.5,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Austin Reaves",
+      "pts_median": 24.5,
+      "pts_min": 18.0,
+      "pts_max": 31.0,
+      "reb_median": 3.5,
+      "ast_median": 5.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   }
+  ],
+  "2026-12-23": [
+   {
+    "game_id": "0022600423",
+    "home": "ATL",
+    "away": "DET",
+    "players": [
+     {
+      "player_name": "Nickeil Alexander-Walker",
+      "pts_median": 19.5,
+      "pts_min": 7.0,
+      "pts_max": 32.0,
+      "reb_median": 4.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 4.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Jalen Johnson",
+      "pts_median": 19.5,
+      "pts_min": 16.0,
+      "pts_max": 23.0,
+      "reb_median": 11.0,
+      "ast_median": 5.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Elijah Harkless",
+      "pts_median": 10.0,
+      "pts_min": 3.0,
+      "pts_max": 17.0,
+      "reb_median": 3.5,
+      "ast_median": 4.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Cade Cunningham",
+      "pts_median": 16.5,
+      "pts_min": 5.0,
+      "pts_max": 28.0,
+      "reb_median": 4.5,
+      "ast_median": 8.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600424",
+    "home": "ORL",
+    "away": "CHA",
+    "players": [
+     {
+      "player_name": "Paolo Banchero",
+      "pts_median": 19.5,
+      "pts_min": 8.0,
+      "pts_max": 31.0,
+      "reb_median": 8.0,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Jalen Suggs",
+      "pts_median": 11.5,
+      "pts_min": 4.0,
+      "pts_max": 19.0,
+      "reb_median": 4.5,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Kon Knueppel",
+      "pts_median": 13.0,
+      "pts_min": 5.0,
+      "pts_max": 21.0,
+      "reb_median": 4.5,
+      "ast_median": 2.5,
+      "games_in_window": 10,
+      "fg3m_median": 3.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Brandon Miller",
+      "pts_median": 19.5,
+      "pts_min": 7.0,
+      "pts_max": 32.0,
+      "reb_median": 3.5,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 3.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600425",
+    "home": "WAS",
+    "away": "CLE",
+    "players": [
+     {
+      "player_name": "Anthony Davis",
+      "pts_median": 20.0,
+      "pts_min": 6.0,
+      "pts_max": 34.0,
+      "reb_median": 9.5,
+      "ast_median": 2.5,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Anthony Gill",
+      "pts_median": 10.5,
+      "pts_min": 2.0,
+      "pts_max": 19.0,
+      "reb_median": 4.0,
+      "ast_median": 1.0,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Donovan Mitchell",
+      "pts_median": 27.0,
+      "pts_min": 13.0,
+      "pts_max": 41.0,
+      "reb_median": 5.5,
+      "ast_median": 4.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "James Harden",
+      "pts_median": 18.0,
+      "pts_min": 12.0,
+      "pts_max": 24.0,
+      "reb_median": 4.5,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600426",
+    "home": "BOS",
+    "away": "POR",
+    "players": [
+     {
+      "player_name": "Jayson Tatum",
+      "pts_median": 23.5,
+      "pts_min": 13.0,
+      "pts_max": 34.0,
+      "reb_median": 8.0,
+      "ast_median": 8.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Derrick White",
+      "pts_median": 11.0,
+      "pts_min": 5.0,
+      "pts_max": 17.0,
+      "reb_median": 3.5,
+      "ast_median": 5.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Deni Avdija",
+      "pts_median": 26.0,
+      "pts_min": 20.0,
+      "pts_max": 32.0,
+      "reb_median": 6.5,
+      "ast_median": 6.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Damian Lillard",
+      "pts_median": 21.5,
+      "pts_min": 16.0,
+      "pts_max": 27.0,
+      "reb_median": 5.0,
+      "ast_median": 4.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600427",
+    "home": "BKN",
+    "away": "SAS",
+    "players": [
+     {
+      "player_name": "Julius Randle",
+      "pts_median": 23.5,
+      "pts_min": 14.0,
+      "pts_max": 33.0,
+      "reb_median": 7.0,
+      "ast_median": 4.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Michael Porter Jr.",
+      "pts_median": 26.0,
+      "pts_min": 14.0,
+      "pts_max": 38.0,
+      "reb_median": 6.0,
+      "ast_median": 1.0,
+      "games_in_window": 10,
+      "fg3m_median": 3.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Stephon Castle",
+      "pts_median": 19.0,
+      "pts_min": 13.0,
+      "pts_max": 25.0,
+      "reb_median": 7.0,
+      "ast_median": 8.5,
+      "games_in_window": 10,
+      "fg3m_median": 3.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Devin Vassell",
+      "pts_median": 12.5,
+      "pts_min": 6.0,
+      "pts_max": 19.0,
+      "reb_median": 4.0,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600428",
+    "home": "MIA",
+    "away": "CHI",
+    "players": [
+     {
+      "player_name": "Bam Adebayo",
+      "pts_median": 17.5,
+      "pts_min": 5.0,
+      "pts_max": 30.0,
+      "reb_median": 9.0,
+      "ast_median": 3.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Bez Mbeng",
+      "pts_median": 6.0,
+      "pts_min": 0.0,
+      "pts_max": 20.0,
+      "reb_median": 3.0,
+      "ast_median": 2.5,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Caleb Wilson",
+      "pts_median": 19.0,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 5.5,
+      "ast_median": 2.0,
+      "games_in_window": 4,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Josh Giddey",
+      "pts_median": 9.0,
+      "pts_min": 0.0,
+      "pts_max": 18.0,
+      "reb_median": 7.0,
+      "ast_median": 10.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600429",
+    "home": "NYK",
+    "away": "UTA",
+    "players": [
+     {
+      "player_name": "Jalen Brunson",
+      "pts_median": 24.0,
+      "pts_min": 15.0,
+      "pts_max": 33.0,
+      "reb_median": 3.0,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "OG Anunoby",
+      "pts_median": 16.5,
+      "pts_min": 3.0,
+      "pts_max": 30.0,
+      "reb_median": 5.5,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Ace Bailey",
+      "pts_median": 16.0,
+      "pts_min": 9.0,
+      "pts_max": 23.0,
+      "reb_median": 5.5,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Darryn Peterson",
+      "pts_median": 11.5,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 3.5,
+      "ast_median": 2.5,
+      "games_in_window": 4,
+      "fg3m_median": 0.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600430",
+    "home": "PHI",
+    "away": "HOU",
+    "players": [
+     {
+      "player_name": "Jaylen Brown",
+      "pts_median": 26.0,
+      "pts_min": 16.0,
+      "pts_max": 36.0,
+      "reb_median": 5.0,
+      "ast_median": 4.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Tyrese Maxey",
+      "pts_median": 25.0,
+      "pts_min": 17.0,
+      "pts_max": 33.0,
+      "reb_median": 3.5,
+      "ast_median": 5.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Amen Thompson",
+      "pts_median": 18.5,
+      "pts_min": 11.0,
+      "pts_max": 26.0,
+      "reb_median": 8.5,
+      "ast_median": 5.0,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Kevin Durant",
+      "pts_median": 24.5,
+      "pts_min": 17.0,
+      "pts_max": 32.0,
+      "reb_median": 6.5,
+      "ast_median": 5.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600431",
+    "home": "MEM",
+    "away": "TOR",
+    "players": [
+     {
+      "player_name": "Cameron Boozer",
+      "pts_median": 14.5,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 11.0,
+      "ast_median": 4.5,
+      "games_in_window": 4,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Jahmai Mashack",
+      "pts_median": 8.5,
+      "pts_min": 1.0,
+      "pts_max": 16.0,
+      "reb_median": 3.0,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "RJ Barrett",
+      "pts_median": 21.0,
+      "pts_min": 16.0,
+      "pts_max": 26.0,
+      "reb_median": 5.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Kawhi Leonard",
+      "pts_median": 23.5,
+      "pts_min": 18.0,
+      "pts_max": 29.0,
+      "reb_median": 8.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600432",
+    "home": "MIL",
+    "away": "MIN",
+    "players": [
+     {
+      "player_name": "Tyler Herro",
+      "pts_median": 20.5,
+      "pts_min": 6.0,
+      "pts_max": 35.0,
+      "reb_median": 4.5,
+      "ast_median": 5.0,
+      "games_in_window": 10,
+      "fg3m_median": 3.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Kevin Porter Jr.",
+      "pts_median": 19.0,
+      "pts_min": 6.0,
+      "pts_max": 32.0,
+      "reb_median": 6.0,
+      "ast_median": 7.0,
+      "games_in_window": 10,
+      "fg3m_median": 0.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Anthony Edwards",
+      "pts_median": 24.0,
+      "pts_min": 2.0,
+      "pts_max": 46.0,
+      "reb_median": 3.0,
+      "ast_median": 4.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Jaden McDaniels",
+      "pts_median": 16.5,
+      "pts_min": 13.0,
+      "pts_max": 20.0,
+      "reb_median": 6.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600433",
+    "home": "NOP",
+    "away": "OKC",
+    "players": [
+     {
+      "player_name": "Trey Murphy III",
+      "pts_median": 16.5,
+      "pts_min": 7.0,
+      "pts_max": 26.0,
+      "reb_median": 6.0,
+      "ast_median": 2.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Jeremiah Fears",
+      "pts_median": 20.0,
+      "pts_min": 0.0,
+      "pts_max": 40.0,
+      "reb_median": 3.0,
+      "ast_median": 5.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Shai Gilgeous-Alexander",
+      "pts_median": 27.0,
+      "pts_min": 16.0,
+      "pts_max": 38.0,
+      "reb_median": 3.5,
+      "ast_median": 4.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Jalen Williams",
+      "pts_median": 16.5,
+      "pts_min": 8.0,
+      "pts_max": 25.0,
+      "reb_median": 4.5,
+      "ast_median": 5.5,
+      "games_in_window": 10,
+      "fg3m_median": 0.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600434",
+    "home": "PHX",
+    "away": "IND",
+    "players": [
+     {
+      "player_name": "Devin Booker",
+      "pts_median": 30.5,
+      "pts_min": 16.0,
+      "pts_max": 45.0,
+      "reb_median": 3.5,
+      "ast_median": 7.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Kennedy Chandler",
+      "pts_median": 13.5,
+      "pts_min": 2.0,
+      "pts_max": 25.0,
+      "reb_median": 3.5,
+      "ast_median": 7.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Tyrese Haliburton",
+      "pts_median": 22.0,
+      "pts_min": 16.0,
+      "pts_max": 28.0,
+      "reb_median": 3.5,
+      "ast_median": 10.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Andrew Nembhard",
+      "pts_median": 14.5,
+      "pts_min": 8.0,
+      "pts_max": 21.0,
+      "reb_median": 2.0,
+      "ast_median": 8.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600435",
+    "home": "LAL",
+    "away": "DEN",
+    "players": [
+     {
+      "player_name": "Luka Dončić",
+      "pts_median": 37.0,
+      "pts_min": 20.0,
+      "pts_max": 54.0,
+      "reb_median": 6.0,
+      "ast_median": 7.0,
+      "games_in_window": 10,
+      "fg3m_median": 4.5,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Austin Reaves",
+      "pts_median": 24.5,
+      "pts_min": 18.0,
+      "pts_max": 31.0,
+      "reb_median": 3.5,
+      "ast_median": 5.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Jamal Murray",
+      "pts_median": 23.0,
+      "pts_min": 2.0,
+      "pts_max": 44.0,
+      "reb_median": 6.0,
+      "ast_median": 6.5,
+      "games_in_window": 10,
+      "fg3m_median": 4.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Nikola Jokić",
+      "pts_median": 24.0,
+      "pts_min": 8.0,
+      "pts_max": 40.0,
+      "reb_median": 14.5,
+      "ast_median": 10.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600436",
+    "home": "SAC",
+    "away": "DAL",
+    "players": [
+     {
+      "player_name": "Darius Acuff Jr.",
+      "pts_median": 20.5,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 3.0,
+      "ast_median": 4.5,
+      "games_in_window": 4,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Maxime Raynaud",
+      "pts_median": 16.5,
+      "pts_min": 7.0,
+      "pts_max": 26.0,
+      "reb_median": 8.5,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "P.J. Washington",
+      "pts_median": 17.0,
+      "pts_min": 8.0,
+      "pts_max": 26.0,
+      "reb_median": 6.0,
+      "ast_median": 1.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Kyrie Irving",
+      "pts_median": 24.5,
+      "pts_min": 8.0,
+      "pts_max": 41.0,
+      "reb_median": 5.0,
+      "ast_median": 3.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022600437",
+    "home": "LAC",
+    "away": "GSW",
+    "players": [
+     {
+      "player_name": "Brandon Ingram",
+      "pts_median": 17.5,
+      "pts_min": 6.0,
+      "pts_max": 29.0,
+      "reb_median": 6.0,
+      "ast_median": 3.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Darius Garland",
+      "pts_median": 16.5,
+      "pts_min": 8.0,
+      "pts_max": 25.0,
+      "reb_median": 2.0,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Yaxel Lendeborg",
+      "pts_median": 22.0,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 10.5,
+      "ast_median": 5.5,
+      "games_in_window": 4,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Moses Moody",
+      "pts_median": 16.0,
+      "pts_min": 7.0,
+      "pts_max": 25.0,
+      "reb_median": 3.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 3.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   }
+  ],
+  "2027-04-09": [
+   {
+    "game_id": "0022601172",
+    "home": "ATL",
+    "away": "BOS",
+    "players": [
+     {
+      "player_name": "Nickeil Alexander-Walker",
+      "pts_median": 19.5,
+      "pts_min": 7.0,
+      "pts_max": 32.0,
+      "reb_median": 4.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 4.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Jalen Johnson",
+      "pts_median": 19.5,
+      "pts_min": 16.0,
+      "pts_max": 23.0,
+      "reb_median": 11.0,
+      "ast_median": 5.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Jayson Tatum",
+      "pts_median": 23.5,
+      "pts_min": 13.0,
+      "pts_max": 34.0,
+      "reb_median": 8.0,
+      "ast_median": 8.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Derrick White",
+      "pts_median": 11.0,
+      "pts_min": 5.0,
+      "pts_max": 17.0,
+      "reb_median": 3.5,
+      "ast_median": 5.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601173",
+    "home": "CHA",
+    "away": "BKN",
+    "players": [
+     {
+      "player_name": "Kon Knueppel",
+      "pts_median": 13.0,
+      "pts_min": 5.0,
+      "pts_max": 21.0,
+      "reb_median": 4.5,
+      "ast_median": 2.5,
+      "games_in_window": 10,
+      "fg3m_median": 3.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Brandon Miller",
+      "pts_median": 19.5,
+      "pts_min": 7.0,
+      "pts_max": 32.0,
+      "reb_median": 3.5,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 3.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Julius Randle",
+      "pts_median": 23.5,
+      "pts_min": 14.0,
+      "pts_max": 33.0,
+      "reb_median": 7.0,
+      "ast_median": 4.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Michael Porter Jr.",
+      "pts_median": 26.0,
+      "pts_min": 14.0,
+      "pts_max": 38.0,
+      "reb_median": 6.0,
+      "ast_median": 1.0,
+      "games_in_window": 10,
+      "fg3m_median": 3.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601174",
+    "home": "IND",
+    "away": "CLE",
+    "players": [
+     {
+      "player_name": "Tyrese Haliburton",
+      "pts_median": 22.0,
+      "pts_min": 16.0,
+      "pts_max": 28.0,
+      "reb_median": 3.5,
+      "ast_median": 10.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Andrew Nembhard",
+      "pts_median": 14.5,
+      "pts_min": 8.0,
+      "pts_max": 21.0,
+      "reb_median": 2.0,
+      "ast_median": 8.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Donovan Mitchell",
+      "pts_median": 27.0,
+      "pts_min": 13.0,
+      "pts_max": 41.0,
+      "reb_median": 5.5,
+      "ast_median": 4.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "James Harden",
+      "pts_median": 18.0,
+      "pts_min": 12.0,
+      "pts_max": 24.0,
+      "reb_median": 4.5,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601175",
+    "home": "NYK",
+    "away": "DET",
+    "players": [
+     {
+      "player_name": "Jalen Brunson",
+      "pts_median": 24.0,
+      "pts_min": 15.0,
+      "pts_max": 33.0,
+      "reb_median": 3.0,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "OG Anunoby",
+      "pts_median": 16.5,
+      "pts_min": 3.0,
+      "pts_max": 30.0,
+      "reb_median": 5.5,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Elijah Harkless",
+      "pts_median": 10.0,
+      "pts_min": 3.0,
+      "pts_max": 17.0,
+      "reb_median": 3.5,
+      "ast_median": 4.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Cade Cunningham",
+      "pts_median": 16.5,
+      "pts_min": 5.0,
+      "pts_max": 28.0,
+      "reb_median": 4.5,
+      "ast_median": 8.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601176",
+    "home": "ORL",
+    "away": "TOR",
+    "players": [
+     {
+      "player_name": "Paolo Banchero",
+      "pts_median": 19.5,
+      "pts_min": 8.0,
+      "pts_max": 31.0,
+      "reb_median": 8.0,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Jalen Suggs",
+      "pts_median": 11.5,
+      "pts_min": 4.0,
+      "pts_max": 19.0,
+      "reb_median": 4.5,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "RJ Barrett",
+      "pts_median": 21.0,
+      "pts_min": 16.0,
+      "pts_max": 26.0,
+      "reb_median": 5.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Kawhi Leonard",
+      "pts_median": 23.5,
+      "pts_min": 18.0,
+      "pts_max": 29.0,
+      "reb_median": 8.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601177",
+    "home": "MIA",
+    "away": "WAS",
+    "players": [
+     {
+      "player_name": "Bam Adebayo",
+      "pts_median": 17.5,
+      "pts_min": 5.0,
+      "pts_max": 30.0,
+      "reb_median": 9.0,
+      "ast_median": 3.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Bez Mbeng",
+      "pts_median": 6.0,
+      "pts_min": 0.0,
+      "pts_max": 20.0,
+      "reb_median": 3.0,
+      "ast_median": 2.5,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Anthony Davis",
+      "pts_median": 20.0,
+      "pts_min": 6.0,
+      "pts_max": 34.0,
+      "reb_median": 9.5,
+      "ast_median": 2.5,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Anthony Gill",
+      "pts_median": 10.5,
+      "pts_min": 2.0,
+      "pts_max": 19.0,
+      "reb_median": 4.0,
+      "ast_median": 1.0,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601178",
+    "home": "CHI",
+    "away": "MIL",
+    "players": [
+     {
+      "player_name": "Caleb Wilson",
+      "pts_median": 19.0,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 5.5,
+      "ast_median": 2.0,
+      "games_in_window": 4,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Josh Giddey",
+      "pts_median": 9.0,
+      "pts_min": 0.0,
+      "pts_max": 18.0,
+      "reb_median": 7.0,
+      "ast_median": 10.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Tyler Herro",
+      "pts_median": 20.5,
+      "pts_min": 6.0,
+      "pts_max": 35.0,
+      "reb_median": 4.5,
+      "ast_median": 5.0,
+      "games_in_window": 10,
+      "fg3m_median": 3.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Kevin Porter Jr.",
+      "pts_median": 19.0,
+      "pts_min": 6.0,
+      "pts_max": 32.0,
+      "reb_median": 6.0,
+      "ast_median": 7.0,
+      "games_in_window": 10,
+      "fg3m_median": 0.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601179",
+    "home": "OKC",
+    "away": "GSW",
+    "players": [
+     {
+      "player_name": "Shai Gilgeous-Alexander",
+      "pts_median": 27.0,
+      "pts_min": 16.0,
+      "pts_max": 38.0,
+      "reb_median": 3.5,
+      "ast_median": 4.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Jalen Williams",
+      "pts_median": 16.5,
+      "pts_min": 8.0,
+      "pts_max": 25.0,
+      "reb_median": 4.5,
+      "ast_median": 5.5,
+      "games_in_window": 10,
+      "fg3m_median": 0.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Yaxel Lendeborg",
+      "pts_median": 22.0,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 10.5,
+      "ast_median": 5.5,
+      "games_in_window": 4,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Moses Moody",
+      "pts_median": 16.0,
+      "pts_min": 7.0,
+      "pts_max": 25.0,
+      "reb_median": 3.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 3.5,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601180",
+    "home": "HOU",
+    "away": "POR",
+    "players": [
+     {
+      "player_name": "Amen Thompson",
+      "pts_median": 18.5,
+      "pts_min": 11.0,
+      "pts_max": 26.0,
+      "reb_median": 8.5,
+      "ast_median": 5.0,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Kevin Durant",
+      "pts_median": 24.5,
+      "pts_min": 17.0,
+      "pts_max": 32.0,
+      "reb_median": 6.5,
+      "ast_median": 5.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Deni Avdija",
+      "pts_median": 26.0,
+      "pts_min": 20.0,
+      "pts_max": 32.0,
+      "reb_median": 6.5,
+      "ast_median": 6.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Damian Lillard",
+      "pts_median": 21.5,
+      "pts_min": 16.0,
+      "pts_max": 27.0,
+      "reb_median": 5.0,
+      "ast_median": 4.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601181",
+    "home": "SAS",
+    "away": "DEN",
+    "players": [
+     {
+      "player_name": "Stephon Castle",
+      "pts_median": 19.0,
+      "pts_min": 13.0,
+      "pts_max": 25.0,
+      "reb_median": 7.0,
+      "ast_median": 8.5,
+      "games_in_window": 10,
+      "fg3m_median": 3.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Devin Vassell",
+      "pts_median": 12.5,
+      "pts_min": 6.0,
+      "pts_max": 19.0,
+      "reb_median": 4.0,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Jamal Murray",
+      "pts_median": 23.0,
+      "pts_min": 2.0,
+      "pts_max": 44.0,
+      "reb_median": 6.0,
+      "ast_median": 6.5,
+      "games_in_window": 10,
+      "fg3m_median": 4.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Nikola Jokić",
+      "pts_median": 24.0,
+      "pts_min": 8.0,
+      "pts_max": 40.0,
+      "reb_median": 14.5,
+      "ast_median": 10.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601182",
+    "home": "UTA",
+    "away": "LAC",
+    "players": [
+     {
+      "player_name": "Ace Bailey",
+      "pts_median": 16.0,
+      "pts_min": 9.0,
+      "pts_max": 23.0,
+      "reb_median": 5.5,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Darryn Peterson",
+      "pts_median": 11.5,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 3.5,
+      "ast_median": 2.5,
+      "games_in_window": 4,
+      "fg3m_median": 0.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Brandon Ingram",
+      "pts_median": 17.5,
+      "pts_min": 6.0,
+      "pts_max": 29.0,
+      "reb_median": 6.0,
+      "ast_median": 3.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Darius Garland",
+      "pts_median": 16.5,
+      "pts_min": 8.0,
+      "pts_max": 25.0,
+      "reb_median": 2.0,
+      "ast_median": 6.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601183",
+    "home": "LAL",
+    "away": "MIN",
+    "players": [
+     {
+      "player_name": "Luka Dončić",
+      "pts_median": 37.0,
+      "pts_min": 20.0,
+      "pts_max": 54.0,
+      "reb_median": 6.0,
+      "ast_median": 7.0,
+      "games_in_window": 10,
+      "fg3m_median": 4.5,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Austin Reaves",
+      "pts_median": 24.5,
+      "pts_min": 18.0,
+      "pts_max": 31.0,
+      "reb_median": 3.5,
+      "ast_median": 5.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Anthony Edwards",
+      "pts_median": 24.0,
+      "pts_min": 2.0,
+      "pts_max": 46.0,
+      "reb_median": 3.0,
+      "ast_median": 4.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.5,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Jaden McDaniels",
+      "pts_median": 16.5,
+      "pts_min": 13.0,
+      "pts_max": 20.0,
+      "reb_median": 6.0,
+      "ast_median": 3.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601184",
+    "home": "PHX",
+    "away": "MEM",
+    "players": [
+     {
+      "player_name": "Devin Booker",
+      "pts_median": 30.5,
+      "pts_min": 16.0,
+      "pts_max": 45.0,
+      "reb_median": 3.5,
+      "ast_median": 7.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Kennedy Chandler",
+      "pts_median": 13.5,
+      "pts_min": 2.0,
+      "pts_max": 25.0,
+      "reb_median": 3.5,
+      "ast_median": 7.5,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "Cameron Boozer",
+      "pts_median": 14.5,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 11.0,
+      "ast_median": 4.5,
+      "games_in_window": 4,
+      "fg3m_median": 1.5,
+      "is_shooting_specialist": false,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Jahmai Mashack",
+      "pts_median": 8.5,
+      "pts_min": 1.0,
+      "pts_max": 16.0,
+      "reb_median": 3.0,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 1.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   },
+   {
+    "game_id": "0022601185",
+    "home": "SAC",
+    "away": "DAL",
+    "players": [
+     {
+      "player_name": "Darius Acuff Jr.",
+      "pts_median": 20.5,
+      "pts_min": null,
+      "pts_max": null,
+      "reb_median": 3.0,
+      "ast_median": 4.5,
+      "games_in_window": 4,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "home"
+     },
+     {
+      "player_name": "Maxime Raynaud",
+      "pts_median": 16.5,
+      "pts_min": 7.0,
+      "pts_max": 26.0,
+      "reb_median": 8.5,
+      "ast_median": 2.0,
+      "games_in_window": 10,
+      "fg3m_median": 0.0,
+      "is_shooting_specialist": false,
+      "rank": 2,
+      "team": "home"
+     },
+     {
+      "player_name": "P.J. Washington",
+      "pts_median": 17.0,
+      "pts_min": 8.0,
+      "pts_max": 26.0,
+      "reb_median": 6.0,
+      "ast_median": 1.0,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 1,
+      "team": "away"
+     },
+     {
+      "player_name": "Kyrie Irving",
+      "pts_median": 24.5,
+      "pts_min": 8.0,
+      "pts_max": 41.0,
+      "reb_median": 5.0,
+      "ast_median": 3.5,
+      "games_in_window": 10,
+      "fg3m_median": 2.0,
+      "is_shooting_specialist": true,
+      "rank": 2,
+      "team": "away"
+     }
+    ]
+   }
+  ]
+ }
+}

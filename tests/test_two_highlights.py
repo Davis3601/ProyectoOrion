@@ -252,7 +252,8 @@ def test_espejo_local_existente_gana_la_columna_rank_sin_perder_filas(tmp_path):
 def test_schema_cloud_lleva_rank_al_final():
     from nba_predictor.storage.cloud import _PLAYER_LOG_SCHEMA
 
-    assert _PLAYER_LOG_SCHEMA[-1] == ("rank", "INTEGER") and len(_PLAYER_LOG_SCHEMA) == 17
+    # D-PROD-2: rank sigue en la posición 17; las 7 columnas nuevas van después.
+    assert _PLAYER_LOG_SCHEMA[16] == ("rank", "INTEGER") and len(_PLAYER_LOG_SCHEMA) == 24
 
 
 # ---------------------------------------------------------------------------

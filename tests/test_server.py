@@ -95,7 +95,7 @@ class TestPredictionsToday:
                 resp = client.get(f"/predictions/today?date={TARGET_DATE}")
         assert resp.status_code == 200
         body = resp.json()
-        assert "Sin partidos hoy" in body["message"]
+        assert "Sin partidos de temporada regular hoy" in body["message"]  # D-PO-0b
         assert body["data"]["games"] == []
 
     def test_feed_down_200_con_flag(self):

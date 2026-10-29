@@ -9,6 +9,18 @@ import pandas as pd
 
 from .base import ROSTER_SIGNAL_COLUMNS, DataStore
 
+# D-PROD-2: columnas añadidas a player_predictions_log (espejo del ALTER de
+# BigQuery). NULL en las filas anteriores y cuando la pieza no se publicó.
+_DPROD2_LOG_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("pts_line", "REAL"),
+    ("split_mate_id", "INTEGER"),
+    ("split_mate_name", "TEXT"),
+    ("split_n_with", "INTEGER"),
+    ("split_pts_with", "REAL"),
+    ("split_n_without", "INTEGER"),
+    ("split_pts_without", "REAL"),
+)
+
 
 def _serialize_log_row(row: dict) -> dict:
     """Adapta una fila de predictions_log al almacenamiento SQLite.
@@ -167,6 +179,10 @@ class LocalDataStore(DataStore):
             cols = {r[1] for r in conn.execute("PRAGMA table_info(player_predictions_log)")}
             if "rank" not in cols:
                 conn.execute("ALTER TABLE player_predictions_log ADD COLUMN rank INTEGER")
+            # D-PROD-2: siete columnas nuevas, mismo tratamiento que rank.
+            for col, tipo in _DPROD2_LOG_COLUMNS:
+                if col not in cols:
+                    conn.execute(f"ALTER TABLE player_predictions_log ADD COLUMN {col} {tipo}")
     
     def save_teams(self, teams: pd.DataFrame) -> None:
         if teams.empty:
@@ -439,14 +455,32 @@ class LocalDataStore(DataStore):
                 (game_id, game_date, player_id, player_name, team_tricode,
                  status_flag, pts_median, pts_min, pts_max, reb_median,
                  ast_median, fg3m_median, games_in_window, model_version,
-                 predicted_at_utc, served_by, rank)
+                 predicted_at_utc, served_by, rank, pts_line, split_mate_id,
+                 split_mate_name, split_n_with, split_pts_with, split_n_without,
+                 split_pts_without)
                 VALUES (:game_id, :game_date, :player_id, :player_name, :team_tricode,
                         :status_flag, :pts_median, :pts_min, :pts_max, :reb_median,
                         :ast_median, :fg3m_median, :games_in_window, :model_version,
-                        :predicted_at_utc, :served_by, :rank)
+                        :predicted_at_utc, :served_by, :rank, :pts_line, :split_mate_id,
+                        :split_mate_name, :split_n_with, :split_pts_with,
+                        :split_n_without, :split_pts_without)
                 """,
-                [{"rank": None, **_serialize_log_row(r)} for r in rows],
+                [{"rank": None, **{c: None for c, _ in _DPROD2_LOG_COLUMNS},
+                  **_serialize_log_row(r)} for r in rows],
             )
+
+    def load_player_predictions_log(self, start_date, end_date) -> list[dict]:
+        """Filas del log de destacados con game_date en [start_date, end_date]
+        (marcador semanal de D-PROD-2)."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            filas = conn.execute(
+                "SELECT game_id, game_date, player_id, team_tricode, pts_median, pts_line, "
+                "pts_min, pts_max, games_in_window, predicted_at_utc, rank "
+                "FROM player_predictions_log WHERE game_date BETWEEN ? AND ?",
+                (str(start_date), str(end_date)),
+            ).fetchall()
+        return [dict(f) for f in filas]
 
     # ----- Señales de plantilla (D-PRE-8) -----
 

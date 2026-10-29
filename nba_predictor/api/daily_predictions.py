@@ -54,6 +54,20 @@ class AvailabilityFlag(str, Enum):
 
 
 @dataclass
+class PlayerSplit:
+    """Split con/sin compañero de un destacado (D-PROD-2). Descriptivo: medias de
+    puntos del destacado en sus últimos 20 jugados con su equipo actual, con y
+    sin el compañero Out de hoy. Sin promesa: no se monitorea, se publica."""
+
+    mate_id: int
+    mate_name: str
+    n_with: int
+    pts_with: float | None
+    n_without: int
+    pts_without: float | None
+
+
+@dataclass
 class PlayerHighlight:
     """Un jugador destacado de un partido, en forma publicable.
 
@@ -88,6 +102,12 @@ class PlayerHighlight:
     # D-PRE-9: puesto dentro de su equipo (1|2) por minutos rolling. Va al log;
     # el mensaje no lo imprime (el orden de las líneas ya lo dice). None en
     # objetos construidos a mano = 1 implícito, como las filas viejas del log.
+    pts_line: float | None = None
+    # D-PROD-2: línea 50/50 = ceil(mediana) - 0.5, solo modo R1 con ventana de
+    # 10 y desde DPROD2_START_DATE. None = se publica la mediana entera, como
+    # v21. pts_median sigue siendo B0 (el log no cambia de semántica).
+    split: "PlayerSplit | None" = None
+    # D-PROD-2: split con/sin compañero, solo rank 1. None = sin sublínea.
 
 
 @dataclass
@@ -164,6 +184,16 @@ class DailyResult:
     # cabe (> 4 000): el mensaje 2 se sustituye por una sola línea que lo
     # declara y player_predictions_log no registra nada, porque no se
     # publicó ningún destacado. Los players calculados siguen en data.
+    # D-PROD-2 añade "sin_splits" (> 3 800 con splits; cabe sin ellos).
+    highlights_dprod2: bool = False
+    # D-PROD-2 activo hoy (modo R1 y target_date >= DPROD2_START_DATE): título
+    # con "línea 50/50". False = mensaje 2 byte a byte el de v21.
+    splits_dropped: bool = False
+    # D-PROD-2, escalón 2: los splits calculados no se publican hoy por
+    # longitud (pie declarado). Siguen en data; el log registra lo publicado.
+    scoreboard: str | None = None
+    # D-PROD-2: cabecera del marcador semanal (lunes, o el primer día con
+    # mensaje 2 de la semana). La escalera nunca la quita.
 
 
 # Interruptor manual del feed (D-PRE-4). La env var se lee en el BORDE
@@ -347,6 +377,7 @@ def build_daily_predictions(
     # (precedente cerrado 2026-08-25/26 para el snapshot y para predictions_log).
     # Un fallo aquí deja players_data_available=False, un WARNING, y el mensaje 1
     # servido completo e intacto.
+    extra: dict[str, Any] = {}
     destacados = _attach_highlights(
         store=store,
         target_date=target_date,
@@ -355,6 +386,8 @@ def build_daily_predictions(
         statuses_by_tid=statuses_by_tid,
         player_map=player_map,
         season=season,
+        tricode_by_tid=_tricode_map(teams_df),
+        extra=extra,
     )
     # Best-effort también aquí: cualquier retorno no esperado = sin modo (título previo).
     modo_destacados, previa_destacados = destacados if destacados else (None, None)
@@ -370,6 +403,8 @@ def build_daily_predictions(
         unresolved_team_tokens=unresolved_tokens,
         highlights_mode=modo_destacados,
         highlights_prev_season=previa_destacados,
+        highlights_dprod2=bool(extra.get("dprod2")),
+        scoreboard=extra.get("scoreboard"),
     )
     # ── 7. Presupuesto de longitud del mensaje 2 (D-PRE-9) ──
     # Antes de devolver: el recorte cambia gp.players, y el log de destacados
@@ -397,6 +432,18 @@ def apply_players_length_budget(
     limit = PLAYERS_MESSAGE_BUDGET if limit is None else limit
     if len(format_players_message(result)) <= limit:
         return False
+    # D-PROD-2, escalón 2: sin splits, con pie único. Solo existe si hay splits;
+    # sin ellos (todo día anterior a DPROD2_START_DATE) la escalera es la de v21.
+    if any(p.split is not None for gp in result.games for p in gp.players):
+        result.splits_dropped = True
+        largo = len(format_players_message(result))
+        if largo <= limit:
+            result.highlights_truncated = "sin_splits"
+            _log.warning("Mensaje 2 sin splits por longitud (D-PROD-2): %d caracteres", largo)
+            return True
+        # Escalón 3: top 1 con formato COMPLETO — los splits son solo del rank 1
+        # y vuelven, porque quitar al rank 2 libera mucho más de lo que cuestan.
+        result.splits_dropped = False
     for gp in result.games:
         gp.players = [p for p in gp.players if p.rank in (None, 1)]
     result.players_trimmed = True
@@ -476,6 +523,12 @@ _PLAYERS_TITLE = "🏀 Destacados · {fecha} (últimos 10 partidos)"
 # etiqueta de cobertura.
 _PLAYERS_TITLE_REGIMEN = "🏀 Destacados · {fecha} (inicio de temporada: mezcla con {prev})"
 _PLAYERS_TITLE_R1 = "🏀 Destacados · {fecha} (últimos 10 partidos · rango de puntos al 80%)"
+# D-PROD-2: el título explica la semántica del .5 una vez; la línea no la repite.
+_PLAYERS_TITLE_DPROD2 = (
+    "🏀 Destacados · {fecha} (últimos 10 · línea 50/50 y rango de puntos al 80%)"
+)
+# D-PROD-2, escalón 2 de la escalera: pie único, al final del mensaje.
+_PLAYERS_NO_SPLITS_LINE = "(sin splits hoy por longitud)"
 
 # Marca editorial de D-EXP-1, una vez por partido (no por jugador): el peso
 # medido de Questionable es ~0.48. Es el destino que la puerta de D-EXP-2 le
@@ -518,14 +571,17 @@ def format_daily_message(result: DailyResult) -> str:
 
     Descanso:
         🏀 Predicciones NBA · 15 oct 2026
-        Sin partidos hoy.
+        Sin partidos de temporada regular hoy.
     """
     d = date.fromisoformat(result.target_date)
     date_str = f"{d.day} {_MESES_ES[d.month]} {d.year}"
     header = f"🏀 Predicciones NBA · {date_str}"
 
     if not result.games:
-        return f"{header}\nSin partidos hoy."
+        # D-PO-0b (2026-10-28): "de temporada regular" porque el calendario
+        # trae días con partidos fuera del alcance por diseño (final de la NBA
+        # Cup del 11-dic, 006): "sin partidos" a secas sería falso ese día.
+        return f"{header}\nSin partidos de temporada regular hoy."
 
     lines: list[str] = [header]
 
@@ -599,7 +655,8 @@ def format_players_message(result: DailyResult) -> str:
 
         Q = cuestionable: históricamente ~50% de los Q juegan
     """
-    bloques = [b for b in (_player_block(gp)
+    con_splits = not result.splits_dropped
+    bloques = [b for b in (_player_block(gp, con_splits)
                            for gp in sorted(result.games, key=_tip_sort_key)) if b]
     if not bloques:
         return ""
@@ -607,9 +664,13 @@ def format_players_message(result: DailyResult) -> str:
     d = date.fromisoformat(result.target_date)
     fecha = f"{d.day} {_MESES_ES[d.month]} {d.year}"
     if result.highlights_truncated == "omitted":
-        return _PLAYERS_OMITTED_LINE.format(fecha=fecha)
+        omitido = _PLAYERS_OMITTED_LINE.format(fecha=fecha)
+        # D-PROD-2: el marcador viaja también en la línea de omisión.
+        return f"{omitido}\n{result.scoreboard}" if result.scoreboard else omitido
     if result.highlights_mode == "regimen" and result.highlights_prev_season:
         titulo = _PLAYERS_TITLE_REGIMEN.format(fecha=fecha, prev=result.highlights_prev_season)
+    elif result.highlights_mode == "r1" and result.highlights_dprod2:
+        titulo = _PLAYERS_TITLE_DPROD2.format(fecha=fecha)
     elif result.highlights_mode == "r1":
         titulo = _PLAYERS_TITLE_R1.format(fecha=fecha)
     else:
@@ -617,6 +678,8 @@ def format_players_message(result: DailyResult) -> str:
     lines: list[str] = [titulo]
     if result.players_trimmed:
         lines.append(_PLAYERS_TRIMMED_LINE)
+    if result.scoreboard:
+        lines.append(result.scoreboard)
     for bloque in bloques:
         lines.append("")
         lines.extend(bloque)
@@ -628,6 +691,10 @@ def format_players_message(result: DailyResult) -> str:
            for p in gp.players):
         lines.append("")
         lines.append(_Q_LEGEND)
+
+    if result.splits_dropped:
+        lines.append("")
+        lines.append(_PLAYERS_NO_SPLITS_LINE)
 
     return "\n".join(lines)
 
@@ -679,8 +746,12 @@ def _format_player(p: "PlayerHighlight", tricode: str) -> str:
     prohibió.
     """
     marca = f"{p.player_name} ({tricode}) (Q)" if p.status else f"{p.player_name} ({tricode})"
+    # D-PROD-2: con línea 50/50, el número de puntos es la línea (x.5), no la
+    # mediana entera. pts_line solo existe con ventana de 10 en modo R1 activo.
+    centro_pts = (f"{p.pts_line:.1f}" if p.pts_line is not None
+                  else f"{_round_half_up(p.pts_median)}")
     partes = [
-        f"• {marca}: {_round_half_up(p.pts_median)} pts"
+        f"• {marca}: {centro_pts} pts"
         + ("" if p.pts_min is None or p.pts_max is None else
            f" ({_round_half_up(p.pts_min)}-{_round_half_up(p.pts_max)})"),
         f"{_round_half_up(p.reb_median)} reb",
@@ -694,7 +765,16 @@ def _format_player(p: "PlayerHighlight", tricode: str) -> str:
     return linea
 
 
-def _player_block(gp: GamePrediction) -> list[str]:
+def _format_split(s: "PlayerSplit") -> str:
+    """Sublínea del split (D-PROD-2), enteros con redondeo medio-arriba:
+
+        ↳ sin Jamal Murray: 29 pts en 6 · con: 24 en 14
+    """
+    return (f"  ↳ sin {s.mate_name}: {_round_half_up(s.pts_without)} pts en {s.n_without}"
+            f" · con: {_round_half_up(s.pts_with)} en {s.n_with}")
+
+
+def _player_block(gp: GamePrediction, con_splits: bool = True) -> list[str]:
     """Bloque de destacados de UN partido, o nada.
 
     Sin datos disponibles (o sin jugadores) el bloque se omite por completo.
@@ -713,8 +793,11 @@ def _player_block(gp: GamePrediction) -> list[str]:
     visitantes = [p for p in gp.players if p.team != "home"]
 
     lineas = [f"{gp.away_tricode} @ {gp.home_tricode}"]
-    lineas.extend(_format_player(p, gp.home_tricode) for p in locales)
-    lineas.extend(_format_player(p, gp.away_tricode) for p in visitantes)
+    for p, tri in ([(p, gp.home_tricode) for p in locales]
+                   + [(p, gp.away_tricode) for p in visitantes]):
+        lineas.append(_format_player(p, tri))
+        if con_splits and p.split is not None:
+            lineas.append(_format_split(p.split))
     return lineas
 
 
@@ -761,6 +844,14 @@ def resolve_team_id(token: str, norm_team_map: dict[str, int]) -> int | None:
     from nba_predictor.jobs.odds_logic import normalize_team
 
     return norm_team_map.get(normalize_team(token))
+
+
+def _tricode_map(teams_df: Any) -> dict[int, str]:
+    """team_id -> tricode (columna abbreviation de teams). {} si no se puede."""
+    try:
+        return {int(t): str(a) for t, a in zip(teams_df["team_id"], teams_df["abbreviation"])}
+    except Exception:
+        return {}
 
 
 def _build_norm_team_map(teams_df: Any) -> dict[str, int]:
@@ -904,6 +995,10 @@ def _attach_highlights(
     statuses_by_tid: dict[int, dict[int, str]],
     player_map: dict[int, str],
     season: str | None = None,
+    tricode_by_tid: dict[int, str] | None = None,
+    extra: dict[str, Any] | None = None,
+    force_mode: str | None = None,
+    force_dprod2: bool | None = None,
 ) -> tuple[str | None, str | None]:
     """Rellena players / players_data_available de cada partido, in situ.
 
@@ -928,6 +1023,12 @@ def _attach_highlights(
       - un fallo de UN partido no contamina a los demás.
     El mensaje 2 simplemente omite lo que no pudo construir, y el flag lo
     declara en `data`.
+
+    D-PROD-2: si el modo es R1 y target_date >= DPROD2_START_DATE, se calculan
+    la línea 50/50 y el split (rank 1), y en `extra` se dejan "dprod2" (bool) y
+    "scoreboard" (cabecera del marcador o None). `force_mode` y `force_dprod2`
+    existen SOLO para el arnés local y los tests (ensayar R1 con un PDF real de
+    una fecha en régimen); el endpoint jamás los pasa (test de guarda).
     """
     import pandas as pd
 
@@ -980,8 +1081,18 @@ def _attach_highlights(
     inicio_temp = de_la_temporada["game_date"].min()
     inicio = (min(inicio_temp.date(), target_date)
               if not pd.isna(inicio_temp) else target_date)
-    modo = highlight_mode(target_date, inicio)
+    modo = force_mode or highlight_mode(target_date, inicio)
     _log.info("Destacados: modo %s (inicio de temporada %s)", modo, inicio)
+    from nba_predictor.config import DPROD2_START_DATE
+
+    dprod2 = (force_dprod2 if force_dprod2 is not None
+              else (modo == "r1" and target_date >= DPROD2_START_DATE))
+    if extra is not None:
+        extra["dprod2"] = dprod2
+        extra["scoreboard"] = None
+        if dprod2:
+            extra["scoreboard"] = _weekly_scoreboard(
+                store, target_date, all_games, hist_pgs, tricode_by_tid or {}, inicio)
 
     roster_signals = None
     try:
@@ -1015,6 +1126,7 @@ def _attach_highlights(
                 target_date=target_date,
                 roster_signals=roster_signals,
                 mode=modo,
+                dprod2=dprod2,
             )
             gp.players_data_available = bool(gp.players)
         except Exception as exc:
@@ -1024,6 +1136,44 @@ def _attach_highlights(
             gp.players = []
             gp.players_data_available = False
     return modo, previa
+
+
+def _weekly_scoreboard(
+    store: "DataStore",
+    target_date: date,
+    all_games: Any,
+    hist_pgs: Any,
+    tricode_by_tid: dict[int, str],
+    season_start: date,
+) -> str | None:
+    """Cabecera del marcador semanal (D-PROD-2), o None si hoy no toca.
+
+    Best-effort DECLARADO: si el log de la semana no se puede leer, la cabecera
+    dice "marcador no disponible hoy" en vez de desaparecer — el marcador es la
+    pieza obligatoria de la línea 50/50 y su ausencia tiene que verse.
+    """
+    from nba_predictor.api import weekly_scoreboard as ws
+
+    regular = all_games[all_games["game_id"].astype(str).str.startswith("002")]
+    jugadas = {d.date() for d in regular["game_date"]}
+    if not ws.should_publish(target_date, jugadas):
+        return None
+    ini, fin = ws.closed_week(target_date)
+    try:
+        filas = store.load_player_predictions_log(ini, fin)
+        record = ws.record_rows(filas)
+        # Resultados reales: el historial que ya se cargó para los destacados
+        # (todo anterior a target_date), solo filas jugadas.
+        j = hist_pgs[hist_pgs["minutes"] > 0]
+        played = {(str(g), int(p)): (int(t), float(pts)) for g, p, t, pts in zip(
+            j["game_id"], j["player_id"], j["team_id"], j["pts"])}
+        counts = ws.evaluate(record, played, tricode_by_tid, season_start)
+    except Exception as exc:
+        _log.warning("Marcador semanal no disponible (%s..%s): %s", ini, fin, exc)
+        counts = None
+    linea = ws.render(ini, fin, counts)
+    _log.info("Marcador semanal: %s", linea)
+    return linea
 
 
 def _predict_one(

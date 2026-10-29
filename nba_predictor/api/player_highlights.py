@@ -44,6 +44,9 @@ from nba_predictor.config import (  # noqa: E402
     HIGHLIGHT_SHRINK_K,
     PTS_R1_Q_SCALED,
     PTS_R2_Q_ABS,
+    SPLIT_MIN_GAMES,
+    SPLIT_MIN_MATE_MINUTES,
+    SPLIT_WINDOW,
 )
 
 # Modos del mensaje 2 (D-PRE-11). None = comportamiento previo (B0 + [mín, máx]).
@@ -194,6 +197,106 @@ def r1_pts_range(
             "pts_max": float(math.floor(centro + mitad))}
 
 
+def pts_line(pts_median: float) -> float:
+    """Línea 50/50 de D-PROD-2: ceil(mediana) - 0.5.
+
+    Es el entero que hoy se publica menos 0.5 (28 -> 27.5; 27 -> 26.5; una
+    mediana de 27.5 se publicaba "28" y queda 27.5). Se gradúa como real >=
+    ceil(mediana): D-PROD-2a midió 50.10% de acierto en la población histórica
+    de destacados (6/6 folds en [45%, 55%]). Sin parámetros.
+    """
+    import math
+
+    return float(math.ceil(pts_median)) - 0.5
+
+
+def minutes_rolling(
+    hist_pgs: "pd.DataFrame", player_id: int, window: int = STAT_WINDOW,
+    min_games: int = MIN_GAMES_IN_WINDOW,
+) -> float | None:
+    """Media de minutos de los últimos `window` jugados (cualquier equipo), o None
+    con menos de `min_games`. Es la definición de rolling del compañero en
+    D-EXP-9 (auditada 25/25)."""
+    filas = hist_pgs[(hist_pgs["player_id"] == player_id) & (hist_pgs["minutes"] > 0)]
+    ultimos = filas.sort_values(["game_date", "game_id"], kind="stable").tail(window)
+    return float(ultimos["minutes"].mean()) if len(ultimos) >= min_games else None
+
+
+def split_window_stats(
+    hist_pgs: "pd.DataFrame",
+    player_id: int,
+    team_id: int,
+    mate_id: int,
+    window: int = SPLIT_WINDOW,
+) -> dict[str, Any] | None:
+    """Con / sin un compañero en los últimos `window` jugados del destacado CON SU
+    EQUIPO ACTUAL (D-PROD-2, lecturas adjudicadas).
+
+    - Solo partidos con team_id: un traspasado no arrastra partidos de otro
+      equipo, donde "sin X" no significa nada.
+    - "Sin" cuenta solo desde la LLEGADA del compañero (su primera fila con ese
+      equipo, cualquier minuto): antes de llegar no era una baja, era otro
+      plantel. Los partidos previos a la llegada salen de los dos conteos.
+    - "Con" = el compañero jugó (minutos > 0) ese mismo partido; una fila de 0
+      minutos (activado sin jugar) cuenta como "sin".
+    Devuelve None si el compañero no tiene ninguna fila con el equipo (no hay
+    llegada que fechar).
+    """
+    mate = hist_pgs[(hist_pgs["player_id"] == mate_id) & (hist_pgs["team_id"] == team_id)]
+    if mate.empty:
+        return None
+    llegada = mate["game_date"].min()
+    jugo = set(mate.loc[mate["minutes"] > 0, "game_id"])
+    propias = hist_pgs[
+        (hist_pgs["player_id"] == player_id) & (hist_pgs["team_id"] == team_id)
+        & (hist_pgs["minutes"] > 0)
+    ].sort_values(["game_date", "game_id"], kind="stable").tail(window)
+    propias = propias[propias["game_date"] >= llegada]
+    con = propias[propias["game_id"].isin(jugo)]
+    sin = propias[~propias["game_id"].isin(jugo)]
+    return {
+        "n_with": int(len(con)),
+        "pts_with": float(con["pts"].mean()) if len(con) else None,
+        "n_without": int(len(sin)),
+        "pts_without": float(sin["pts"].mean()) if len(sin) else None,
+    }
+
+
+def choose_split(
+    hist_pgs: "pd.DataFrame",
+    player_id: int,
+    team_id: int,
+    statuses: dict[int, str],
+    player_map: dict[int, str],
+) -> dict[str, Any] | None:
+    """El split publicable de un destacado, o None.
+
+    Candidatos: compañeros con estatus Out (no Doubtful) EN EL MISMO snapshot
+    que sustenta el mensaje 1, con rolling de minutos >= 25. De los que cumplen
+    >= 5 con y >= 5 sin, gana el de MAYOR rolling; empate por player_id. Uno
+    solo, jamás combinaciones. Un compañero sin nombre en el catálogo no se
+    publica: un "#id" en el canal sería publicación corrupta.
+    """
+    elegibles = []
+    for mate_id, estatus in statuses.items():
+        if estatus != "Out" or int(mate_id) == int(player_id):
+            continue
+        nombre = player_map.get(int(mate_id))
+        if not nombre:
+            continue
+        rolling = minutes_rolling(hist_pgs, int(mate_id))
+        if rolling is None or rolling < SPLIT_MIN_MATE_MINUTES:
+            continue
+        st = split_window_stats(hist_pgs, int(player_id), int(team_id), int(mate_id))
+        if st is None or st["n_with"] < SPLIT_MIN_GAMES or st["n_without"] < SPLIT_MIN_GAMES:
+            continue
+        elegibles.append((-rolling, int(mate_id), nombre, st))
+    if not elegibles:
+        return None
+    _, mate_id, nombre, st = min(elegibles, key=lambda e: (e[0], e[1]))
+    return {"mate_id": mate_id, "mate_name": nombre, **st}
+
+
 def status_mark(status: str | None) -> str | None:
     """Marca publicable de un estatus del injury report, o None.
 
@@ -292,6 +395,7 @@ def rank_team_candidates(
     recency_days: int = HIGHLIGHT_RECENCY_DAYS,
     roster_signals: "pd.DataFrame | None" = None,
     mode: str | None = None,
+    line: bool = False,
 ) -> list[dict[str, Any]]:
     """Candidatos de UN equipo, ordenados por minutos rolling descendente.
 
@@ -370,6 +474,10 @@ def rank_team_candidates(
             r1 = r1_pts_range(filas, window)
             if r1 is not None:
                 stats.update(r1)
+                # D-PROD-2: línea 50/50 solo con la ventana COMPLETA de 10, la
+                # misma condición de R1 (D-PRE-11b): D-PROD-2a la verificó con 10.
+                if line:
+                    stats["pts_line"] = pts_line(stats["pts_median"])
             else:
                 # Regla adjudicada (2026-10-26): rango de puntos solo con ventana
                 # completa de 10; con 3-9 jugados, centro y sufijo, sin rango. Un
@@ -398,6 +506,7 @@ def build_game_highlights(
     roster_signals: "pd.DataFrame | None" = None,
     per_team: int = HIGHLIGHTS_PER_TEAM,
     mode: str | None = None,
+    dprod2: bool = False,
 ) -> list["PlayerHighlight"]:
     """Top `per_team` por equipo (D-PRE-9: 2) como PlayerHighlight listos para formato.
 
@@ -413,7 +522,7 @@ def build_game_highlights(
         candidatos = rank_team_candidates(
             hist_pgs, team_id, statuses_by_tid.get(team_id, {}), window, min_games,
             target_date=target_date, recency_days=recency_days,
-            roster_signals=roster_signals, mode=mode,
+            roster_signals=roster_signals, mode=mode, line=dprod2,
         )
         if not candidatos:
             # Plantel renovado por completo, expansión, o todos excluidos por
@@ -425,15 +534,22 @@ def build_game_highlights(
             )
             continue
         for rank, c in enumerate(candidatos[:per_team], start=1):
-            salida.append(_highlight(c, lado, rank, player_map))
+            split = None
+            # D-PROD-2: split con/sin solo para el rank 1, solo en puntos, con
+            # los estatus del MISMO snapshot que el mensaje 1 (statuses_by_tid).
+            if dprod2 and rank == 1:
+                split = choose_split(hist_pgs, c["player_id"], team_id,
+                                     statuses_by_tid.get(team_id, {}), player_map)
+            salida.append(_highlight(c, lado, rank, player_map, split))
     return salida
 
 
 def _highlight(
-    c: dict[str, Any], lado: str, rank: int, player_map: dict[int, str]
+    c: dict[str, Any], lado: str, rank: int, player_map: dict[int, str],
+    split: dict[str, Any] | None = None,
 ) -> "PlayerHighlight":
     """Un candidato rankeado → PlayerHighlight publicable."""
-    from nba_predictor.api.daily_predictions import PlayerHighlight
+    from nba_predictor.api.daily_predictions import PlayerHighlight, PlayerSplit
 
     fg3m = c["fg3m_median"]
     return PlayerHighlight(
@@ -450,6 +566,8 @@ def _highlight(
         is_shooting_specialist=fg3m >= SPECIALIST_MIN_FG3M,
         player_id=c["player_id"],
         rank=rank,
+        pts_line=c.get("pts_line"),
+        split=None if split is None else PlayerSplit(**split),
     )
 
 

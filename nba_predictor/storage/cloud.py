@@ -152,6 +152,15 @@ _PLAYER_LOG_SCHEMA: list[tuple[str, str]] = [
     ("predicted_at_utc", "TIMESTAMP"),
     ("served_by", "STRING"),
     ("rank", "INTEGER"),
+    # D-PROD-2 (ALTER del despliegue; NULL en filas anteriores y cuando la
+    # pieza no se publicó).
+    ("pts_line", "FLOAT"),
+    ("split_mate_id", "INTEGER"),
+    ("split_mate_name", "STRING"),
+    ("split_n_with", "INTEGER"),
+    ("split_pts_with", "FLOAT"),
+    ("split_n_without", "INTEGER"),
+    ("split_pts_without", "FLOAT"),
 ]
 
 
@@ -676,6 +685,25 @@ class CloudDataStore(DataStore):
             query_parameters=[_bigquery.ArrayQueryParameter("filas", struct_type, valores)]
         )
         self._bq.query(sql, job_config=job_config).result()
+
+    def load_player_predictions_log(self, start_date: date, end_date: date) -> list[dict]:
+        """Filas del log de destacados con game_date en [start_date, end_date].
+
+        Se ITERAN las filas del query result (sin to_dataframe): la SA del
+        endpoint no tiene bigquery.readsessions.create (capa 5). Columnas
+        explícitas: las que necesita el marcador semanal (D-PROD-2).
+        """
+        table_id = _full_table_id(self.project_id, self.dataset, _PLAYER_LOG_TABLE)
+        sql = (
+            "SELECT game_id, game_date, player_id, team_tricode, pts_median, pts_line, "
+            "pts_min, pts_max, games_in_window, predicted_at_utc, rank "
+            f"FROM `{table_id}` WHERE game_date BETWEEN @desde AND @hasta"
+        )
+        job_config = _bigquery.QueryJobConfig(query_parameters=[
+            _bigquery.ScalarQueryParameter("desde", "DATE", start_date),
+            _bigquery.ScalarQueryParameter("hasta", "DATE", end_date),
+        ])
+        return [dict(r.items()) for r in self._bq.query(sql, job_config=job_config).result()]
 
     def save_player_predictions_log(self, rows: list[dict]) -> None:
         """Anexa filas de destacados. WRITE_APPEND — nunca MERGE, nunca staging.

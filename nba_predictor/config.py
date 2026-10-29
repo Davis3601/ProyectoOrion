@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 from typing import Literal
 
@@ -94,6 +95,22 @@ PTS_R2_Q_ABS: float = 7.5
 PTS_R1_CALIBRATION: str = (
     "2026-10-25 · n=291764 · temporadas 2014-15..2025-26 · centro B0 · cuantil 0.80"
 )
+
+# ── D-PROD-2 (diseño sellado 2026-10-29T02:30:32Z; D-PROD-2a: la línea .5 acertó
+# 50.10% en la población histórica de destacados, 6/6 folds en banda) ──
+# Activación por FECHA, EXCEPCIÓN DE ESTA TEMPORADA: el 12-nov y no el 10-nov
+# porque D-EXP-12 dejó sellado "nunca el mismo día que el estreno de R1". Antes
+# de esta fecha el mensaje 2 es byte a byte el de v21. Se RETIRA tras 2026-27:
+# a partir de la temporada siguiente las piezas siguen solo al modo R1.
+DPROD2_START_DATE: date = date(2026, 11, 12)
+# Split con/sin: baja fuerte = Out con rolling de minutos >= 25 (definición
+# auditada 25/25 de D-EXP-9); ventana de 20 jugados del destacado con su equipo
+# actual; mínimo 5 partidos con y 5 sin.
+SPLIT_MIN_MATE_MINUTES: float = 25.0
+SPLIT_WINDOW: int = 20
+SPLIT_MIN_GAMES: int = 5
+# Marcador semanal: mínimo de observaciones evaluables por métrica.
+SCOREBOARD_MIN_OBS: int = 50
 
 # Cap de días de descanso. Más de una semana no añade frescura marginal
 # y los ~100 días de offseason distorsionarían rest_diff.

@@ -516,7 +516,9 @@ class TestFormatDailyMessage:
         )
         assert format_daily_message(result) == (
             "🏀 Predicciones NBA · 15 oct 2026\n"
-            "Sin partidos hoy."
+            # D-PROD-2 / D-PO-0b (2026-10-28): golden EDITADO y declarado, primer
+            # cambio al mensaje 1 desde agosto, solo en la rama sin partidos.
+            "Sin partidos de temporada regular hoy."
         )
 
     # ── Escenario 2: normal sin tip-off ──

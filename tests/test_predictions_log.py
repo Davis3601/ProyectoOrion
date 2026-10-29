@@ -399,7 +399,7 @@ class TestEndpointIntegration:
                 resp = client.get(f"/predictions/today?date={TARGET_DATE}")
 
         assert resp.status_code == 200
-        assert "Sin partidos hoy" in resp.json()["message"]
+        assert "Sin partidos de temporada regular hoy" in resp.json()["message"]  # D-PO-0b
         store.save_predictions_log.assert_not_called()
 
     def test_la_escritura_no_altera_la_respuesta(self):

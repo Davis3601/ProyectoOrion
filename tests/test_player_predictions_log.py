@@ -59,12 +59,16 @@ def _resultado(games) -> DailyResult:
 # ---------------------------------------------------------------------------
 
 
-def test_schema_tiene_diecisiete_campos_en_orden():
-    """D-PRE-9 añade rank AL FINAL: las 16 columnas previas no se mueven."""
-    assert len(PLAYER_LOG_FIELDS) == 17
+def test_schema_tiene_veinticuatro_campos_en_orden():
+    """D-PRE-9 añadió rank al final; D-PROD-2 añade 7 columnas DESPUÉS de rank.
+    Las 17 previas no se mueven (guarda editada y declarada en D-PROD-2)."""
+    assert len(PLAYER_LOG_FIELDS) == 24
     assert PLAYER_LOG_FIELDS[0] == "game_id"
-    assert PLAYER_LOG_FIELDS[-2] == "served_by"
-    assert PLAYER_LOG_FIELDS[-1] == "rank"
+    assert PLAYER_LOG_FIELDS[15] == "served_by"
+    assert PLAYER_LOG_FIELDS[16] == "rank"
+    assert PLAYER_LOG_FIELDS[17:] == (
+        "pts_line", "split_mate_id", "split_mate_name", "split_n_with",
+        "split_pts_with", "split_n_without", "split_pts_without")
 
 
 def test_fila_lleva_exactamente_las_claves_del_schema():

@@ -6435,3 +6435,94 @@ pendiente.]
 - PENDIENTE: auditoría humana de Antonio sobre la muestra de 30
   (data/experiment_destacados_d12/auditoria_muestra.txt: umbral U80, U50,
   centro y real). Se marcará "[RESUELTO]" cuando llegue.
+
+## D-PO-0b (2026-10-28): sondeos de histórico de playoffs
+
+Solo lectura desde la laptop (IP local), 16:40-16:55 CDMX. Cero escrituras en
+GCS o BigQuery; cero cambios de código. Script de un solo uso en el
+scratchpad, fuera del repositorio.
+DESVIACIÓN DECLARADA: scripts/backfill_injury_reports.py NO tiene modo de
+solo sondeo (run_season descarga y persiste en GCS, y solo recorre fechas de
+temporada regular). Se hizo un envoltorio que IMPORTA sus funciones de sondeo
+(detect_era, find_cut, SeasonProber, con su sleep de 0.5 s, timeout y reglas
+de parada) y hace SOLO HEAD, sin descargar. Las fechas sin ninguna sonda de
+era viva se registraron como "sin PDF", sin barrer la familia completa (se
+evitan ~120 HEAD por día sin partidos).
+
+1. BOXSCORES DE PLAYOFFS Y PLAY-IN EN CDN/S3 (CDNClient: HEAD por base y, si
+   200, GET para validar el JSON, sin persistir). 20 game_ids:
+     control regular 0022400001 (ATL@BOS)                     S3 200, JSON ok
+     2024-25 playoffs 0042400101 0042400171 0042400201
+             0042400301 0042400311 0042400401 0042400407     S3 200, JSON ok
+             (G7 de las Finales 2025: IND@OKC, 2025-06-23Z)
+     2024-25 play-in  0052400101 0052400201                   S3 200, JSON ok
+     2023-24 playoffs 0042300101 0042300201 0042300301
+             0042300401 0042300405 (G5 de las Finales 2024)   S3 200, JSON ok
+     control negativo 0042300406 (G6 de 2024, no existió)     403 en las dos bases
+     2023-24 play-in  0052300101 0052300201                   S3 200, JSON ok
+     Finales 2023 G1 0042200401, Finales 2022 G1 0042100401   S3 200, JSON ok
+   El CDN frontal da 403 en las 20, como siempre (Decisión 9). En todas,
+   game.gameId coincide y el matchup es el correcto. Disponibles AL MENOS
+   desde los playoffs de 2021-22 (el más antiguo sondeado); los anteriores
+   no se sondearon. El control negativo confirma que S3 discrimina
+   existencia.
+
+2. PDFs DE INJURY REPORT EN FECHAS DE PLAYOFFS (solo HEAD, 392 requests,
+   regla de parada NO activada):
+     2025-04-15 -> 2025-06-25 (72 fechas): 61 con PDF, 11 sin PDF. Las 61
+       con publish Y late (61/61 cada uno; 84.7% de las fechas de
+       calendario). Era vieja en todas, como corresponde (frontera
+       2025-12-21/22). Corte uniforme: publish 02PM, late 10PM. Las 11 sin
+       PDF son todas de junio: 06-01, 02, 03, 06, 09, 14, 17, 20, 23, 24 y
+       25. Son compatibles con días sin partido ni partido al día siguiente,
+       pero no se verificó contra un calendario de playoffs.
+     2024, muestra de 10 fechas (seed 42 sobre 2024-04-16 -> 2024-06-17):
+       9 con publish y late (02PM / 10PM); 2024-06-02 sin PDF.
+     2023, muestra de 10 fechas (seed 42 sobre 2023-04-11 -> 2023-06-12):
+       10/10 con publish y late (02PM / 10PM).
+   NO ESTÁN ARCHIVADOS: viven en ak-static y no se persistieron (fuera del
+   encargo). NOTA: los playoffs de 2023 son de la temporada 2022-23, cuyo
+   productor de PDF era iTextSharp (cambio a GemBox fijado en el offseason
+   de 2023). Sin descargarlos no se sabe qué generador tienen, ni si los
+   lee el parser GemBox o el legacy.
+
+3. EL PARTIDO 006 DEL CALENDARIO 2026-27: 0062600001, final de la Emirates
+   NBA Cup ("Championship"), viernes 2026-12-11, 8:00 pm ET
+   (2026-12-12T01:00Z, 19:00 CDMX), en sede neutral (Hinkle Fieldhouse,
+   Indianápolis), con equipos TBD (teamId 0 en los dos lados). Es el ÚNICO
+   partido de ese día. Hoy el endpoint filtra por prefijo "002"
+   (future_schedule.py:114), así que ese día da games=[] y publica el
+   heartbeat "🏀 Predicciones NBA · 11 dic 2026 / Sin partidos hoy.", sin
+   mensaje 2. El día cae dentro de la ventana del criterio (10-21 -> 12-31),
+   como día sin partidos de temporada regular.
+
+DECISIONES (Antonio, 2026-10-28):
+  - Histórico de playoffs RECUPERABLE: boxscores 004/005 en S3 desde al
+    menos 2021-22; PDFs publish y late en ak-static para 2024 y 2025
+    (GemBox) y 2023 (iTextSharp, pendiente de D-RES-3c). Backfill a
+    prefijos propios y tabla aparte, jamás a games: tarea de D-PO-1,
+    enero 2027. Habilita dry-runs reales en marzo y sombra retrospectiva
+    de B-limpia sobre playoffs pasados antes de abril.
+  - Final NBA Cup 2026-12-11 (0062600001): fuera del alcance por diseño,
+    no bug. Pre-registrado: la rama de descanso del mensaje 1 pasa a
+    decir "Sin partidos de temporada regular hoy", cambio de redacción
+    incluido en el deploy de D-PROD-2; market_odds registrará ese día
+    una fila matched=false por la final, esperado y correcto.
+
+[NOTA DE TRANSCRIPCIÓN (2026-10-28), de Code. Arriba va el texto
+recibido, verbatim; tres precisiones, sin cambiar las decisiones:
+(a) "pendiente de D-RES-3c": D-RES-3c (parser legacy) está CERRADO y
+    auditado para ITEXT_V1/ITEXT_V2 (D-RES-3, D-RES-3e). Lo pendiente
+    para los PDFs de playoffs de 2023 es verificar su productor y su
+    layout contra esa lista blanca; si no coinciden, caen en
+    UnknownLayoutError, igual que el tramo de D-RES-3d.
+(b) La rama de descanso del mensaje 1 se publica TODOS los días sin
+    partidos 002, no solo el 11-dic (p. ej. 2026-12-07 y 2027-02-22).
+    El cambio edita el golden congelado del heartbeat en los tests de
+    format_daily_message: es el primer cambio al texto del mensaje 1
+    desde su validación y se declara así en el deploy de D-PROD-2.
+(c) market_odds escribe una fila por bookmaker que cotice el evento y
+    por snapshot, no una sola: "una fila" se lee como "filas
+    matched=false del evento de la final". Además, el evento solo
+    aparecerá cuando The Odds API lo liste: con equipos definidos y, en
+    temporada, con menos de un día de antelación (D-ODDS-8, paso 3).]
